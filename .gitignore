@@ -1,0 +1,28 @@
+# 依赖与构建产物
+node_modules/
+dist/
+*.tsbuildinfo
+
+# 环境变量（绝对不要提交！）
+.env
+.env.local
+.env.*.local
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+._*
+
+# 日志
+*.log
+logs/
+
+# 运行时缓存
+.cache/
+tmp/

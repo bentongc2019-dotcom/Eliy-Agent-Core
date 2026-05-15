@@ -1,0 +1,37 @@
+{
+  "name": "eliy-agent-core",
+  "version": "0.1.0",
+  "description": "Eliy Agent Core — 主体型商业系统 Agent，帮助创业者进行判断、控制投料、复盘进化的商业诊断与决策系统",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch eliy-kernel/runtime/session_state.ts",
+    "test": "vitest",
+    "test:spikes": "vitest run tests/spikes/",
+    "test:integration": "vitest run tests/integration/",
+    "lint": "eslint . --ext .ts",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": [
+    "agent",
+    "business-diagnosis",
+    "toc",
+    "eliy",
+    "decision-making"
+  ],
+  "author": "Eliy Labs",
+  "license": "UNLICENSED",
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "tsx": "^4.19.0",
+    "vitest": "^3.1.0",
+    "eslint": "^9.15.0",
+    "@types/node": "^22.10.0"
+  }
+}
