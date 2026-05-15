@@ -38,7 +38,7 @@
     .avatar-ring.listening{background:conic-gradient(var(--success),transparent,var(--success))}
     .avatar-ring.thinking{background:conic-gradient(var(--warning),transparent,var(--warning));animation-duration:2s}
     .avatar-inner{width:100%;height:100%;border-radius:50%;overflow:hidden;background:var(--navy-800);position:relative}
-    .avatar-inner img{width:100%;height:100%;object-fit:cover;object-position:center 15%;transition:transform .1s}
+    .avatar-inner img{width:100%;height:100%;object-fit:cover;object-position:center center;transition:transform .1s}
     .avatar-overlay{position:absolute;inset:0;pointer-events:none}
     .status-badge{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:.4rem;background:var(--navy-700);border:1px solid var(--border);padding:.3rem .8rem;border-radius:20px;font-size:.75rem;white-space:nowrap}
     .status-badge .sdot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
@@ -101,7 +101,7 @@
     <div class="avatar-area">
       <div class="avatar-ring" id="avatarRing">
         <div class="avatar-inner">
-          <img id="avatarImg" src="assets/eliy_avatar.png" onerror="this.src='data:image/svg+xml,' + encodeURIComponent('<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;280&quot; height=&quot;280&quot; viewBox=&quot;0 0 280 280&quot;><defs><radialGradient id=&quot;bg&quot; cx=&quot;50%&quot; cy=&quot;40%&quot;><stop offset=&quot;0%&quot; stop-color=&quot;#1a2138&quot;/><stop offset=&quot;100%&quot; stop-color=&quot;#0a0e1a&quot;/></radialGradient><linearGradient id=&quot;g&quot; x1=&quot;0&quot; y1=&quot;0&quot; x2=&quot;1&quot; y2=&quot;1&quot;><stop offset=&quot;0%&quot; stop-color=&quot;#5b6abf&quot;/><stop offset=&quot;100%&quot; stop-color=&quot;#8b5cf6&quot;/></linearGradient></defs><rect width=&quot;280&quot; height=&quot;280&quot; fill=&quot;url(#bg)&quot;/><circle cx=&quot;140&quot; cy=&quot;100&quot; r=&quot;50&quot; fill=&quot;url(#g)&quot; opacity=&quot;.15&quot;/><text x=&quot;140&quot; y=&quot;125&quot; text-anchor=&quot;middle&quot; font-family=&quot;Inter,sans-serif&quot; font-size=&quot;72&quot; font-weight=&quot;700&quot; fill=&quot;url(#g)&quot;>E</text><text x=&quot;140&quot; y=&quot;175&quot; text-anchor=&quot;middle&quot; font-family=&quot;Inter,sans-serif&quot; font-size=&quot;14&quot; fill=&quot;#8892a8&quot;>诊断教练</text></svg>')" alt="Eliy" />
+          <img id="avatarImg" src="./assets/eli_y_avatar.png?v=3" onerror="this.src='data:image/svg+xml,' + encodeURIComponent('<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;280&quot; height=&quot;280&quot; viewBox=&quot;0 0 280 280&quot;><defs><radialGradient id=&quot;bg&quot; cx=&quot;50%&quot; cy=&quot;40%&quot;><stop offset=&quot;0%&quot; stop-color=&quot;#1a2138&quot;/><stop offset=&quot;100%&quot; stop-color=&quot;#0a0e1a&quot;/></radialGradient><linearGradient id=&quot;g&quot; x1=&quot;0&quot; y1=&quot;0&quot; x2=&quot;1&quot; y2=&quot;1&quot;><stop offset=&quot;0%&quot; stop-color=&quot;#5b6abf&quot;/><stop offset=&quot;100%&quot; stop-color=&quot;#8b5cf6&quot;/></linearGradient></defs><rect width=&quot;280&quot; height=&quot;280&quot; fill=&quot;url(#bg)&quot;/><circle cx=&quot;140&quot; cy=&quot;100&quot; r=&quot;50&quot; fill=&quot;url(#g)&quot; opacity=&quot;.15&quot;/><text x=&quot;140&quot; y=&quot;125&quot; text-anchor=&quot;middle&quot; font-family=&quot;Inter,sans-serif&quot; font-size=&quot;72&quot; font-weight=&quot;700&quot; fill=&quot;url(#g)&quot;>E</text><text x=&quot;140&quot; y=&quot;175&quot; text-anchor=&quot;middle&quot; font-family=&quot;Inter,sans-serif&quot; font-size=&quot;14&quot; fill=&quot;#8892a8&quot;>诊断教练</text></svg>')" alt="Eliy" />
           <canvas class="avatar-overlay" id="avatarOverlay" width="280" height="280"></canvas>
         </div>
       </div>
@@ -122,7 +122,12 @@
     </div>
   </main>
 </div>
+<script src="./edge-tts.js"></script>
 <script>
+// === Edge TTS 引擎（成熟男声 YunjianNeural） ===
+const ttsEngine = new EdgeTTS('zh-CN-YunjianNeural', '+0%', '-2Hz', '+0%');
+let currentAudio = null; // 当前播放的音频元素
+
 // === 状态 ===
 const S = { calling:false, status:'idle', phase:'INTAKE', recognition:null, msgCount:0,
   radar:{'获客能力':0,'转化效率':0,'交付质量':0,'客户留存':0,'团队能力':0,'财务健康':0},
@@ -143,7 +148,7 @@ async function toggleCall(){
   startListening();
 }
 function endCall(){
-  S.calling=false;stopListening();
+  S.calling=false;stopListening();stopCurrentAudio();
   $('#callBtn').className='call-btn start';$('#callBtn').textContent='📞';
   setVoiceStatus('idle');$('#subtitle').textContent='';
 }
@@ -158,11 +163,13 @@ function setVoiceStatus(s){
   dot.style.background=map[s][0];txt.textContent=map[s][1];
 }
 
-// === Streaming 字幕 + TTS ===
+// === Streaming 字幕 + Edge TTS ===
 async function streamSubtitle(text){
   const el=$('#subtitle');el.textContent='';
-  // 同时启动 TTS
-  speakTTS(text);
+
+  // 并行：字幕逐字显示 + Edge TTS 合成播放
+  const ttsPromise = speakTTS(text);
+
   for(let i=0;i<text.length;i++){
     if(!S.calling)break;
     el.textContent=text.substring(0,i+1);
@@ -172,15 +179,66 @@ async function streamSubtitle(text){
     if(img)img.style.transform=`translate(${Math.sin(S.breathPhase*0.7)*1.5}px,${Math.sin(S.breathPhase)*1}px)`;
     await sleep(60+Math.random()*30);
   }
+
+  // 等待音频播放完毕
+  try { await ttsPromise; } catch(e) { console.warn('TTS播放结束', e); }
 }
 
-function speakTTS(text){
-  if(!window.speechSynthesis)return;
-  window.speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(text);
-  u.lang='zh-CN';u.rate=1.0;u.pitch=0.9;
-  u.onend=()=>{if(S.calling)startListening()};
-  window.speechSynthesis.speak(u);
+/**
+ * TTS 播放：优先 Edge TTS（自然男声），失败回退浏览器 TTS
+ */
+async function speakTTS(text){
+  // 停止上一段音频
+  stopCurrentAudio();
+
+  try {
+    // Edge TTS —— 成熟男声
+    console.log('[TTS] Edge TTS 合成中...');
+    const blob = await ttsEngine.synthesize(text);
+    if(!S.calling) return; // 被打断
+
+    const url = URL.createObjectURL(blob);
+    currentAudio = new Audio(url);
+    currentAudio.playbackRate = 1.05; // 略快，更有节奏感
+
+    await new Promise((resolve, reject) => {
+      currentAudio.onended = () => { URL.revokeObjectURL(url); resolve(); };
+      currentAudio.onerror = () => { URL.revokeObjectURL(url); reject(); };
+      currentAudio.play().catch(reject);
+    });
+    console.log('[TTS] Edge TTS 播放完成');
+  } catch(err) {
+    console.warn('[TTS] Edge TTS 失败，回退浏览器 TTS:', err);
+    // 回退到浏览器内置 TTS
+    await speakFallback(text);
+  }
+}
+
+/** 浏览器内置 TTS 回退 */
+function speakFallback(text){
+  return new Promise(resolve => {
+    if(!window.speechSynthesis){ resolve(); return; }
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang='zh-CN'; u.rate=1.0; u.pitch=0.85;
+    // 尝试选择较好的男声
+    const voices = window.speechSynthesis.getVoices();
+    const maleVoice = voices.find(v => v.lang.startsWith('zh') && /male|男/i.test(v.name));
+    if(maleVoice) u.voice = maleVoice;
+    u.onend = resolve;
+    u.onerror = resolve;
+    window.speechSynthesis.speak(u);
+  });
+}
+
+/** 停止当前音频 */
+function stopCurrentAudio(){
+  if(currentAudio){
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    currentAudio = null;
+  }
+  if(window.speechSynthesis) window.speechSynthesis.cancel();
 }
 
 // === 语音识别 ===

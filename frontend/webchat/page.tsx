@@ -60,7 +60,7 @@ export default function EliyVoicePage() {
       </aside>
       <main className="voice-main">
         <EliyAvatar
-          imageSrc="/assets/eliy_avatar.png"
+          imageSrc="./assets/eli_y_avatar.png"
           status={voiceStatus}
           viseme={null}
           size={320}
