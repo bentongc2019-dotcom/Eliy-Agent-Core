@@ -38,7 +38,7 @@
     .avatar-ring.listening{background:conic-gradient(var(--success),transparent,var(--success))}
     .avatar-ring.thinking{background:conic-gradient(var(--warning),transparent,var(--warning));animation-duration:2s}
     .avatar-inner{width:100%;height:100%;border-radius:50%;overflow:hidden;background:var(--navy-800);position:relative}
-    .avatar-inner img{width:100%;height:100%;object-fit:cover;object-position:center center;transition:transform .1s}
+    .avatar-inner img{width:100%;height:100%;object-fit:cover;object-position:center center;transition:transform .1s;image-orientation:none;transform:rotate(180deg)}
     .avatar-overlay{position:absolute;inset:0;pointer-events:none}
     .status-badge{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:.4rem;background:var(--navy-700);border:1px solid var(--border);padding:.3rem .8rem;border-radius:20px;font-size:.75rem;white-space:nowrap}
     .status-badge .sdot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
