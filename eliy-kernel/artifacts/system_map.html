@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-eliy-version="1.0.0">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="eliy:artifact-type" content="SystemMap">
+  <title>业务系统地图 — Eliy Agent</title>
+  <style>
+    :root{--bg:#0f1117;--sf:#1a1d27;--bd:#2a2e3d;--tx:#e4e6ef;--mt:#8b8fa3;--ac:#6c5ce7;--ok:#00b894;--wn:#fdcb6e;--er:#e17055;--r:12px}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--tx);padding:2rem;max-width:1200px;margin:0 auto;line-height:1.7}
+    h1{font-size:1.6rem;background:linear-gradient(135deg,var(--ac),#74b9ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.5rem}
+    .card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:1.5rem;margin-bottom:1.5rem}
+    .card:hover{border-color:var(--ac)}
+
+    /* 系统地图 SVG 容器 */
+    .map-container{width:100%;min-height:500px;position:relative;overflow:auto}
+    .map-container svg{width:100%;height:auto}
+
+    /* 节点样式 */
+    .node{cursor:pointer;transition:all .2s}
+    .node:hover .node-bg{stroke:var(--ac);stroke-width:2}
+    .node-bg{fill:var(--sf);stroke:var(--bd);rx:8;ry:8}
+    .node-label{fill:var(--tx);font-size:13px;font-family:Inter,sans-serif;text-anchor:middle;dominant-baseline:central}
+    .node-metric{fill:var(--mt);font-size:11px;font-family:Inter,sans-serif;text-anchor:middle}
+    .node.bottleneck .node-bg{stroke:var(--er);stroke-width:2;stroke-dasharray:5,3}
+    .node.bottleneck .node-label{fill:var(--er)}
+
+    /* 连接线 */
+    .edge{stroke:var(--bd);stroke-width:1.5;fill:none;marker-end:url(#arrow)}
+    .edge.critical{stroke:var(--er);stroke-width:2}
+    .edge.flow{stroke:var(--ac);stroke-width:1.5;opacity:.6}
+
+    .legend{display:flex;gap:1.5rem;font-size:.8rem;color:var(--mt);margin-top:1rem;flex-wrap:wrap}
+    .legend span::before{content:'';display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:.4rem;vertical-align:middle}
+    .legend .lg-normal::before{background:var(--sf);border:1px solid var(--bd)}
+    .legend .lg-bottleneck::before{background:var(--sf);border:2px dashed var(--er)}
+    .legend .lg-flow::before{background:var(--ac)}
+
+    .traceable{border-bottom:1px dashed var(--ac);cursor:help;position:relative}
+    .traceable:hover::after{content:attr(data-trace);position:absolute;bottom:100%;left:0;background:var(--sf);border:1px solid var(--ac);border-radius:8px;padding:.4rem .7rem;font-size:.72rem;color:#74b9ff;z-index:10;white-space:nowrap}
+
+    @media print{body{background:#fff;color:#333}h1{-webkit-text-fill-color:#333;background:none}.card{border:1px solid #ddd}}
+  </style>
+</head>
+<body>
+  <!-- 结构化源数据 -->
+  <script type="application/json" id="eliy-source-data">
+  {
+    "artifact": {"type": "SystemMap", "id": "{{artifact_id}}", "sessionId": "{{session_id}}"},
+    "systemBoundary": {
+      "name": "{{business_name}}",
+      "inputs": [],
+      "outputs": [],
+      "keyProcesses": []
+    },
+    "valueStream": [],
+    "bottleneckId": null
+  }
+  </script>
+
+  <header style="border-bottom:1px solid var(--bd);padding-bottom:1.5rem;margin-bottom:2rem">
+    <h1>🗺️ 业务系统地图</h1>
+    <p style="font-size:.85rem;color:var(--mt)">
+      可视化你的业务链路：从输入到输出，哪里是瓶颈一目了然。
+      <trace source="hlamt://methodology/tp_lite/step2"></trace>
+    </p>
+  </header>
+
+  <!-- 系统地图 -->
+  <div class="card">
+    <h2 style="font-size:1.1rem;margin-bottom:1rem">价值流全景
+      <trace source="hlamt://artifacts/system_map/value_stream"></trace>
+    </h2>
+    <div class="map-container">
+      <svg id="systemMapSvg" viewBox="0 0 1000 400" xmlns="http://www.w3.org/2000/svg">
+        <!-- 箭头标记 -->
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#8b8fa3"/>
+          </marker>
+          <marker id="arrow-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#e17055"/>
+          </marker>
+        </defs>
+        <!-- 节点和边由 JS 动态渲染 -->
+        <text x="500" y="200" text-anchor="middle" fill="#8b8fa3" font-size="14" font-family="Inter,sans-serif">
+          加载业务系统数据后将渲染价值流地图...
+        </text>
+      </svg>
+    </div>
+    <div class="legend">
+      <span class="lg-normal">正常环节</span>
+      <span class="lg-bottleneck">瓶颈环节</span>
+      <span class="lg-flow">数据流向</span>
+    </div>
+  </div>
+
+  <!-- 环节详情 -->
+  <div class="card">
+    <h2 style="font-size:1.1rem;margin-bottom:1rem">环节详情</h2>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        <th style="padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--bd);color:var(--mt);font-size:.85rem">环节</th>
+        <th style="padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--bd);color:var(--mt);font-size:.85rem">吞吐量</th>
+        <th style="padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--bd);color:var(--mt);font-size:.85rem">利用率</th>
+        <th style="padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--bd);color:var(--mt);font-size:.85rem">状态</th>
+      </tr></thead>
+      <tbody id="node-details">
+        <tr><td colspan="4" style="padding:.6rem 1rem;text-align:center;color:var(--mt)">等待数据...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer style="margin-top:2rem;padding-top:1rem;border-top:1px solid var(--bd);font-size:.75rem;color:var(--mt)">
+    Eliy Agent Core | 数据来源: TP-Lite Step 1-2 | 悬停节点可查看详情
+  </footer>
+
+  <script>
+    const data = JSON.parse(document.getElementById('eliy-source-data').textContent);
+
+    function renderSystemMap(valueStream, bottleneckId) {
+      if (!valueStream || valueStream.length === 0) return;
+      const svg = document.getElementById('systemMapSvg');
+      svg.innerHTML = svg.querySelector('defs').outerHTML; // 保留 defs
+
+      const n = valueStream.length;
+      const startX = 80, endX = 920, y = 200;
+      const gap = (endX - startX) / (n - 1 || 1);
+      const nodeW = 120, nodeH = 60;
+
+      valueStream.forEach((node, i) => {
+        const x = startX + i * gap;
+        const isBottleneck = node.id === bottleneckId;
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('class', 'node' + (isBottleneck ? ' bottleneck' : ''));
+        g.innerHTML =
+          '<rect class="node-bg" x="' + (x - nodeW/2) + '" y="' + (y - nodeH/2) + '" width="' + nodeW + '" height="' + nodeH + '"/>' +
+          '<text class="node-label" x="' + x + '" y="' + y + '">' + node.name + '</text>' +
+          (node.throughput != null ? '<text class="node-metric" x="' + x + '" y="' + (y + nodeH/2 + 18) + '">产能: ' + node.throughput + '</text>' : '');
+        svg.appendChild(g);
+
+        // 连接线
+        if (i < n - 1) {
+          const nx = startX + (i + 1) * gap;
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', x + nodeW/2 + 5);
+          line.setAttribute('y1', y);
+          line.setAttribute('x2', nx - nodeW/2 - 5);
+          line.setAttribute('y2', y);
+          line.setAttribute('class', 'edge flow');
+          line.setAttribute('marker-end', 'url(#arrow)');
+          svg.appendChild(line);
+        }
+      });
+    }
+
+    renderSystemMap(data.valueStream, data.bottleneckId);
+  </script>
+</body>
+</html>

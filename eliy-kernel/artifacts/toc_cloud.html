@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-eliy-version="1.0.0">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="eliy:artifact-type" content="TOCCloud">
+  <title>TOC 约束云图 — Eliy Agent</title>
+  <style>
+    :root{--bg:#0f1117;--sf:#1a1d27;--bd:#2a2e3d;--tx:#e4e6ef;--mt:#8b8fa3;--ac:#6c5ce7;--ok:#00b894;--wn:#fdcb6e;--er:#e17055;--r:12px}
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--tx);padding:2rem;max-width:1200px;margin:0 auto;line-height:1.7}
+    h1{font-size:1.6rem;background:linear-gradient(135deg,var(--er),var(--wn));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.5rem}
+    .card{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);padding:1.5rem;margin-bottom:1.5rem}
+
+    /* 云图容器 */
+    .cloud-container{position:relative;width:100%;min-height:500px;overflow:hidden}
+    .cloud-container canvas{width:100%;height:500px}
+
+    /* 约束节点 */
+    .constraint-node{position:absolute;padding:.6rem 1rem;border-radius:20px;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .3s;white-space:nowrap}
+    .constraint-node:hover{transform:scale(1.1);z-index:10}
+    .constraint-node.severe{background:rgba(225,112,85,.2);border:1.5px solid var(--er);color:var(--er)}
+    .constraint-node.moderate{background:rgba(253,203,110,.15);border:1.5px solid var(--wn);color:var(--wn)}
+    .constraint-node.mild{background:rgba(0,184,148,.12);border:1.5px solid var(--ok);color:var(--ok)}
+
+    /* 关系线 */
+    .relation-line{stroke:var(--bd);stroke-width:1;fill:none;opacity:.5}
+    .relation-line.causal{stroke:var(--er);stroke-dasharray:5,3}
+    .relation-line.amplify{stroke:var(--wn);stroke-width:1.5}
+
+    .legend{display:flex;gap:1.5rem;font-size:.8rem;color:var(--mt);margin-top:1rem;flex-wrap:wrap}
+    .legend-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:.3rem;vertical-align:middle}
+
+    .traceable{border-bottom:1px dashed var(--ac);cursor:help;position:relative}
+    .traceable:hover::after{content:attr(data-trace);position:absolute;bottom:100%;left:0;background:var(--sf);border:1px solid var(--ac);border-radius:8px;padding:.4rem .7rem;font-size:.72rem;color:#74b9ff;z-index:10;white-space:nowrap}
+
+    @media print{body{background:#fff;color:#333}h1{-webkit-text-fill-color:#333;background:none}.card{border:1px solid #ddd}}
+  </style>
+</head>
+<body>
+  <!-- 结构化源数据 -->
+  <script type="application/json" id="eliy-source-data">
+  {
+    "artifact": {"type": "TOCCloud", "id": "{{artifact_id}}"},
+    "constraints": [],
+    "relations": [],
+    "coreConflict": null
+  }
+  </script>
+
+  <header style="border-bottom:1px solid var(--bd);padding-bottom:1.5rem;margin-bottom:2rem">
+    <h1>☁️ TOC 约束云图</h1>
+    <p style="font-size:.85rem;color:var(--mt)">
+      可视化你的约束关系网络：哪些约束互相影响，核心冲突在哪里。
+      <trace source="hlamt://methodology/tp_lite/constraints"></trace>
+    </p>
+  </header>
+
+  <!-- 云图 -->
+  <div class="card">
+    <h2 style="font-size:1.1rem;margin-bottom:1rem">约束关系网络
+      <trace source="hlamt://artifacts/toc_cloud/network"></trace>
+    </h2>
+    <div class="cloud-container" id="cloudContainer">
+      <svg id="relationSvg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none"></svg>
+      <!-- 约束节点由 JS 动态渲染 -->
+    </div>
+    <div class="legend">
+      <span><span class="legend-dot" style="background:var(--er)"></span>严重约束</span>
+      <span><span class="legend-dot" style="background:var(--wn)"></span>中度约束</span>
+      <span><span class="legend-dot" style="background:var(--ok)"></span>轻度约束</span>
+      <span style="margin-left:1rem">虚线 = 因果关系 | 实线 = 放大关系</span>
+    </div>
+  </div>
+
+  <!-- 核心冲突 -->
+  <div class="card" id="core-conflict">
+    <h2 style="font-size:1.1rem;margin-bottom:1rem">🎯 核心冲突（Evaporating Cloud）</h2>
+    <div id="conflict-content" style="color:var(--mt);font-size:.9rem">
+      <p>分析完成后将展示核心冲突结构...</p>
+      <p style="font-size:.8rem;margin-top:.5rem">
+        TOC 消云法（Evaporating Cloud）用于揭示表面矛盾背后的假设，找到突破口。
+      </p>
+    </div>
+  </div>
+
+  <!-- 约束详情表 -->
+  <div class="card">
+    <h2 style="font-size:1.1rem;margin-bottom:1rem">约束详情</h2>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr>
+        <th style="padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--bd);color:var(--mt);font-size:.85rem">约束</th>
+        <th style="padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--bd);color:var(--mt);font-size:.85rem">类型</th>
+        <th style="padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--bd);color:var(--mt);font-size:.85rem">严重度</th>
+        <th style="padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--bd);color:var(--mt);font-size:.85rem">影响的环节</th>
+      </tr></thead>
+      <tbody id="constraint-details">
+        <tr><td colspan="4" style="padding:.6rem 1rem;text-align:center;color:var(--mt)">等待数据...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer style="margin-top:2rem;padding-top:1rem;border-top:1px solid var(--bd);font-size:.75rem;color:var(--mt)">
+    Eliy Agent Core | 数据来源: TP-Lite 约束分析 + 用户输入 | 点击节点可查看详情
+  </footer>
+
+  <script>
+    const data = JSON.parse(document.getElementById('eliy-source-data').textContent);
+    const container = document.getElementById('cloudContainer');
+    const svg = document.getElementById('relationSvg');
+
+    function renderCloud(constraints, relations) {
+      if (!constraints || constraints.length === 0) return;
+
+      const width = container.offsetWidth;
+      const height = 500;
+      const cx = width / 2, cy = height / 2;
+
+      // 力导向布局（简化版：圆形分布）
+      const positions = [];
+      constraints.forEach((c, i) => {
+        const angle = (i / constraints.length) * Math.PI * 2 - Math.PI / 2;
+        const radius = 120 + Math.random() * 80;
+        const x = cx + radius * Math.cos(angle);
+        const y = cy + radius * Math.sin(angle);
+        positions.push({ x, y });
+
+        // 创建节点
+        const node = document.createElement('div');
+        node.className = 'constraint-node ' + c.severity.toLowerCase();
+        node.textContent = c.description;
+        node.style.left = x + 'px';
+        node.style.top = y + 'px';
+        node.style.transform = 'translate(-50%, -50%)';
+        node.title = c.type + ' | ' + c.severity;
+        container.appendChild(node);
+      });
+
+      // 绘制关系线
+      if (relations) {
+        relations.forEach(r => {
+          const from = positions[r.from];
+          const to = positions[r.to];
+          if (!from || !to) return;
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', from.x);
+          line.setAttribute('y1', from.y);
+          line.setAttribute('x2', to.x);
+          line.setAttribute('y2', to.y);
+          line.setAttribute('class', 'relation-line ' + (r.type || 'causal'));
+          svg.appendChild(line);
+        });
+      }
+    }
+
+    renderCloud(data.constraints, data.relations);
+  </script>
+</body>
+</html>

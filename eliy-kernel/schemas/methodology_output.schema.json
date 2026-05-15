@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eliy.agent/schemas/methodology_output.schema.json",
+  "title": "方法论统一输出 Schema",
+  "description": "与 methodology/types.ts 中的 MethodologyOutput 接口完全对齐。所有方法论引擎的输出必须符合此 Schema。",
+  "type": "object",
+  "required": ["methodologyId", "executionId", "timestamp", "releasePhase", "findings", "judgments", "recommendations", "inputDataRefs", "reasoningChain", "overallConfidence", "dataCompleteness", "limitations", "pendingUserConfirmation", "informationGaps"],
+  "properties": {
+    "methodologyId": {
+      "type": "string",
+      "enum": ["TPL", "SFC", "HSF"],
+      "description": "TPL=TP-Lite, SFC=S'FOCUS, HSF=Haystack Filter"
+    },
+    "executionId": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "releasePhase": {
+      "type": "string",
+      "enum": ["INTAKE", "FRAMING", "DIAGNOSIS", "PRESCRIPTION", "FOLLOW_UP"]
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "evidence", "significance", "relatedDataPoints"],
+        "properties": {
+          "id": { "type": "string" },
+          "description": { "type": "string" },
+          "evidence": { "type": "array", "items": { "type": "string" } },
+          "significance": { "type": "string", "enum": ["CRITICAL", "IMPORTANT", "MINOR"] },
+          "relatedDataPoints": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "judgments": {
+      "type": "array",
+      "description": "遵循宪法第四条：有据可依、置信度标注、可推翻性",
+      "items": {
+        "type": "object",
+        "required": ["id", "statement", "confidence", "supportingEvidence", "refutationConditions", "category"],
+        "properties": {
+          "id": { "type": "string" },
+          "statement": { "type": "string" },
+          "confidence": { "$ref": "#/$defs/ConfidenceAssessment" },
+          "supportingEvidence": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+          "refutationConditions": {
+            "type": "array",
+            "items": { "type": "string" },
+            "minItems": 1,
+            "description": "推翻条件（宪法第四条第3款）"
+          },
+          "category": { "type": "string" }
+        }
+      }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "action", "priority", "expectedOutcome", "confirmationLevel"],
+        "properties": {
+          "id": { "type": "string" },
+          "action": { "type": "string" },
+          "priority": { "type": "string", "enum": ["P0", "P1", "P2"] },
+          "expectedOutcome": { "type": "string" },
+          "risks": { "type": "array", "items": { "type": "string" } },
+          "prerequisites": { "type": "array", "items": { "type": "string" } },
+          "estimatedEffort": { "type": "string" },
+          "confirmationLevel": {
+            "type": "string",
+            "enum": ["L1", "L2", "L3"],
+            "description": "L1=观察, L2=建议, L3=必须用户确认（agency_policy.md §1.1）"
+          }
+        }
+      }
+    },
+    "inputDataRefs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "description", "timestamp"],
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string", "enum": ["USER_INPUT", "METHODOLOGY_OUTPUT", "EXTERNAL_DATA", "HISTORICAL_PATTERN"] },
+          "description": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "rawDataSnapshot": { "type": "string" }
+        }
+      }
+    },
+    "reasoningChain": {
+      "type": "array",
+      "description": "完整推理链路（从数据到结论的每一步）",
+      "items": {
+        "type": "object",
+        "required": ["step", "description", "inputData", "logic", "output", "confidence"],
+        "properties": {
+          "step": { "type": "integer", "minimum": 1 },
+          "description": { "type": "string" },
+          "inputData": { "type": "string" },
+          "logic": { "type": "string" },
+          "output": { "type": "string" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "overallConfidence": { "$ref": "#/$defs/ConfidenceAssessment" },
+    "dataCompleteness": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "局限性（宪法第三条：能力诚实边界）"
+    },
+    "pendingUserConfirmation": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "需要用户确认的判断 ID 列表（HITL）"
+    },
+    "informationGaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "importance", "impactOnAnalysis", "suggestedQuestion"],
+        "properties": {
+          "id": { "type": "string" },
+          "description": { "type": "string" },
+          "importance": { "type": "string", "enum": ["CRITICAL", "IMPORTANT", "NICE_TO_HAVE"] },
+          "impactOnAnalysis": { "type": "string" },
+          "suggestedQuestion": { "type": "string" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "ConfidenceAssessment": {
+      "type": "object",
+      "required": ["level", "score", "rationale", "dataCompleteness", "crossValidated"],
+      "properties": {
+        "level": { "type": "string", "enum": ["HIGH", "MEDIUM", "LOW"] },
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "rationale": { "type": "string" },
+        "dataCompleteness": { "type": "number", "minimum": 0, "maximum": 1 },
+        "crossValidated": { "type": "boolean" }
+      }
+    }
+  }
+}

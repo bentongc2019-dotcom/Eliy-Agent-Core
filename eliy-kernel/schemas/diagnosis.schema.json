@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eliy.agent/schemas/diagnosis.schema.json",
+  "title": "诊断报告数据 Schema",
+  "description": "定义 diagnosis_report.html 嵌入的结构化源数据格式。与 ARTIFACTS.md 可追溯性要求对齐。",
+  "type": "object",
+  "required": ["artifact", "founderProfile", "methodologyResults", "dataSources"],
+  "properties": {
+    "artifact": {
+      "type": "object",
+      "description": "工件元数据（ARTIFACTS.md §工件元数据规范）",
+      "required": ["id", "type", "version", "sessionId", "createdAt", "releasePhase", "confidenceLevel"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "const": "DiagnosisReport" },
+        "version": { "type": "integer", "minimum": 1 },
+        "sessionId": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "releasePhase": {
+          "type": "string",
+          "enum": ["INTAKE", "FRAMING", "DIAGNOSIS", "PRESCRIPTION", "FOLLOW_UP"]
+        },
+        "confidenceLevel": {
+          "type": "string",
+          "enum": ["HIGH", "MEDIUM", "LOW"]
+        },
+        "validUntil": { "type": "string", "format": "date-time" },
+        "invalidationConditions": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "founderProfile": {
+      "type": "object",
+      "description": "创业者画像摘要 + 能力雷达图数据",
+      "required": ["radarScores"],
+      "properties": {
+        "industry": { "type": "string" },
+        "businessStage": {
+          "type": "string",
+          "enum": ["IDEA", "MVP", "PMF_SEEKING", "EARLY_GROWTH", "SCALING", "MATURE", "PIVOT"]
+        },
+        "teamSize": { "type": "integer", "minimum": 0 },
+        "radarScores": {
+          "type": "object",
+          "description": "六维能力雷达图评分（0-1）",
+          "required": ["获客能力", "转化效率", "交付质量", "客户留存", "团队能力", "财务健康"],
+          "properties": {
+            "获客能力": { "type": "number", "minimum": 0, "maximum": 1 },
+            "转化效率": { "type": "number", "minimum": 0, "maximum": 1 },
+            "交付质量": { "type": "number", "minimum": 0, "maximum": 1 },
+            "客户留存": { "type": "number", "minimum": 0, "maximum": 1 },
+            "团队能力": { "type": "number", "minimum": 0, "maximum": 1 },
+            "财务健康": { "type": "number", "minimum": 0, "maximum": 1 }
+          }
+        }
+      }
+    },
+    "methodologyResults": {
+      "type": "object",
+      "description": "方法论执行结果（引用 methodology_output.schema.json）",
+      "properties": {
+        "tpLite": {
+          "oneOf": [
+            { "$ref": "methodology_output.schema.json" },
+            { "type": "null" }
+          ]
+        },
+        "sFocus": {
+          "oneOf": [
+            { "$ref": "methodology_output.schema.json" },
+            { "type": "null" }
+          ]
+        },
+        "haystackFilter": {
+          "oneOf": [
+            { "$ref": "methodology_output.schema.json" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "dataSources": {
+      "type": "array",
+      "description": "所有数据源引用（可追溯性根节点）",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "description", "timestamp"],
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string", "enum": ["USER_INPUT", "METHODOLOGY_OUTPUT", "EXTERNAL_DATA", "HISTORICAL_PATTERN"] },
+          "description": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "rawDataSnapshot": { "type": "string" }
+        }
+      }
+    },
+    "retrospectivePromise": {
+      "type": "object",
+      "description": "36小时复盘承诺（专业版）",
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "deadlineHours": { "type": "integer", "default": 36 },
+        "scheduledAt": { "type": "string", "format": "date-time" },
+        "status": {
+          "type": "string",
+          "enum": ["PENDING", "SCHEDULED", "COMPLETED", "SKIPPED"]
+        }
+      }
+    },
+    "hitlState": {
+      "type": "object",
+      "description": "Human-in-the-loop 确认状态",
+      "properties": {
+        "radarConfirmed": { "type": "boolean", "default": false },
+        "recommendationsApproved": {
+          "type": "string",
+          "enum": ["PENDING", "APPROVED", "MODIFIED", "REJECTED"],
+          "default": "PENDING"
+        },
+        "userModifications": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "confirmationTimestamp": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

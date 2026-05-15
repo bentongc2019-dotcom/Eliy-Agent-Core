@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-eliy-version="1.0.0">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="generator" content="Eliy Agent Core">
+  <meta name="eliy:artifact-type" content="{{ARTIFACT_TYPE}}">
+  <meta name="eliy:artifact-id" content="{{ARTIFACT_ID}}">
+  <meta name="eliy:session-id" content="{{SESSION_ID}}">
+  <meta name="eliy:release-phase" content="{{RELEASE_PHASE}}">
+  <meta name="eliy:created-at" content="{{CREATED_AT}}">
+  <meta name="eliy:confidence" content="{{CONFIDENCE_LEVEL}}">
+  <title>{{TITLE}} — Eliy Agent</title>
+  <style>
+    /* === Eliy 工件基础样式 === */
+    :root {
+      --eliy-bg: #0f1117;
+      --eliy-surface: #1a1d27;
+      --eliy-surface-hover: #232736;
+      --eliy-border: #2a2e3d;
+      --eliy-text: #e4e6ef;
+      --eliy-text-muted: #8b8fa3;
+      --eliy-accent: #6c5ce7;
+      --eliy-accent-glow: rgba(108, 92, 231, 0.3);
+      --eliy-success: #00b894;
+      --eliy-warning: #fdcb6e;
+      --eliy-danger: #e17055;
+      --eliy-info: #74b9ff;
+      --eliy-radius: 12px;
+      --eliy-font: 'Inter', 'SF Pro Display', -apple-system, sans-serif;
+      --eliy-font-mono: 'JetBrains Mono', 'SF Mono', monospace;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--eliy-font);
+      background: var(--eliy-bg);
+      color: var(--eliy-text);
+      line-height: 1.7;
+      padding: 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* 工件头部 */
+    .eliy-header {
+      border-bottom: 1px solid var(--eliy-border);
+      padding-bottom: 1.5rem;
+      margin-bottom: 2rem;
+    }
+    .eliy-header h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--eliy-accent), var(--eliy-info));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .eliy-header .meta {
+      display: flex; gap: 1.5rem; margin-top: 0.5rem;
+      font-size: 0.85rem; color: var(--eliy-text-muted);
+    }
+    .eliy-header .meta span::before {
+      content: attr(data-icon);
+      margin-right: 0.3rem;
+    }
+
+    /* 投料阶段标注 */
+    .phase-badge {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.3rem 0.8rem; border-radius: 20px;
+      font-size: 0.8rem; font-weight: 600;
+      background: var(--eliy-accent-glow);
+      color: var(--eliy-accent);
+      border: 1px solid var(--eliy-accent);
+    }
+
+    /* 置信度标注 */
+    .confidence { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; font-weight: 600; }
+    .confidence.high { color: var(--eliy-success); }
+    .confidence.medium { color: var(--eliy-warning); }
+    .confidence.low { color: var(--eliy-danger); }
+
+    /* 卡片 */
+    .card {
+      background: var(--eliy-surface);
+      border: 1px solid var(--eliy-border);
+      border-radius: var(--eliy-radius);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      transition: border-color 0.2s;
+    }
+    .card:hover { border-color: var(--eliy-accent); }
+    .card h2 { font-size: 1.2rem; margin-bottom: 1rem; color: var(--eliy-text); }
+    .card h3 { font-size: 1rem; margin-bottom: 0.8rem; color: var(--eliy-text-muted); }
+
+    /* 可追溯标注 */
+    .traceable {
+      position: relative; cursor: help;
+      border-bottom: 1px dashed var(--eliy-accent);
+    }
+    .traceable:hover::after {
+      content: attr(data-trace);
+      position: absolute; bottom: 100%; left: 0;
+      background: var(--eliy-surface);
+      border: 1px solid var(--eliy-accent);
+      border-radius: 8px; padding: 0.5rem 0.8rem;
+      font-size: 0.75rem; white-space: nowrap;
+      color: var(--eliy-info); z-index: 10;
+    }
+
+    /* HITL 确认按钮 */
+    .hitl-confirm {
+      display: flex; gap: 0.8rem; margin-top: 1rem; padding-top: 1rem;
+      border-top: 1px solid var(--eliy-border);
+    }
+    .hitl-btn {
+      padding: 0.5rem 1.2rem; border-radius: 8px;
+      font-size: 0.85rem; font-weight: 600;
+      cursor: pointer; border: none; transition: all 0.2s;
+    }
+    .hitl-btn.approve { background: var(--eliy-success); color: #fff; }
+    .hitl-btn.challenge { background: transparent; color: var(--eliy-warning); border: 1px solid var(--eliy-warning); }
+    .hitl-btn.reject { background: transparent; color: var(--eliy-danger); border: 1px solid var(--eliy-danger); }
+    .hitl-btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
+
+    /* 表格 */
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    th, td { padding: 0.6rem 1rem; text-align: left; border-bottom: 1px solid var(--eliy-border); }
+    th { color: var(--eliy-text-muted); font-size: 0.85rem; font-weight: 600; }
+
+    /* 打印优化 */
+    @media print {
+      body { background: #fff; color: #333; padding: 1rem; }
+      .card { border: 1px solid #ddd; break-inside: avoid; }
+      .hitl-confirm { display: none; }
+      .eliy-header h1 { -webkit-text-fill-color: #333; background: none; }
+    }
+
+    /* 响应式 */
+    @media (max-width: 768px) {
+      body { padding: 1rem; }
+      .eliy-header .meta { flex-direction: column; gap: 0.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <!-- 结构化源数据（ARTIFACTS.md 要求：数据与展示分离） -->
+  <script type="application/json" id="eliy-source-data">
+    {{SOURCE_DATA_JSON}}
+  </script>
+
+  <header class="eliy-header">
+    <h1>{{TITLE}}</h1>
+    <div class="meta">
+      <span data-icon="📍">阶段: {{RELEASE_PHASE}}</span>
+      <span data-icon="🕐">{{CREATED_AT}}</span>
+      <span data-icon="🔑">ID: {{ARTIFACT_ID}}</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- 工件内容在此注入 -->
+    {{CONTENT}}
+  </main>
+
+  <footer style="margin-top:3rem;padding-top:1rem;border-top:1px solid var(--eliy-border);font-size:0.75rem;color:var(--eliy-text-muted);">
+    <p>由 Eliy Agent Core 生成 | 所有判断可追溯 | 受宪法 (constitution.md) 约束</p>
+    <p>工件版本: {{VERSION}} | 数据完整度: {{DATA_COMPLETENESS}}%</p>
+  </footer>
+</body>
+</html>

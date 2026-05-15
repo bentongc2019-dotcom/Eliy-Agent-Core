@@ -1,0 +1,233 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eliy.agent/schemas/hlamt.schema.json",
+  "title": "HLAMT 认知操作系统 Schema",
+  "description": "定义 HLAMT 五层框架的结构化数据格式，与 HLAMT.md 总纲完全对齐。",
+  "type": "object",
+  "required": ["version", "human", "language", "artifacts", "methodology", "training"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "human": {
+      "type": "object",
+      "description": "H 层：人类理解层（HUMAN.md）",
+      "required": ["founderProfile", "situationSnapshot"],
+      "properties": {
+        "founderProfile": {
+          "$ref": "#/$defs/FounderProfile"
+        },
+        "situationSnapshot": {
+          "$ref": "#/$defs/SituationSnapshot"
+        },
+        "cognitiveBiases": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/CognitiveBias" }
+        }
+      }
+    },
+    "language": {
+      "type": "object",
+      "description": "L 层：语言纪律层（LANGUAGE.md）",
+      "required": ["communicationStyle", "emotionalState", "domainExpertise"],
+      "properties": {
+        "communicationStyle": {
+          "type": "string",
+          "enum": ["DIRECT", "GENTLE", "DATA_DRIVEN", "STORY_BASED"]
+        },
+        "emotionalState": {
+          "type": "string",
+          "enum": ["CALM", "ANXIOUS", "FRUSTRATED", "OVERCONFIDENT", "OVERWHELMED", "EXCITED", "DEFENSIVE"]
+        },
+        "domainExpertise": {
+          "type": "string",
+          "enum": ["NOVICE", "INTERMEDIATE", "EXPERT"]
+        },
+        "sensitiveTopics": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "description": "A 层：认知工件层（ARTIFACTS.md）",
+      "properties": {
+        "activeArtifacts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ArtifactMetadata" }
+        }
+      }
+    },
+    "methodology": {
+      "type": "object",
+      "description": "M 层：方法论层（METHODOLOGY.md）",
+      "properties": {
+        "activeEngines": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["TPL", "SFC", "HSF"]
+          }
+        },
+        "executionHistory": {
+          "type": "array",
+          "items": { "type": "string", "description": "执行 ID 列表" }
+        }
+      }
+    },
+    "training": {
+      "type": "object",
+      "description": "T 层：训练进化层（TRAINING.md）",
+      "properties": {
+        "retrospectives": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/RetrospectiveRef" }
+        },
+        "evolutionProposals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/EvolutionProposal" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "FounderProfile": {
+      "type": "object",
+      "required": ["id", "businessStage", "dataSource"],
+      "properties": {
+        "id": { "type": "string" },
+        "industry": { "type": "string" },
+        "businessStage": {
+          "type": "string",
+          "enum": ["IDEA", "MVP", "PMF_SEEKING", "EARLY_GROWTH", "SCALING", "MATURE", "PIVOT"]
+        },
+        "teamSize": { "type": "integer", "minimum": 0 },
+        "fundingStage": {
+          "type": "string",
+          "enum": ["BOOTSTRAPPED", "ANGEL", "SEED", "SERIES_A", "SERIES_B_PLUS", "PROFITABLE"]
+        },
+        "monthlyRevenue": {
+          "type": "string",
+          "enum": ["PRE_REVENUE", "UNDER_100K", "100K_500K", "500K_2M", "2M_10M", "ABOVE_10M"]
+        },
+        "decisionStyle": {
+          "type": "string",
+          "enum": ["ANALYTICAL", "INTUITIVE", "COLLABORATIVE", "DIRECTIVE", "UNKNOWN"]
+        },
+        "urgencyLevel": {
+          "type": "string",
+          "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+        },
+        "dataSource": {
+          "type": "string",
+          "const": "USER_EXPLICIT",
+          "description": "数据来源只允许用户主动提供（agency_policy.md §2.2）"
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastUpdatedAt": { "type": "string", "format": "date-time" },
+        "version": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "SituationSnapshot": {
+      "type": "object",
+      "required": ["selfReportedProblem", "emotionalState", "timestamp"],
+      "properties": {
+        "selfReportedProblem": { "type": "string", "minLength": 1 },
+        "eliyHypothesis": { "type": "string" },
+        "constraints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["type", "description", "severity"],
+            "properties": {
+              "type": { "type": "string", "enum": ["TIME", "MONEY", "PEOPLE", "TECHNOLOGY", "MARKET", "REGULATORY"] },
+              "description": { "type": "string" },
+              "severity": { "type": "string", "enum": ["MILD", "MODERATE", "SEVERE"] }
+            }
+          }
+        },
+        "attemptedSolutions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "description": { "type": "string" },
+              "outcome": { "type": "string", "enum": ["WORKED", "PARTIALLY_WORKED", "FAILED", "UNKNOWN"] },
+              "learnings": { "type": "string" }
+            }
+          }
+        },
+        "decisionDeadline": { "type": "string", "format": "date-time" },
+        "emotionalState": {
+          "type": "string",
+          "enum": ["CALM", "ANXIOUS", "FRUSTRATED", "OVERCONFIDENT", "OVERWHELMED", "EXCITED", "DEFENSIVE"]
+        },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    },
+    "CognitiveBias": {
+      "type": "object",
+      "required": ["type", "evidence", "confidence"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["SURVIVORSHIP_BIAS", "CONFIRMATION_BIAS", "SUNK_COST_FALLACY", "OVERCONFIDENCE", "ANCHORING", "PLANNING_FALLACY", "DUNNING_KRUGER", "AVAILABILITY_HEURISTIC", "BANDWAGON_EFFECT", "STATUS_QUO_BIAS"]
+        },
+        "evidence": { "type": "array", "items": { "type": "string" }, "minItems": 2, "description": "至少2个证据（HUMAN.md偏差纪律）" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "impactArea": { "type": "string" }
+      }
+    },
+    "ArtifactMetadata": {
+      "type": "object",
+      "required": ["id", "type", "version", "createdAt", "dataSources", "confidenceLevel"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["DiagnosisReport", "SystemMap", "TOCCloud"] },
+        "version": { "type": "integer", "minimum": 1 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "sessionId": { "type": "string" },
+        "userId": { "type": "string" },
+        "dataSources": { "type": "array", "items": { "$ref": "#/$defs/DataSourceRef" } },
+        "methodologyUsed": { "type": "array", "items": { "type": "string" } },
+        "confidenceLevel": { "type": "string", "enum": ["HIGH", "MEDIUM", "LOW"] },
+        "releasePhase": { "type": "string", "enum": ["INTAKE", "FRAMING", "DIAGNOSIS", "PRESCRIPTION", "FOLLOW_UP"] },
+        "invalidationConditions": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "DataSourceRef": {
+      "type": "object",
+      "required": ["id", "type", "description", "timestamp"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["USER_INPUT", "METHODOLOGY_OUTPUT", "EXTERNAL_DATA", "HISTORICAL_PATTERN"] },
+        "description": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "rawDataSnapshot": { "type": "string" }
+      }
+    },
+    "RetrospectiveRef": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sessionId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    },
+    "EvolutionProposal": {
+      "type": "object",
+      "required": ["id", "type", "description", "governanceStatus"],
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["METHOD_IMPROVEMENT", "PATTERN_RECOGNITION", "ERROR_CORRECTION"] },
+        "description": { "type": "string" },
+        "evidence": { "type": "array", "items": { "type": "string" } },
+        "governanceStatus": { "type": "string", "enum": ["PROPOSED", "UNDER_REVIEW", "APPROVED", "REJECTED"] },
+        "reviewedBy": { "type": "string" }
+      }
+    }
+  }
+}

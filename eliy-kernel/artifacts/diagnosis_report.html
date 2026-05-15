@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-eliy-version="1.0.0">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="generator" content="Eliy Agent Core">
+  <meta name="eliy:artifact-type" content="DiagnosisReport">
+  <meta name="eliy:release-phase" content="DIAGNOSIS">
+  <title>商业诊断报告 — Eliy Agent</title>
+  <style>
+    :root {
+      --eliy-bg:#0f1117;--eliy-surface:#1a1d27;--eliy-border:#2a2e3d;
+      --eliy-text:#e4e6ef;--eliy-muted:#8b8fa3;--eliy-accent:#6c5ce7;
+      --eliy-glow:rgba(108,92,231,0.3);--eliy-ok:#00b894;--eliy-warn:#fdcb6e;
+      --eliy-err:#e17055;--eliy-info:#74b9ff;--r:12px;
+      --font:'Inter',-apple-system,sans-serif;
+    }
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:var(--font);background:var(--eliy-bg);color:var(--eliy-text);line-height:1.7;padding:2rem;max-width:1200px;margin:0 auto}
+    h1{font-size:1.8rem;font-weight:700;background:linear-gradient(135deg,var(--eliy-accent),var(--eliy-info));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .meta{display:flex;gap:1.5rem;margin-top:.5rem;font-size:.85rem;color:var(--eliy-muted)}
+    .card{background:var(--eliy-surface);border:1px solid var(--eliy-border);border-radius:var(--r);padding:1.5rem;margin-bottom:1.5rem}
+    .card:hover{border-color:var(--eliy-accent)}
+    .card h2{font-size:1.2rem;margin-bottom:1rem}
+    .badge{display:inline-flex;align-items:center;gap:.3rem;padding:.25rem .7rem;border-radius:20px;font-size:.78rem;font-weight:600}
+    .badge.phase{background:var(--eliy-glow);color:var(--eliy-accent);border:1px solid var(--eliy-accent)}
+    .badge.high{background:rgba(0,184,148,.15);color:var(--eliy-ok)}
+    .badge.medium{background:rgba(253,203,110,.15);color:var(--eliy-warn)}
+    .badge.low{background:rgba(225,112,85,.15);color:var(--eliy-err)}
+    .traceable{border-bottom:1px dashed var(--eliy-accent);cursor:help;position:relative}
+    .traceable:hover::after{content:attr(data-trace);position:absolute;bottom:100%;left:0;background:var(--eliy-surface);border:1px solid var(--eliy-accent);border-radius:8px;padding:.5rem .8rem;font-size:.72rem;white-space:nowrap;color:var(--eliy-info);z-index:10}
+    table{width:100%;border-collapse:collapse;margin:1rem 0}
+    th,td{padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--eliy-border)}
+    th{color:var(--eliy-muted);font-size:.85rem;font-weight:600}
+    .hitl{display:flex;gap:.8rem;margin-top:1rem;padding-top:1rem;border-top:1px solid var(--eliy-border)}
+    .hitl button{padding:.5rem 1.2rem;border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+    .hitl .ok{background:var(--eliy-ok);color:#fff}
+    .hitl .ask{background:transparent;color:var(--eliy-warn);border:1px solid var(--eliy-warn)}
+    .hitl .no{background:transparent;color:var(--eliy-err);border:1px solid var(--eliy-err)}
+    .hitl button:hover{transform:translateY(-1px);filter:brightness(1.1)}
+
+    /* 雷达图 */
+    .radar-container{display:flex;justify-content:center;padding:1rem}
+    .radar-canvas{max-width:400px;max-height:400px}
+
+    /* 推理链路 */
+    .chain{position:relative;padding-left:2rem}
+    .chain .step{position:relative;padding:.8rem 0;padding-left:1rem;border-left:2px solid var(--eliy-border)}
+    .chain .step::before{content:attr(data-step);position:absolute;left:-1.1rem;top:.8rem;width:2rem;height:2rem;border-radius:50%;background:var(--eliy-accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700}
+    .chain .step:last-child{border-left-color:transparent}
+    .chain .step-title{font-weight:600;font-size:.95rem}
+    .chain .step-detail{font-size:.85rem;color:var(--eliy-muted);margin-top:.3rem}
+
+    /* 投料阶段可视化 */
+    .phase-bar{display:flex;gap:2px;margin:1rem 0}
+    .phase-bar .seg{flex:1;height:8px;border-radius:4px;background:var(--eliy-border);transition:background .3s}
+    .phase-bar .seg.active{background:var(--eliy-accent)}
+    .phase-bar .seg.done{background:var(--eliy-ok)}
+    .phase-labels{display:flex;justify-content:space-between;font-size:.7rem;color:var(--eliy-muted)}
+
+    /* 复盘承诺 */
+    .retrospective-promise{background:linear-gradient(135deg,rgba(108,92,231,.1),rgba(116,185,255,.1));border:1px solid var(--eliy-accent);border-radius:var(--r);padding:1.5rem;margin-top:2rem;text-align:center}
+    .retrospective-promise h3{color:var(--eliy-accent);margin-bottom:.5rem}
+
+    @media print{
+      body{background:#fff;color:#333;padding:1rem}
+      .card{border:1px solid #ddd;break-inside:avoid}
+      .hitl{display:none}
+      h1{-webkit-text-fill-color:#333;background:none}
+    }
+    @media(max-width:768px){body{padding:1rem}.meta{flex-direction:column;gap:.5rem}}
+  </style>
+</head>
+<body>
+  <!-- ============================================================ -->
+  <!-- 结构化源数据（ARTIFACTS.md：数据与展示分离，可追溯） -->
+  <!-- ============================================================ -->
+  <script type="application/json" id="eliy-source-data">
+  {
+    "artifact": {
+      "id": "{{artifact_id}}",
+      "type": "DiagnosisReport",
+      "version": 1,
+      "sessionId": "{{session_id}}",
+      "userId": "{{user_id}}",
+      "createdAt": "{{created_at}}",
+      "releasePhase": "DIAGNOSIS",
+      "confidenceLevel": "MEDIUM"
+    },
+    "founderProfile": {
+      "industry": "{{industry}}",
+      "businessStage": "{{business_stage}}",
+      "teamSize": "{{team_size}}",
+      "radarScores": {
+        "获客能力": 0,
+        "转化效率": 0,
+        "交付质量": 0,
+        "客户留存": 0,
+        "团队能力": 0,
+        "财务健康": 0
+      }
+    },
+    "methodologyResults": {
+      "tpLite": null,
+      "sFocus": null,
+      "haystackFilter": null
+    },
+    "dataSources": []
+  }
+  </script>
+
+  <!-- ============================================================ -->
+  <!-- 报告头部 -->
+  <!-- ============================================================ -->
+  <header style="border-bottom:1px solid var(--eliy-border);padding-bottom:1.5rem;margin-bottom:2rem">
+    <h1>📊 商业诊断报告</h1>
+    <div class="meta">
+      <span>📍 <span class="badge phase" id="phase-badge">DIAGNOSIS</span></span>
+      <span>🕐 <span id="report-time"></span></span>
+      <span>🔑 <span id="report-id"></span></span>
+    </div>
+    <!-- 投料阶段进度条 -->
+    <div style="margin-top:1rem">
+      <div class="phase-bar">
+        <div class="seg done" title="INTAKE"></div>
+        <div class="seg done" title="FRAMING"></div>
+        <div class="seg active" title="DIAGNOSIS"></div>
+        <div class="seg" title="PRESCRIPTION"></div>
+        <div class="seg" title="FOLLOW_UP"></div>
+      </div>
+      <div class="phase-labels">
+        <span>信息收集</span><span>框架构建</span><span>深度诊断</span><span>处方阶段</span><span>跟踪复盘</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============================================================ -->
+  <!-- 1. 能力雷达图（基于 FounderProfile） -->
+  <!-- ============================================================ -->
+  <div class="card">
+    <h2>🎯 能力雷达图
+      <trace source="hlamt://human/founder_profile/radar_scores"></trace>
+    </h2>
+    <p style="font-size:.85rem;color:var(--eliy-muted);margin-bottom:1rem">
+      基于你提供的数据，Eliy 对六大维度的评估。所有评分可追溯到具体数据点。
+    </p>
+    <div class="radar-container">
+      <canvas id="radarChart" class="radar-canvas" width="400" height="400"></canvas>
+    </div>
+    <div class="hitl">
+      <button class="ok" onclick="confirmRadar()">✅ 评分基本准确</button>
+      <button class="ask" onclick="challengeRadar()">🔄 我要调整某个维度</button>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 2. TP-Lite 执行痕迹 -->
+  <!-- ============================================================ -->
+  <div class="card" id="tpl-section">
+    <h2>🔬 TP-Lite 瓶颈诊断
+      <trace source="hlamt://methodology/tp_lite/execution"></trace>
+    </h2>
+    <div class="chain" id="tpl-chain">
+      <!-- 七步推理链路由 JS 动态渲染 -->
+      <div class="step" data-step="1"><div class="step-title">识别系统边界</div><div class="step-detail" id="tpl-s1">等待数据...</div></div>
+      <div class="step" data-step="2"><div class="step-title">绘制价值流</div><div class="step-detail" id="tpl-s2">等待数据...</div></div>
+      <div class="step" data-step="3"><div class="step-title">识别瓶颈</div><div class="step-detail" id="tpl-s3">等待数据...</div></div>
+      <div class="step" data-step="4"><div class="step-title">量化瓶颈影响</div><div class="step-detail" id="tpl-s4">等待数据...</div></div>
+      <div class="step" data-step="5"><div class="step-title">挖尽瓶颈</div><div class="step-detail" id="tpl-s5">等待数据...</div></div>
+      <div class="step" data-step="6"><div class="step-title">迁就瓶颈</div><div class="step-detail" id="tpl-s6">等待数据...</div></div>
+      <div class="step" data-step="7"><div class="step-title">提升瓶颈</div><div class="step-detail" id="tpl-s7">等待数据...</div></div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 3. S'FOCUS 战略聚焦 -->
+  <!-- ============================================================ -->
+  <div class="card" id="sfc-section">
+    <h2>🎯 S'FOCUS 战略聚焦
+      <trace source="hlamt://methodology/sfocus/execution"></trace>
+    </h2>
+    <table id="sfc-table">
+      <thead><tr><th>维度</th><th>健康度</th><th>紧迫度</th><th>综合得分</th><th>状态</th></tr></thead>
+      <tbody id="sfc-body">
+        <tr><td colspan="5" style="text-align:center;color:var(--eliy-muted)">等待 S'FOCUS 分析数据...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 4. 核心判断（含置信度 + 推翻条件） -->
+  <!-- ============================================================ -->
+  <div class="card">
+    <h2>⚖️ 核心判断
+      <trace source="hlamt://methodology/judgments"></trace>
+    </h2>
+    <div id="judgments-container">
+      <p style="color:var(--eliy-muted);font-size:.85rem">等待方法论分析完成...</p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 5. 控制投料建议（分阶段） -->
+  <!-- ============================================================ -->
+  <div class="card">
+    <h2>📋 分阶段行动建议
+      <trace source="hlamt://methodology/recommendations"></trace>
+    </h2>
+    <div id="recommendations-container">
+      <div style="margin-bottom:1rem">
+        <h3 style="color:var(--eliy-err);font-size:.95rem">🔴 P0 — 立即行动</h3>
+        <div id="rec-p0" style="padding-left:1rem;margin-top:.5rem"><p style="color:var(--eliy-muted);font-size:.85rem">等待数据...</p></div>
+      </div>
+      <div style="margin-bottom:1rem">
+        <h3 style="color:var(--eliy-warn);font-size:.95rem">🟡 P1 — 本周启动</h3>
+        <div id="rec-p1" style="padding-left:1rem;margin-top:.5rem"><p style="color:var(--eliy-muted);font-size:.85rem">等待数据...</p></div>
+      </div>
+      <div>
+        <h3 style="color:var(--eliy-info);font-size:.95rem">🔵 P2 — 中期规划</h3>
+        <div id="rec-p2" style="padding-left:1rem;margin-top:.5rem"><p style="color:var(--eliy-muted);font-size:.85rem">等待数据...</p></div>
+      </div>
+    </div>
+    <!-- HITL 确认：行动建议需要用户明确确认 -->
+    <div class="hitl">
+      <button class="ok" onclick="approveRecommendations()">✅ 确认行动方案</button>
+      <button class="ask" onclick="requestModification()">🔄 我有调整意见</button>
+      <button class="no" onclick="rejectRecommendations()">❌ 暂不执行</button>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 6. 信息缺口 -->
+  <!-- ============================================================ -->
+  <div class="card">
+    <h2>❓ 信息缺口（需要你补充）</h2>
+    <div id="gaps-container">
+      <p style="color:var(--eliy-muted);font-size:.85rem">分析完成后将列出需要补充的信息...</p>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 7. 36小时复盘承诺（专业版） -->
+  <!-- ============================================================ -->
+  <div class="retrospective-promise">
+    <h3>⏰ 36小时复盘承诺</h3>
+    <p style="font-size:.9rem;color:var(--eliy-text);margin-bottom:.5rem">
+      在你执行行动方案后的 <strong>36 小时内</strong>，Eliy 将主动发起复盘对话。
+    </p>
+    <p style="font-size:.8rem;color:var(--eliy-muted)">
+      复盘内容：行动结果 vs 预期对比 → 偏差分析 → 认知进化沉淀<br>
+      <trace source="hlamt://training/retrospective_promise"></trace>
+    </p>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 页脚 -->
+  <!-- ============================================================ -->
+  <footer style="margin-top:3rem;padding-top:1rem;border-top:1px solid var(--eliy-border);font-size:.75rem;color:var(--eliy-muted)">
+    <p>由 Eliy Agent Core 生成 | 所有判断均可追溯 | 受宪法 (constitution.md) 约束</p>
+    <p>悬停带虚线下划线的文字可查看数据来源 | 点击确认按钮参与 human-in-the-loop</p>
+  </footer>
+
+  <!-- ============================================================ -->
+  <!-- 渲染脚本 -->
+  <!-- ============================================================ -->
+  <script>
+    // 读取结构化源数据
+    const sourceData = JSON.parse(document.getElementById('eliy-source-data').textContent);
+
+    // 初始化元数据
+    document.getElementById('report-time').textContent = sourceData.artifact.createdAt || new Date().toISOString();
+    document.getElementById('report-id').textContent = sourceData.artifact.id || 'pending';
+
+    // === 能力雷达图渲染（纯 Canvas，无外部依赖） ===
+    function drawRadarChart(canvasId, scores) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width, h = canvas.height;
+      const cx = w / 2, cy = h / 2, r = Math.min(w, h) * 0.35;
+      const labels = Object.keys(scores);
+      const values = Object.values(scores);
+      const n = labels.length;
+      const angleStep = (Math.PI * 2) / n;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // 绘制网格
+      for (let level = 1; level <= 5; level++) {
+        const lr = r * (level / 5);
+        ctx.beginPath();
+        for (let i = 0; i <= n; i++) {
+          const angle = i * angleStep - Math.PI / 2;
+          const x = cx + lr * Math.cos(angle);
+          const y = cy + lr * Math.sin(angle);
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.strokeStyle = 'rgba(42,46,61,0.8)';
+        ctx.stroke();
+      }
+
+      // 绘制轴线和标签
+      ctx.font = '13px Inter, sans-serif';
+      ctx.fillStyle = '#8b8fa3';
+      ctx.textAlign = 'center';
+      for (let i = 0; i < n; i++) {
+        const angle = i * angleStep - Math.PI / 2;
+        const x = cx + r * Math.cos(angle);
+        const y = cy + r * Math.sin(angle);
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(x, y);
+        ctx.strokeStyle = 'rgba(42,46,61,0.5)';
+        ctx.stroke();
+        // 标签
+        const lx = cx + (r + 25) * Math.cos(angle);
+        const ly = cy + (r + 25) * Math.sin(angle);
+        ctx.fillText(labels[i], lx, ly + 4);
+      }
+
+      // 绘制数据区域
+      ctx.beginPath();
+      for (let i = 0; i <= n; i++) {
+        const idx = i % n;
+        const angle = idx * angleStep - Math.PI / 2;
+        const v = Math.max(0, Math.min(1, values[idx]));
+        const x = cx + r * v * Math.cos(angle);
+        const y = cy + r * v * Math.sin(angle);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(108,92,231,0.25)';
+      ctx.fill();
+      ctx.strokeStyle = '#6c5ce7';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 数据点
+      for (let i = 0; i < n; i++) {
+        const angle = i * angleStep - Math.PI / 2;
+        const v = Math.max(0, Math.min(1, values[i]));
+        const x = cx + r * v * Math.cos(angle);
+        const y = cy + r * v * Math.sin(angle);
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI * 2);
+        ctx.fillStyle = '#6c5ce7';
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+
+    // 初始化雷达图
+    if (sourceData.founderProfile && sourceData.founderProfile.radarScores) {
+      drawRadarChart('radarChart', sourceData.founderProfile.radarScores);
+    }
+
+    // === 渲染方法论结果 ===
+    function renderTPLite(result) {
+      if (!result || !result.reasoningChain) return;
+      result.reasoningChain.forEach((step, i) => {
+        const el = document.getElementById('tpl-s' + (i + 1));
+        if (el) el.textContent = step.output + ' (置信度: ' + (step.confidence * 100).toFixed(0) + '%)';
+      });
+    }
+
+    function renderSFocus(result) {
+      if (!result || !result.findings) return;
+      const tbody = document.getElementById('sfc-body');
+      tbody.innerHTML = '';
+      // 从 findings 渲染维度健康度（简化展示）
+      result.findings.forEach(f => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + f.description + '</td><td colspan="3">' +
+          f.evidence.join(', ') + '</td><td><span class="badge ' +
+          (f.significance === 'CRITICAL' ? 'low' : 'medium') + '">' +
+          f.significance + '</span></td>';
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderJudgments(judgments) {
+      const container = document.getElementById('judgments-container');
+      if (!judgments || judgments.length === 0) return;
+      container.innerHTML = '';
+      judgments.forEach(j => {
+        const level = j.confidence.level.toLowerCase();
+        const div = document.createElement('div');
+        div.style.cssText = 'padding:1rem;border-left:3px solid var(--eliy-' +
+          (level === 'high' ? 'ok' : level === 'medium' ? 'warn' : 'err') +
+          ');margin-bottom:1rem;background:var(--eliy-surface)';
+        div.innerHTML =
+          '<p class="traceable" data-trace="来源: ' + j.supportingEvidence.join(', ') + '">' +
+          '<strong>' + j.statement + '</strong></p>' +
+          '<p style="font-size:.8rem;margin-top:.5rem"><span class="badge ' + level + '">' +
+          j.confidence.level + ' (' + (j.confidence.score * 100).toFixed(0) + '%)</span> ' +
+          j.confidence.rationale + '</p>' +
+          '<p style="font-size:.78rem;color:var(--eliy-muted);margin-top:.3rem">推翻条件: ' +
+          j.refutationConditions.join(' | ') + '</p>';
+        container.appendChild(div);
+      });
+    }
+
+    // 初始化渲染
+    if (sourceData.methodologyResults) {
+      if (sourceData.methodologyResults.tpLite) renderTPLite(sourceData.methodologyResults.tpLite);
+      if (sourceData.methodologyResults.sFocus) renderSFocus(sourceData.methodologyResults.sFocus);
+    }
+
+    // === HITL 按钮占位函数 ===
+    function confirmRadar() { alert('✅ 雷达图评分已确认 — 此事件将通过 adapters/ui 发送回 Eliy runtime'); }
+    function challengeRadar() { alert('🔄 请告诉 Eliy 你认为哪个维度需要调整'); }
+    function approveRecommendations() { alert('✅ 行动方案已确认 — L3 确认已记录'); }
+    function requestModification() { alert('🔄 请说明你的调整意见'); }
+    function rejectRecommendations() { alert('❌ 行动方案已拒绝 — 已记录原因'); }
+  </script>
+</body>
+</html>
