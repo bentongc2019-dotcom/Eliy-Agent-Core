@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eliy — 实时语音通话</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--navy-900:#0a0e1a;--navy-800:#111827;--navy-700:#1a2138;--navy-600:#232d4a;--border:#2a3350;--text:#e8eaf0;--text-muted:#8892a8;--accent:#5b6abf;--accent-glow:rgba(91,106,191,0.3);--success:#34d399;--warning:#fbbf24;--danger:#f87171;--info:#60a5fa;--font:'Inter',sans-serif}
+    *{margin:0;padding:0;box-sizing:border-box}
+    html,body{height:100%;font-family:var(--font);background:var(--navy-900);color:var(--text)}
+    #app{display:flex;height:100vh}
+
+    /* 侧边栏 */
+    .sidebar{width:260px;background:var(--navy-800);border-right:1px solid var(--border);padding:1.5rem;display:flex;flex-direction:column;gap:1.2rem;overflow-y:auto}
+    .logo{display:flex;align-items:center;gap:.5rem}
+    .logo b{font-size:1.3rem}.logo small{font-size:.65rem;color:var(--text-muted);background:var(--navy-600);padding:.1rem .5rem;border-radius:10px}
+    .phase-title{font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em}
+    .phase-step{display:flex;align-items:center;gap:.5rem;padding:.4rem .6rem;border-radius:6px;font-size:.82rem;color:var(--text-muted)}
+    .phase-step .dot{width:7px;height:7px;border-radius:50%;background:var(--navy-600)}
+    .phase-step.active{color:var(--accent);background:var(--accent-glow);font-weight:600}
+    .phase-step.active .dot{background:var(--accent);box-shadow:0 0 8px var(--accent);animation:pulse 2s infinite}
+    .phase-step.done{color:var(--success)}.phase-step.done .dot{background:var(--success)}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+    canvas#radar{max-width:100%}
+
+    /* 主区域 */
+    .main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden}
+
+    /* 背景粒子 */
+    .main::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 40%,rgba(91,106,191,.08) 0%,transparent 70%);pointer-events:none}
+
+    /* 头像区 */
+    .avatar-area{position:relative;margin-bottom:2rem}
+    .avatar-ring{width:280px;height:280px;border-radius:50%;padding:4px;background:conic-gradient(var(--accent),transparent,var(--accent));animation:ring-rotate 8s linear infinite}
+    @keyframes ring-rotate{to{transform:rotate(360deg)}}
+    .avatar-ring.speaking{background:conic-gradient(var(--info),var(--accent),var(--info));animation-duration:3s}
+    .avatar-ring.listening{background:conic-gradient(var(--success),transparent,var(--success))}
+    .avatar-ring.thinking{background:conic-gradient(var(--warning),transparent,var(--warning));animation-duration:2s}
+    .avatar-inner{width:100%;height:100%;border-radius:50%;overflow:hidden;background:var(--navy-800);position:relative}
+    .avatar-inner img{width:100%;height:100%;object-fit:cover;object-position:center 15%;transition:transform .1s}
+    .avatar-overlay{position:absolute;inset:0;pointer-events:none}
+    .status-badge{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:.4rem;background:var(--navy-700);border:1px solid var(--border);padding:.3rem .8rem;border-radius:20px;font-size:.75rem;white-space:nowrap}
+    .status-badge .sdot{width:8px;height:8px;border-radius:50%;background:var(--accent)}
+
+    /* 字幕 */
+    .subtitle{max-width:600px;text-align:center;font-size:1.05rem;line-height:1.7;min-height:3.4em;padding:0 1rem;color:var(--text);opacity:.9}
+
+    /* 控制按钮 */
+    .controls{display:flex;align-items:center;gap:1rem;margin-top:2rem}
+    .call-btn{width:72px;height:72px;border-radius:50%;border:none;cursor:pointer;font-size:1.6rem;transition:all .2s;display:flex;align-items:center;justify-content:center}
+    .call-btn.start{background:var(--success);color:#fff;box-shadow:0 0 20px rgba(52,211,153,.3)}
+    .call-btn.start:hover{transform:scale(1.08);box-shadow:0 0 30px rgba(52,211,153,.5)}
+    .call-btn.end{background:var(--danger);color:#fff;box-shadow:0 0 20px rgba(248,113,113,.3)}
+    .call-btn.end:hover{transform:scale(1.08)}
+    .mode-btn{background:var(--navy-700);border:1px solid var(--border);color:var(--text-muted);padding:.5rem 1rem;border-radius:8px;font-size:.8rem;cursor:pointer;transition:all .2s}
+    .mode-btn:hover{background:var(--navy-600);color:var(--text)}
+
+    /* 声波动画 */
+    .wave-bar{display:flex;align-items:center;gap:3px;height:32px;margin-top:1rem}
+    .wave-bar span{width:3px;border-radius:2px;background:var(--accent);animation:wave 1.2s ease-in-out infinite}
+    .wave-bar span:nth-child(1){animation-delay:0s;height:8px}.wave-bar span:nth-child(2){animation-delay:.1s;height:16px}
+    .wave-bar span:nth-child(3){animation-delay:.2s;height:24px}.wave-bar span:nth-child(4){animation-delay:.3s;height:16px}
+    .wave-bar span:nth-child(5){animation-delay:.4s;height:8px}
+    .wave-bar.listening span{background:var(--success)}
+    .wave-bar.speaking span{background:var(--info)}
+    .wave-bar.idle span{animation:none;height:3px;background:var(--navy-500)}
+    @keyframes wave{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1.4)}}
+
+    /* 文字聊天备用 */
+    .text-panel{position:absolute;bottom:0;left:0;right:0;max-height:50vh;background:var(--navy-800);border-top:1px solid var(--border);display:flex;flex-direction:column;transform:translateY(100%);transition:transform .3s}
+    .text-panel.open{transform:translateY(0)}
+    .text-msgs{flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:.8rem}
+    .text-input-row{display:flex;gap:.5rem;padding:.8rem 1rem;border-top:1px solid var(--border)}
+    .text-input-row input{flex:1;background:var(--navy-700);border:1px solid var(--border);border-radius:8px;padding:.5rem .8rem;color:var(--text);font-family:var(--font);font-size:.85rem;outline:none}
+    .text-input-row button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:.5rem 1rem;cursor:pointer;font-size:.85rem}
+    .msg{max-width:80%;padding:.6rem .9rem;border-radius:10px;font-size:.85rem;line-height:1.5;animation:fadeUp .3s}
+    .msg.user{align-self:flex-end;background:var(--accent);color:#fff}
+    .msg.assistant{align-self:flex-start;background:var(--navy-700);border:1px solid var(--border)}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+    @media(max-width:768px){.sidebar{display:none}.avatar-ring{width:200px;height:200px}}
+  </style>
+</head>
+<body>
+<div id="app">
+  <aside class="sidebar">
+    <div class="logo"><span style="color:var(--accent);font-size:1.4rem">◆</span><b>Eliy</b><small>语音诊断</small></div>
+    <div class="phase-title">投料阶段</div>
+    <div id="phases">
+      <div class="phase-step active" data-p="INTAKE"><span class="dot"></span>信息收集</div>
+      <div class="phase-step" data-p="FRAMING"><span class="dot"></span>框架构建</div>
+      <div class="phase-step" data-p="DIAGNOSIS"><span class="dot"></span>深度诊断</div>
+      <div class="phase-step" data-p="PRESCRIPTION"><span class="dot"></span>处方建议</div>
+      <div class="phase-step" data-p="FOLLOW_UP"><span class="dot"></span>跟踪复盘</div>
+    </div>
+    <div class="phase-title" style="margin-top:1rem">能力雷达</div>
+    <canvas id="radar" width="220" height="220"></canvas>
+  </aside>
+  <main class="main">
+    <div class="avatar-area">
+      <div class="avatar-ring" id="avatarRing">
+        <div class="avatar-inner">
+          <img id="avatarImg" src="assets/eliy_avatar.png" onerror="this.style.display='none'" alt="Eliy" />
+          <canvas class="avatar-overlay" id="avatarOverlay" width="280" height="280"></canvas>
+        </div>
+      </div>
+      <div class="status-badge"><span class="sdot" id="sDot"></span><span id="sText">点击开始通话</span></div>
+    </div>
+    <div class="wave-bar idle" id="waveBar"><span></span><span></span><span></span><span></span><span></span></div>
+    <div class="subtitle" id="subtitle"></div>
+    <div class="controls">
+      <button class="call-btn start" id="callBtn" onclick="toggleCall()">📞</button>
+      <button class="mode-btn" onclick="toggleTextPanel()">💬 文字模式</button>
+    </div>
+    <div class="text-panel" id="textPanel">
+      <div class="text-msgs" id="textMsgs"></div>
+      <div class="text-input-row">
+        <input id="textInput" placeholder="输入消息..." onkeydown="if(event.key==='Enter')sendText()" />
+        <button onclick="sendText()">发送</button>
+      </div>
+    </div>
+  </main>
+</div>
+<script>
+// === 状态 ===
+const S = { calling:false, status:'idle', phase:'INTAKE', recognition:null, msgCount:0,
+  radar:{'获客能力':0,'转化效率':0,'交付质量':0,'客户留存':0,'团队能力':0,'财务健康':0},
+  breathPhase:0, headX:0, headY:0 };
+
+const WELCOME = '你好，我是 Eliy，你的商业诊断教练。我会用清晰、专业的判断帮助你分析挑战、量化瓶颈、做出投料决策。请直接告诉我：你当前面临的最大商业挑战是什么？';
+
+// === DOM ===
+const $=s=>document.querySelector(s);
+
+// === 通话控制 ===
+async function toggleCall(){
+  if(S.calling){endCall();return}
+  S.calling=true;
+  $('#callBtn').className='call-btn end';$('#callBtn').textContent='🔴';
+  setVoiceStatus('speaking');
+  await streamSubtitle(WELCOME);
+  startListening();
+}
+function endCall(){
+  S.calling=false;stopListening();
+  $('#callBtn').className='call-btn start';$('#callBtn').textContent='📞';
+  setVoiceStatus('idle');$('#subtitle').textContent='';
+}
+
+// === 语音状态 ===
+function setVoiceStatus(s){
+  S.status=s;
+  const ring=$('#avatarRing'),wb=$('#waveBar'),dot=$('#sDot'),txt=$('#sText');
+  ring.className='avatar-ring '+(s==='idle'?'':s);
+  wb.className='wave-bar '+s;
+  const map={idle:['var(--accent)','点击开始通话'],listening:['var(--success)','聆听中...'],thinking:['var(--warning)','思考中...'],speaking:['var(--info)','说话中']};
+  dot.style.background=map[s][0];txt.textContent=map[s][1];
+}
+
+// === Streaming 字幕 + TTS ===
+async function streamSubtitle(text){
+  const el=$('#subtitle');el.textContent='';
+  // 同时启动 TTS
+  speakTTS(text);
+  for(let i=0;i<text.length;i++){
+    if(!S.calling)break;
+    el.textContent=text.substring(0,i+1);
+    // 头像微动
+    S.breathPhase+=0.15;
+    const img=$('#avatarImg');
+    if(img)img.style.transform=`translate(${Math.sin(S.breathPhase*0.7)*1.5}px,${Math.sin(S.breathPhase)*1}px)`;
+    await sleep(60+Math.random()*30);
+  }
+}
+
+function speakTTS(text){
+  if(!window.speechSynthesis)return;
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang='zh-CN';u.rate=1.0;u.pitch=0.9;
+  u.onend=()=>{if(S.calling)startListening()};
+  window.speechSynthesis.speak(u);
+}
+
+// === 语音识别 ===
+function startListening(){
+  if(!S.calling)return;
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){setVoiceStatus('idle');return}
+  setVoiceStatus('listening');
+  const r=new SR();r.lang='zh-CN';r.interimResults=true;r.continuous=false;
+  r.onresult=e=>{
+    const t=Array.from(e.results).map(r=>r[0].transcript).join('');
+    $('#subtitle').textContent='🎤 '+t;
+  };
+  r.onend=()=>{
+    const t=$('#subtitle').textContent.replace('🎤 ','').trim();
+    if(t&&S.calling)processInput(t);
+  };
+  r.onerror=()=>{if(S.calling)setTimeout(startListening,500)};
+  r.start();S.recognition=r;
+}
+function stopListening(){if(S.recognition){try{S.recognition.stop()}catch(e){}S.recognition=null}}
+
+// === 处理用户输入 ===
+async function processInput(text){
+  if(!text.trim())return;
+  addTextMsg('user',text);
+  setVoiceStatus('thinking');
+  S.msgCount++;
+  silentCollect(text);drawRadar();
+  await sleep(600+Math.random()*400);
+  const resp=genResponse(text);
+  addTextMsg('assistant',resp);
+  setVoiceStatus('speaking');
+  await streamSubtitle(resp);
+  checkPhase();
+  if(S.calling)startListening();
+}
+
+// === 响应生成（MVP 模拟） ===
+function genResponse(t){
+  const R={
+    INTAKE:[
+      `收到。你提到了「${t.substring(0,15)}...」。在判断之前，我需要确认：\n1. 业务处于什么阶段？\n2. 团队多少人？\n3. 这个问题持续多久了？`,
+      `好，这是个重要的信号。但我需要数据才能给判断，不是空洞建议。你能提供月营收范围和获客成本吗？没有数据，我不会猜。`
+    ],
+    FRAMING:[`根据你提供的信息，初步假设：价值链存在瓶颈。置信度中。推翻条件：如果转化率高于行业2倍，则此假设不成立。你觉得方向对吗？`],
+    DIAGNOSIS:[`TP-Lite 分析结果：核心瓶颈在获客到转化的漏斗效率。置信度65%。依据：获客成本上升加上精力分散。这个判断需要你确认。`],
+    PRESCRIPTION:[`分阶段建议：P0立即暂停非核心渠道，P1本周量化真实获客成本，P2中期建监控。确认等级L3，需要你明确同意。`],
+    FOLLOW_UP:[`复盘时间。上次建议执行了吗？结果如何？有新瓶颈吗？`]
+  };
+  const pool=R[S.phase]||R.INTAKE;
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+
+// === 投料阶段 ===
+function checkPhase(){
+  const ps=['INTAKE','FRAMING','DIAGNOSIS','PRESCRIPTION','FOLLOW_UP'];
+  const i=ps.indexOf(S.phase);
+  if(S.msgCount>0&&S.msgCount%3===0&&i<ps.length-1){
+    S.phase=ps[i+1];
+    document.querySelectorAll('.phase-step').forEach((el,j)=>{
+      el.classList.remove('active','done');
+      if(j<i+1)el.classList.add('done');
+      if(j===i+1)el.classList.add('active');
+    });
+  }
+}
+
+// === Silent 能力采集 ===
+function silentCollect(t){
+  if(t.length>50)S.radar['获客能力']=Math.min(1,S.radar['获客能力']+.06);
+  if(/收入|营收|利润|成本/.test(t))S.radar['财务健康']=Math.min(1,S.radar['财务健康']+.1);
+  if(/团队|员工|招聘/.test(t))S.radar['团队能力']=Math.min(1,S.radar['团队能力']+.1);
+  if(/客户|用户|留存/.test(t))S.radar['客户留存']=Math.min(1,S.radar['客户留存']+.1);
+  Object.keys(S.radar).forEach(k=>{S.radar[k]=Math.min(1,S.radar[k]+Math.random()*.03)});
+}
+
+// === 雷达图 ===
+function drawRadar(){
+  const c=document.getElementById('radar');if(!c)return;
+  const x=c.getContext('2d'),w=c.width,h=c.height,cx=w/2,cy=h/2,r=w*.35;
+  const labels=Object.keys(S.radar),vals=Object.values(S.radar),n=labels.length,st=Math.PI*2/n;
+  x.clearRect(0,0,w,h);
+  for(let lv=1;lv<=5;lv++){const lr=r*lv/5;x.beginPath();for(let i=0;i<=n;i++){const a=i*st-Math.PI/2,px=cx+lr*Math.cos(a),py=cy+lr*Math.sin(a);i?x.lineTo(px,py):x.moveTo(px,py)}x.closePath();x.strokeStyle='rgba(42,51,80,.5)';x.stroke()}
+  x.font='10px Inter,sans-serif';x.fillStyle='#8892a8';x.textAlign='center';
+  for(let i=0;i<n;i++){const a=i*st-Math.PI/2;x.fillText(labels[i],cx+(r+18)*Math.cos(a),cy+(r+18)*Math.sin(a)+4)}
+  x.beginPath();for(let i=0;i<=n;i++){const a=(i%n)*st-Math.PI/2,v=vals[i%n],px=cx+r*v*Math.cos(a),py=cy+r*v*Math.sin(a);i?x.lineTo(px,py):x.moveTo(px,py)}
+  x.closePath();x.fillStyle='rgba(91,106,191,.2)';x.fill();x.strokeStyle='#5b6abf';x.lineWidth=2;x.stroke();
+}
+
+// === 文字模式 ===
+function toggleTextPanel(){$('#textPanel').classList.toggle('open')}
+function sendText(){const i=$('#textInput');const t=i.value.trim();if(!t)return;i.value='';processInput(t)}
+function addTextMsg(role,text){
+  const d=document.createElement('div');d.className='msg '+role;d.textContent=text;
+  $('#textMsgs').appendChild(d);$('#textMsgs').scrollTop=$('#textMsgs').scrollHeight;
+}
+
+function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+drawRadar();
+</script>
+</body>
+</html>
