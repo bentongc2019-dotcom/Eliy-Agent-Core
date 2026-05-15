@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Eliy Agent — 商业诊断教练，帮助创业者看清问题、做出判断">
+  <title>Eliy Agent — 商业诊断教练</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 侧边栏：投料阶段 + 雷达图 -->
+    <aside id="sidebar">
+      <div class="logo">
+        <span class="logo-icon">◆</span>
+        <span class="logo-text">Eliy</span>
+        <span class="logo-tag">诊断教练</span>
+      </div>
+
+      <!-- 投料阶段进度 -->
+      <div class="phase-section">
+        <h3>投料阶段</h3>
+        <div class="phase-steps" id="phaseSteps">
+          <div class="phase-step active" data-phase="INTAKE"><span class="dot"></span>信息收集</div>
+          <div class="phase-step" data-phase="FRAMING"><span class="dot"></span>框架构建</div>
+          <div class="phase-step" data-phase="DIAGNOSIS"><span class="dot"></span>深度诊断</div>
+          <div class="phase-step" data-phase="PRESCRIPTION"><span class="dot"></span>处方建议</div>
+          <div class="phase-step" data-phase="FOLLOW_UP"><span class="dot"></span>跟踪复盘</div>
+        </div>
+      </div>
+
+      <!-- 能力雷达图 -->
+      <div class="radar-section">
+        <h3>能力雷达</h3>
+        <canvas id="radarCanvas" width="280" height="280"></canvas>
+      </div>
+
+      <!-- 诊断报告入口 -->
+      <button class="report-btn" id="generateReport" disabled>
+        📊 生成诊断报告
+      </button>
+    </aside>
+
+    <!-- 主聊天区 -->
+    <main id="chatMain">
+      <!-- 顶栏 -->
+      <header class="chat-header">
+        <div class="header-left">
+          <button class="menu-toggle" id="menuToggle">☰</button>
+          <h2>商业诊断对话</h2>
+        </div>
+        <div class="header-right">
+          <span class="status-dot" id="statusDot"></span>
+          <span id="statusText">就绪</span>
+        </div>
+      </header>
+
+      <!-- 消息列表 -->
+      <div class="messages" id="messageList">
+        <div class="message assistant">
+          <div class="avatar">E</div>
+          <div class="bubble">
+            <p>你好，我是 <strong>Eliy</strong>，你的商业诊断教练。</p>
+            <p>我不会给你空洞的鼓励。我会帮你看清问题、量化瓶颈、做出有依据的判断。</p>
+            <p>先告诉我：<strong>你现在面临的最大挑战是什么？</strong></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- HITL 确认区 -->
+      <div class="hitl-bar" id="hitlBar" style="display:none">
+        <div class="hitl-content" id="hitlContent"></div>
+        <div class="hitl-actions">
+          <button class="hitl-btn approve" onclick="hitlRespond('APPROVE')">✅ 确认</button>
+          <button class="hitl-btn modify" onclick="hitlRespond('MODIFY')">🔄 调整</button>
+          <button class="hitl-btn reject" onclick="hitlRespond('REJECT')">❌ 拒绝</button>
+        </div>
+      </div>
+
+      <!-- 输入区 -->
+      <div class="input-area">
+        <button class="voice-btn" id="voiceBtn" title="语音输入">🎤</button>
+        <textarea id="userInput" placeholder="描述你的商业问题..." rows="1"></textarea>
+        <button class="send-btn" id="sendBtn">发送</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- 诊断报告弹窗 -->
+  <div class="modal-overlay" id="reportModal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>📊 商业诊断报告</h2>
+        <button class="modal-close" onclick="closeReport()">✕</button>
+      </div>
+      <iframe id="reportFrame" src="" style="width:100%;height:calc(100% - 60px);border:none"></iframe>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
