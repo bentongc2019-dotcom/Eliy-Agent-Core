@@ -151,6 +151,7 @@
 </div>
 
 <!-- 引入语音引擎 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsrsasign/10.9.0/jsrsasign-all-min.js"></script>
 <script src="./google-tts.js"></script>
 <script src="./azure-tts.js"></script>
 <script src="./edge-tts.js"></script>
@@ -181,31 +182,52 @@ async function loadSettings() {
   if (key && region) {
     azureEngine = new AzureTTS(key, region);
     console.log('[TTS] 已配置 Azure Speech Services');
+    updateSettingsStatus('已连接 Azure Speech', true);
   } else if (key && !region) {
     googleEngine = new GoogleTTS(key);
-    console.log('[TTS] 已配置 Google Cloud Speech API');
+    console.log('[TTS] 已手动配置 Google Cloud API Key');
+    updateSettingsStatus('已连接 Google Cloud', true);
   }
   
   // 尝试自动读取 config/google-speech-key.json
   if (!googleEngine && !azureEngine) {
     try {
-      // 兼容根目录或前端同级目录的 config
       const res = await fetch('../../config/google-speech-key.json').catch(() => fetch('./config/google-speech-key.json'));
       if (res && res.ok) {
         const json = await res.json();
         const apiKey = json.api_key || json.API_KEY || json.key;
+        
         if (apiKey) {
           googleEngine = new GoogleTTS(apiKey);
-          console.log('[TTS] 成功从 json 自动加载 Google Cloud API Key');
+          console.log('[TTS] 成功从 json 自动加载 Google API Key');
+          updateSettingsStatus('已连接 Google Cloud (API Key)', true);
+        } else if (json.private_key && json.client_email) {
+          // 传入整个 Service Account JSON
+          googleEngine = new GoogleTTS(json);
+          console.log('[TTS] 成功从 json 自动加载 Service Account 密钥，即将生成 OAuth Token');
+          updateSettingsStatus('已连接 Google Cloud (Service Account)', true);
         } else {
-          console.warn('[TTS] JSON 中未找到有效的 API Key 字段。如果使用 Service Account JSON，需要提供 apiKey 才能在纯前端直接调用 REST API。');
+          console.warn('[TTS] JSON 格式不支持');
+          updateSettingsStatus('密钥格式不支持，已降级 Edge TTS', false);
         }
+      } else {
+        updateSettingsStatus('未检测到配置，使用 Edge TTS 兜底', false);
       }
     } catch(e) {
       console.log('[TTS] 未找到 config/google-speech-key.json 文件，将使用 Edge TTS 兜底');
+      updateSettingsStatus('未检测到配置，使用 Edge TTS 兜底', false);
     }
   }
 }
+
+function updateSettingsStatus(msg, isSuccess) {
+  const title = document.querySelector('#settingsPanel div');
+  if(title) {
+    title.textContent = msg;
+    title.style.color = isSuccess ? 'var(--success)' : 'var(--warning)';
+  }
+}
+
 loadSettings();
 
 function toggleSettings() { $('#settingsPanel').classList.toggle('open'); }

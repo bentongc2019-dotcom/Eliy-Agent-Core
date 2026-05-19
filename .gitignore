@@ -26,3 +26,4 @@ logs/
 # 运行时缓存
 .cache/
 tmp/
+\n# Ignore Google Speech secrets\nfrontend/webchat/config/google-speech-key.json\nfrontend/webchat/config/google-speech-key.json.json
