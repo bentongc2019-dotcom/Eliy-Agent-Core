@@ -189,13 +189,17 @@ async function loadSettings() {
     updateSettingsStatus('已连接 Google Cloud', true);
   }
   
-  // 尝试自动读取 config/google-speech-key.json
+  // 尝试自动读取 config/google-api-key.json 或 config/google-speech-key.json
   if (!googleEngine && !azureEngine) {
     try {
-      const res = await fetch('../../config/google-speech-key.json').catch(() => fetch('./config/google-speech-key.json'));
+      let res = await fetch('./config/google-api-key.json').catch(() => null);
+      if (!res || !res.ok) {
+        res = await fetch('./config/google-speech-key.json').catch(() => null);
+      }
+      
       if (res && res.ok) {
         const json = await res.json();
-        const apiKey = json.api_key || json.API_KEY || json.key;
+        const apiKey = json.apiKey || json.api_key || json.API_KEY || json.key;
         
         if (apiKey) {
           googleEngine = new GoogleTTS(apiKey);
@@ -214,7 +218,7 @@ async function loadSettings() {
         updateSettingsStatus('未检测到配置，使用 Edge TTS 兜底', false);
       }
     } catch(e) {
-      console.log('[TTS] 未找到 config/google-speech-key.json 文件，将使用 Edge TTS 兜底');
+      console.log('[TTS] 未找到配置文件，将使用 Edge TTS 兜底');
       updateSettingsStatus('未检测到配置，使用 Edge TTS 兜底', false);
     }
   }
