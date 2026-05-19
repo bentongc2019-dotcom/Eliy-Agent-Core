@@ -113,7 +113,16 @@
   <main class="main">
     <button class="settings-btn" onclick="toggleSettings()">⚙️</button>
     <div class="settings-panel" id="settingsPanel">
-      <div style="font-size:0.8rem;color:var(--text-muted);">Google Cloud / Azure 语音配置</div>
+      <div style="font-size:0.8rem;color:var(--text-muted);">大模型配置 (LLM)</div>
+      <select id="llmModelSelect" style="background:var(--navy-900);border:1px solid var(--border);color:white;padding:0.5rem;border-radius:4px;font-size:0.8rem;width:200px;">
+        <option value="DeepSeek">DeepSeek V4 (deepseek-chat)</option>
+        <option value="DeepSeekReasoner">DeepSeek Reasoner</option>
+        <option value="Google">Google / Azure</option>
+        <option value="OpenAI">OpenAI</option>
+        <option value="Anthropic">Anthropic</option>
+      </select>
+      
+      <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem;">Google Cloud / Azure 语音配置</div>
       <input type="text" id="azureKey" placeholder="输入 Google API Key 或 Azure Key" />
       <input type="text" id="azureRegion" placeholder="Region (如果是 Azure)" />
       <button onclick="saveSettings()" style="color:var(--navy-900);font-weight:600;">保存配置</button>
@@ -174,11 +183,17 @@ let azureEngine = null;
 let googleEngine = null;
 
 async function loadSettings() {
+  const llmModel = localStorage.getItem('LLM_MODEL') || 'DeepSeek';
+  $('#llmModelSelect').value = llmModel;
+
   const key = localStorage.getItem('AZURE_TTS_KEY') || '';
   const region = localStorage.getItem('AZURE_TTS_REGION') || '';
   $('#azureKey').value = key;
   $('#azureRegion').value = region;
   
+  // 将所选的大模型同步到后端 (由于当前是MVP前端模拟，我们仅做控制台记录)
+  console.log(`[LLM] 已切换大模型后端至: ${llmModel}`);
+
   if (key && region) {
     azureEngine = new AzureTTS(key, region);
     console.log('[TTS] 已配置 Azure Speech Services');
@@ -236,6 +251,7 @@ loadSettings();
 
 function toggleSettings() { $('#settingsPanel').classList.toggle('open'); }
 function saveSettings() {
+  localStorage.setItem('LLM_MODEL', $('#llmModelSelect').value);
   localStorage.setItem('AZURE_TTS_KEY', $('#azureKey').value.trim());
   localStorage.setItem('AZURE_TTS_REGION', $('#azureRegion').value.trim());
   loadSettings();

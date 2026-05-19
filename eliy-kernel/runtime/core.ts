@@ -17,7 +17,10 @@ import { SessionManager, type SessionState } from './session.js';
 
 // === 配置 ===
 export interface EliyRuntimeConfig {
-  llm: LLMAdapter;
+  llms?: Record<string, LLMAdapter>;
+  activeLlmId?: string;
+  // 保留向后兼容性
+  llm?: LLMAdapter;
   llmGovernance?: LLMGovernanceHook;
   ui: UIAdapter;
   relationalStorage?: RelationalStorage;
@@ -33,6 +36,8 @@ export type RuntimeStatus = 'IDLE' | 'INITIALIZING' | 'RUNNING' | 'ERROR' | 'SHU
 export class EliyRuntime {
   private status: RuntimeStatus = 'IDLE';
   private config: EliyRuntimeConfig;
+  private activeLlm: LLMAdapter;
+  private llms: Record<string, LLMAdapter> = {};
   private governance: LLMGovernanceHook;
   private toolExecutor: ToolExecutor;
   private sessionManager: SessionManager;
@@ -43,6 +48,29 @@ export class EliyRuntime {
 
   constructor(config: EliyRuntimeConfig) {
     this.config = config;
+    
+    // 初始化 LLM 集合
+    if (config.llms) {
+      this.llms = config.llms;
+    }
+    if (config.llm) {
+      this.llms[config.llm.name] = config.llm;
+    }
+    
+    // 确定当前激活的 LLM
+    if (config.activeLlmId && this.llms[config.activeLlmId]) {
+      this.activeLlm = this.llms[config.activeLlmId];
+    } else if (config.llm) {
+      this.activeLlm = config.llm;
+    } else {
+      const availableKeys = Object.keys(this.llms);
+      if (availableKeys.length > 0) {
+        this.activeLlm = this.llms[availableKeys[0]];
+      } else {
+        throw new Error('EliyRuntime: 必须提供至少一个 LLM 适配器');
+      }
+    }
+
     this.governance = config.llmGovernance ?? new DefaultLLMGovernance();
     this.toolExecutor = new ToolExecutor();
     this.sessionManager = new SessionManager(config.relationalStorage);
@@ -52,15 +80,30 @@ export class EliyRuntime {
   // === 生命周期 ===
   async start(): Promise<void> {
     this.status = 'INITIALIZING';
-    const llmHealth = await this.config.llm.healthCheck();
-    if (!llmHealth.available) console.warn(`[Runtime] ⚠️ LLM 不可用: ${llmHealth.error}`);
+    const llmHealth = await this.activeLlm.healthCheck();
+    if (!llmHealth.available) console.warn(`[Runtime] ⚠️ LLM (${this.activeLlm.name}) 不可用: ${llmHealth.error}`);
     if (this.config.relationalStorage) {
       const db = await this.config.relationalStorage.healthCheck();
       if (!db.connected) console.warn('[Runtime] ⚠️ DB 不可用，降级为内存模式');
     }
     this.setupUIEventHandlers();
     this.status = 'RUNNING';
-    console.log(`[Runtime] ✅ 启动完成 | LLM: ${this.config.llm.name} | UI: ${this.config.ui.name}`);
+    console.log(`[Runtime] ✅ 启动完成 | LLM: ${this.activeLlm.name} | UI: ${this.config.ui.name}`);
+  }
+
+  // === 运行时模型切换 ===
+  public switchLLM(adapterName: string): boolean {
+    if (this.llms[adapterName]) {
+      this.activeLlm = this.llms[adapterName];
+      console.log(`[Runtime] 🔄 成功切换 LLM 为: ${adapterName}`);
+      return true;
+    }
+    console.warn(`[Runtime] ⚠️ 无法切换 LLM: 找不到 ${adapterName}`);
+    return false;
+  }
+  
+  public getActiveLLM(): LLMAdapter {
+    return this.activeLlm;
   }
 
   async shutdown(): Promise<void> {
@@ -81,6 +124,12 @@ export class EliyRuntime {
           case 'HITL_CONFIRM': await this.handleHITLConfirm(event.judgmentId, event.decision, event.modification); break;
           case 'RADAR_ADJUST': await this.handleRadarAdjust(event.dimension, event.newScore); break;
           case 'SESSION_END': await this.handleSessionEnd(); break;
+          // 新增支持前端事件发送切换 LLM 的情况
+          case 'SWITCH_LLM':
+            if ((event as any).adapterName) {
+              this.switchLLM((event as any).adapterName);
+            }
+            break;
         }
       } catch (err) {
         this.emitToUI({ type: 'ERROR', message: err instanceof Error ? err.message : '未知错误', recoverable: true });
@@ -181,11 +230,11 @@ export class EliyRuntime {
   private async streamLLMResponse(request: LLMRequest): Promise<void> {
     let full = '';
     try {
-      for await (const chunk of this.config.llm.stream(request)) {
+      for await (const chunk of this.activeLlm.stream(request)) {
         full += chunk.content;
         this.emitToUI({ type: 'TEXT_CHUNK', content: chunk.content, done: chunk.done });
         if (chunk.done) {
-          this.governance.postCallCheck(request, { content: full, model: this.config.llm.defaultModel, usage: chunk.usage ?? { promptTokens: 0, completionTokens: 0, totalTokens: 0 }, finishReason: 'stop', latencyMs: 0 });
+          this.governance.postCallCheck(request, { content: full, model: this.activeLlm.defaultModel, usage: chunk.usage ?? { promptTokens: 0, completionTokens: 0, totalTokens: 0 }, finishReason: 'stop', latencyMs: 0 });
         }
       }
       if (this.config.tts && full.length < 500) {
