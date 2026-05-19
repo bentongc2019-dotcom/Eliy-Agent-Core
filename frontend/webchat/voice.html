@@ -6,7 +6,7 @@
   <title>Eliy — 实时语音通话</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root{--navy-900:#0a0e1a;--navy-800:#111827;--navy-700:#1a2138;--navy-600:#232d4a;--border:#2a3350;--text:#e8eaf0;--text-muted:#8892a8;--accent:#5b6abf;--accent-glow:rgba(91,106,191,0.3);--success:#34d399;--warning:#fbbf24;--danger:#f87171;--info:#60a5fa;--font:'Inter',sans-serif}
+    :root{--navy-900:#1E0F3A;--navy-800:#2D1B4A;--navy-700:#3D2561;--navy-600:#4B2E78;--border:#4B2E78;--text:#FDFBFF;--text-muted:#D1C5E5;--accent:#F5C518;--accent-glow:rgba(245,197,24,0.3);--success:#34d399;--warning:#F5C518;--danger:#f87171;--info:#F5C518;--font:'Inter',sans-serif}
     *{margin:0;padding:0;box-sizing:border-box}
     html,body{height:100%;font-family:var(--font);background:var(--navy-900);color:var(--text)}
     #app{display:flex;height:100vh}
@@ -28,7 +28,7 @@
     .main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:hidden}
 
     /* 背景粒子 */
-    .main::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 40%,rgba(91,106,191,.08) 0%,transparent 70%);pointer-events:none}
+    .main::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 40%,rgba(245,197,24,.08) 0%,transparent 70%);pointer-events:none}
 
     /* 头像区 */
     .avatar-area{position:relative;margin-bottom:2rem}
@@ -54,9 +54,9 @@
     .call-btn.end{background:var(--danger);color:#fff;box-shadow:0 0 20px rgba(248,113,113,.3)}
     .call-btn.end:hover{transform:scale(1.08)}
     
-    .mode-btn{display:flex;align-items:center;gap:0.5rem;background:var(--navy-700);border:1px solid var(--border);color:var(--text-muted);padding:.6rem 1.2rem;border-radius:8px;font-size:.85rem;cursor:pointer;transition:all .2s;font-weight:500;}
-    .mode-btn:hover{background:var(--navy-600);color:var(--text)}
-    .mode-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+    .mode-btn{display:flex;align-items:center;gap:0.5rem;background:var(--navy-700);border:1px solid var(--border);color:var(--text);padding:.6rem 1.2rem;border-radius:8px;font-size:.85rem;cursor:pointer;transition:all .2s;font-weight:500;}
+    .mode-btn:hover{background:var(--navy-600);color:var(--accent)}
+    .mode-btn.active{background:var(--accent);color:var(--navy-900);border-color:var(--accent);}
 
     /* 声波动画 */
     .wave-bar{display:flex;align-items:center;gap:4px;height:32px;margin-top:1rem;min-width:60px;justify-content:center;}
@@ -80,7 +80,7 @@
     .text-input-row button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:0 1.5rem;cursor:pointer;font-size:.9rem;font-weight:600;transition:background 0.2s;}
     .text-input-row button:hover{background:#6f7ed4;}
     .msg{max-width:85%;padding:.8rem 1rem;border-radius:12px;font-size:.9rem;line-height:1.6;animation:fadeUp .3s}
-    .msg.user{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:2px;}
+    .msg.user{align-self:flex-end;background:var(--accent);color:var(--navy-900);border-bottom-right-radius:2px;font-weight:500;}
     .msg.assistant{align-self:flex-start;background:var(--navy-700);border:1px solid var(--border);border-bottom-left-radius:2px;}
     
     /* 设置面板 */
@@ -113,16 +113,16 @@
   <main class="main">
     <button class="settings-btn" onclick="toggleSettings()">⚙️</button>
     <div class="settings-panel" id="settingsPanel">
-      <div style="font-size:0.8rem;color:var(--text-muted);">Azure Speech 配置 (留空则使用 Edge TTS)</div>
-      <input type="text" id="azureKey" placeholder="Azure Subscription Key" />
-      <input type="text" id="azureRegion" placeholder="Region (例如: eastasia)" />
-      <button onclick="saveSettings()">保存配置</button>
+      <div style="font-size:0.8rem;color:var(--text-muted);">Google Cloud / Azure 语音配置</div>
+      <input type="text" id="azureKey" placeholder="输入 Google API Key 或 Azure Key" />
+      <input type="text" id="azureRegion" placeholder="Region (如果是 Azure)" />
+      <button onclick="saveSettings()" style="color:var(--navy-900);font-weight:600;">保存配置</button>
     </div>
 
     <div class="avatar-area">
       <div class="avatar-ring" id="avatarRing">
         <div class="avatar-inner">
-          <img id="avatarImg" src="./assets/eli_y_avatar.png?v=3" onerror="this.src='data:image/svg+xml,' + encodeURIComponent('<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;280&quot; height=&quot;280&quot; viewBox=&quot;0 0 280 280&quot;><defs><radialGradient id=&quot;bg&quot; cx=&quot;50%&quot; cy=&quot;40%&quot;><stop offset=&quot;0%&quot; stop-color=&quot;#1a2138&quot;/><stop offset=&quot;100%&quot; stop-color=&quot;#0a0e1a&quot;/></radialGradient><linearGradient id=&quot;g&quot; x1=&quot;0&quot; y1=&quot;0&quot; x2=&quot;1&quot; y2=&quot;1&quot;><stop offset=&quot;0%&quot; stop-color=&quot;#5b6abf&quot;/><stop offset=&quot;100%&quot; stop-color=&quot;#8b5cf6&quot;/></linearGradient></defs><rect width=&quot;280&quot; height=&quot;280&quot; fill=&quot;url(#bg)&quot;/><circle cx=&quot;140&quot; cy=&quot;100&quot; r=&quot;50&quot; fill=&quot;url(#g)&quot; opacity=&quot;.15&quot;/><text x=&quot;140&quot; y=&quot;125&quot; text-anchor=&quot;middle&quot; font-family=&quot;Inter,sans-serif&quot; font-size=&quot;72&quot; font-weight=&quot;700&quot; fill=&quot;url(#g)&quot;>E</text><text x=&quot;140&quot; y=&quot;175&quot; text-anchor=&quot;middle&quot; font-family=&quot;Inter,sans-serif&quot; font-size=&quot;14&quot; fill=&quot;#8892a8&quot;>诊断教练</text></svg>')" alt="Eliy" />
+          <img id="avatarImg" src="./assets/eli_y_avatar.png?v=3" onerror="this.src='data:image/svg+xml,' + encodeURIComponent('<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;280&quot; height=&quot;280&quot; viewBox=&quot;0 0 280 280&quot;><defs><radialGradient id=&quot;bg&quot; cx=&quot;50%&quot; cy=&quot;40%&quot;><stop offset=&quot;0%&quot; stop-color=&quot;#2D1B4A&quot;/><stop offset=&quot;100%&quot; stop-color=&quot;#1E0F3A&quot;/></radialGradient><linearGradient id=&quot;g&quot; x1=&quot;0&quot; y1=&quot;0&quot; x2=&quot;1&quot; y2=&quot;1&quot;><stop offset=&quot;0%&quot; stop-color=&quot;#F5C518&quot;/><stop offset=&quot;100%&quot; stop-color=&quot;#FFD700&quot;/></linearGradient></defs><rect width=&quot;280&quot; height=&quot;280&quot; fill=&quot;url(#bg)&quot;/><circle cx=&quot;140&quot; cy=&quot;100&quot; r=&quot;50&quot; fill=&quot;url(#g)&quot; opacity=&quot;.15&quot;/><text x=&quot;140&quot; y=&quot;125&quot; text-anchor=&quot;middle&quot; font-family=&quot;Inter,sans-serif&quot; font-size=&quot;72&quot; font-weight=&quot;700&quot; fill=&quot;url(#g)&quot;>E</text><text x=&quot;140&quot; y=&quot;175&quot; text-anchor=&quot;middle&quot; font-family=&quot;Inter,sans-serif&quot; font-size=&quot;14&quot; fill=&quot;#F5C518&quot;>诊断教练</text></svg>')" alt="Eliy" />
           <canvas class="avatar-overlay" id="avatarOverlay" width="280" height="280"></canvas>
         </div>
       </div>
@@ -151,6 +151,7 @@
 </div>
 
 <!-- 引入语音引擎 -->
+<script src="./google-tts.js"></script>
 <script src="./azure-tts.js"></script>
 <script src="./edge-tts.js"></script>
 <script>
@@ -169,15 +170,40 @@ const $ = s => document.querySelector(s);
 // === TTS 引擎初始化 ===
 const edgeEngine = new EdgeTTS('zh-CN-YunjianNeural', '+0%', '-2Hz', '+0%');
 let azureEngine = null;
+let googleEngine = null;
 
-function loadSettings() {
+async function loadSettings() {
   const key = localStorage.getItem('AZURE_TTS_KEY') || '';
   const region = localStorage.getItem('AZURE_TTS_REGION') || '';
   $('#azureKey').value = key;
   $('#azureRegion').value = region;
+  
   if (key && region) {
     azureEngine = new AzureTTS(key, region);
     console.log('[TTS] 已配置 Azure Speech Services');
+  } else if (key && !region) {
+    googleEngine = new GoogleTTS(key);
+    console.log('[TTS] 已配置 Google Cloud Speech API');
+  }
+  
+  // 尝试自动读取 config/google-speech-key.json
+  if (!googleEngine && !azureEngine) {
+    try {
+      // 兼容根目录或前端同级目录的 config
+      const res = await fetch('../../config/google-speech-key.json').catch(() => fetch('./config/google-speech-key.json'));
+      if (res && res.ok) {
+        const json = await res.json();
+        const apiKey = json.api_key || json.API_KEY || json.key;
+        if (apiKey) {
+          googleEngine = new GoogleTTS(apiKey);
+          console.log('[TTS] 成功从 json 自动加载 Google Cloud API Key');
+        } else {
+          console.warn('[TTS] JSON 中未找到有效的 API Key 字段。如果使用 Service Account JSON，需要提供 apiKey 才能在纯前端直接调用 REST API。');
+        }
+      }
+    } catch(e) {
+      console.log('[TTS] 未找到 config/google-speech-key.json 文件，将使用 Edge TTS 兜底');
+    }
   }
 }
 loadSettings();
@@ -405,7 +431,13 @@ async function streamSubtitle(text){
 
   // 1. 发起 TTS 请求
   let audioPromise = null;
-  if (azureEngine) {
+  if (googleEngine) {
+    console.log('[TTS] 使用 Google Cloud Neural TTS');
+    audioPromise = googleEngine.speak(text).catch(e => {
+      console.warn('[TTS] Google 失败，降级 Edge', e);
+      return playEdgeTTS(text);
+    });
+  } else if (azureEngine) {
     console.log('[TTS] 使用 Azure Speech Services');
     audioPromise = azureEngine.speak(text).catch(e => {
       console.warn('[TTS] Azure 失败，降级 Edge', e);
@@ -540,7 +572,7 @@ function drawRadar(){
   x.font='10px Inter,sans-serif';x.fillStyle='#8892a8';x.textAlign='center';
   for(let i=0;i<n;i++){const a=i*st-Math.PI/2;x.fillText(labels[i],cx+(r+18)*Math.cos(a),cy+(r+18)*Math.sin(a)+4)}
   x.beginPath();for(let i=0;i<=n;i++){const a=(i%n)*st-Math.PI/2,v=vals[i%n],px=cx+r*v*Math.cos(a),py=cy+r*v*Math.sin(a);i?x.lineTo(px,py):x.moveTo(px,py)}
-  x.closePath();x.fillStyle='rgba(91,106,191,.2)';x.fill();x.strokeStyle='#5b6abf';x.lineWidth=2;x.stroke();
+  x.closePath();x.fillStyle='rgba(245,197,24,.2)';x.fill();x.strokeStyle='#F5C518';x.lineWidth=2;x.stroke();
 }
 
 // === 文字模式 ===
