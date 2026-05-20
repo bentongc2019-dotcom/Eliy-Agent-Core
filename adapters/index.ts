@@ -15,6 +15,7 @@ export { OpenAIAdapter } from './llm/openai.js';
 export { AnthropicAdapter } from './llm/anthropic.js';
 export { LocalLLMAdapter } from './llm/local.js';
 export { DeepSeekAdapter } from './llm/deepseek.js';
+export { BaseLLMAdapter } from './llm/base.js';
 
 // === 工具适配器 ===
 export type {

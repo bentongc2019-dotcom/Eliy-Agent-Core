@@ -121,6 +121,9 @@
         <option value="OpenAI">OpenAI</option>
         <option value="Anthropic">Anthropic</option>
       </select>
+
+      <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem;">DeepSeek API Key 密钥配置</div>
+      <input type="password" id="deepseekKey" placeholder="输入 sk-your-deepseek-api-key-here" style="background:var(--navy-900);border:1px solid var(--border);color:white;padding:0.5rem;border-radius:4px;font-size:0.8rem;width:200px;" />
       
       <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem;">Google Cloud / Azure 语音配置</div>
       <input type="text" id="azureKey" placeholder="输入 Google API Key 或 Azure Key" />
@@ -190,6 +193,9 @@ async function loadSettings() {
   const region = localStorage.getItem('AZURE_TTS_REGION') || '';
   $('#azureKey').value = key;
   $('#azureRegion').value = region;
+
+  const dsKey = localStorage.getItem('DEEPSEEK_API_KEY') || '';
+  $('#deepseekKey').value = dsKey;
   
   // 将所选的大模型同步到后端 (由于当前是MVP前端模拟，我们仅做控制台记录)
   console.log(`[LLM] 已切换大模型后端至: ${llmModel}`);
@@ -252,6 +258,7 @@ loadSettings();
 function toggleSettings() { $('#settingsPanel').classList.toggle('open'); }
 function saveSettings() {
   localStorage.setItem('LLM_MODEL', $('#llmModelSelect').value);
+  localStorage.setItem('DEEPSEEK_API_KEY', $('#deepseekKey').value.trim());
   localStorage.setItem('AZURE_TTS_KEY', $('#azureKey').value.trim());
   localStorage.setItem('AZURE_TTS_REGION', $('#azureRegion').value.trim());
   loadSettings();

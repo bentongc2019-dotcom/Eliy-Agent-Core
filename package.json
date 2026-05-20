@@ -1,6 +1,6 @@
 {
   "name": "eliy-agent-core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Eliy Agent Core — 主体型商业系统 Agent，帮助创业者进行判断、控制投料、复盘进化的商业诊断与决策系统",
   "type": "module",
   "main": "dist/index.js",
