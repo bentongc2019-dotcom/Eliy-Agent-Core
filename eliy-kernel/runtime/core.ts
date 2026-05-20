@@ -126,8 +126,8 @@ export class EliyRuntime {
           case 'SESSION_END': await this.handleSessionEnd(); break;
           // 新增支持前端事件发送切换 LLM 的情况
           case 'SWITCH_LLM':
-            if ((event as any).adapterName) {
-              this.switchLLM((event as any).adapterName);
+            if (event.adapterName) {
+              this.switchLLM(event.adapterName);
             }
             break;
         }
@@ -200,19 +200,19 @@ export class EliyRuntime {
 
   // === 方法论执行 ===
   async runTPLite(input: MethodologyInput): Promise<MethodologyOutput> {
-    const r = this.tpLite.execute(input);
+    const r = await this.tpLite.execute(input);
     this.sessionManager.recordMethodologyExecution(r.executionId);
-    r.pendingUserConfirmation.forEach(jId => {
-      const j = r.judgments.find(x => x.id === jId);
+    r.pendingUserConfirmation.forEach((jId: string) => {
+      const j = r.judgments.find((x: any) => x.id === jId);
       if (j) this.emitToUI({ type: 'JUDGMENT_PENDING', judgmentId: j.id, statement: j.statement, confidence: j.confidence.level });
     });
     return r;
   }
   async runSFocus(input: MethodologyInput): Promise<MethodologyOutput> {
-    const r = this.sFocus.execute(input); this.sessionManager.recordMethodologyExecution(r.executionId); return r;
+    const r = await this.sFocus.execute(input); this.sessionManager.recordMethodologyExecution(r.executionId); return r;
   }
   async runHaystack(input: MethodologyInput): Promise<MethodologyOutput> {
-    const r = this.haystack.execute(input); this.sessionManager.recordMethodologyExecution(r.executionId); return r;
+    const r = await this.haystack.execute(input); this.sessionManager.recordMethodologyExecution(r.executionId); return r;
   }
 
   // === 内部辅助 ===

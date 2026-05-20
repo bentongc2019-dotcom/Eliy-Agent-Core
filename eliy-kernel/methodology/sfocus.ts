@@ -102,7 +102,7 @@ function stepScan(input: MethodologyInput): {
       healthScore,
       keyMetrics: relatedDataPoints.map(dp => ({
         name: dp.key,
-        value: dp.value,
+        value: typeof dp.value === 'boolean' ? String(dp.value) : dp.value,
         trend: 'UNKNOWN' as const,
       })),
       signals: extractSignals(dim, input),

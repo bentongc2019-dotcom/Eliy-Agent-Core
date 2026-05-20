@@ -27,7 +27,8 @@ export type UIInputEvent =
   | { type: 'RADAR_ADJUST'; dimension: string; newScore: number }
   | { type: 'PHASE_INQUIRY'; question: string }
   | { type: 'SESSION_START'; userId: string }
-  | { type: 'SESSION_END' };
+  | { type: 'SESSION_END' }
+  | { type: 'SWITCH_LLM'; adapterName: string };
 
 /** Eliy Kernel → UI 的事件 */
 export type UIOutputEvent =

@@ -135,7 +135,7 @@ export class WebAudioVisemeGenerator {
       return { visemeId: 'sil', duration: 33, amplitude: 0, timestamp: Date.now() };
     }
 
-    this.analyser.getByteFrequencyData(this.dataArray);
+    this.analyser.getByteFrequencyData(this.dataArray as any);
 
     // 计算频段能量
     const low = this.bandEnergy(0, 4);      // 低频 (嘴唇振动)
