@@ -220,7 +220,7 @@
     <div class="settings-panel" id="settingsPanel">
       <div class="settings-header">
         <span class="settings-title">⚙️ 配置控制台</span>
-        <span class="settings-status-indicator" id="settingsStatus">未檢測到配置，使用 Edge TTS 兜底</span>
+        <span class="settings-status-indicator" id="settingsStatus">已連線至語音引擎</span>
         <span class="settings-status-indicator" id="hacStatus" style="margin-top: 0.2rem; font-size: 0.75rem;">⏳ 正在載入 HAC 憲法...</span>
       </div>
       
@@ -240,18 +240,6 @@
           <option value="zh-CN-YunxiNeural">活潑男聲 (雲希)</option>
           <option value="zh-CN-XiaoyiNeural">溫柔女聲 (曉依)</option>
         </select>
-      </div>
-
-      <!-- 下列敏感金鑰輸入欄位只在環境變數不存在時才顯示作為備用 -->
-      <div class="setting-item key-input-group" id="deepseekKeyGroup">
-        <label for="deepseekKey">DeepSeek API Key 密鑰配置</label>
-        <input type="password" id="deepseekKey" placeholder="輸入 sk-your-deepseek-api-key" />
-      </div>
-      
-      <div class="setting-item key-input-group" id="googleKeyGroup">
-        <label for="azureKey">Google Cloud 語音配置</label>
-        <input type="password" id="azureKey" placeholder="輸入 Google API Key" />
-        <input type="text" id="azureRegion" placeholder="Region (如果是 Azure)" style="margin-top: 0.4rem;" />
       </div>
 
       <button class="settings-save-btn" onclick="saveSettings()">保存配置</button>
@@ -367,67 +355,19 @@ async function loadSettings() {
   // 動態更新 Edge TTS 語音風格
   edgeEngine = new EdgeTTS(voiceStyle, '+0%', '-2Hz', '+0%');
 
-  // 優先從環境變量讀取金鑰，如果不存在則從 localStorage 讀取
-  const dsKey = VITE_DEEPSEEK_API_KEY || localStorage.getItem('DEEPSEEK_API_KEY') || '';
-  const key = VITE_GOOGLE_CLOUD_API_KEY || localStorage.getItem('AZURE_TTS_KEY') || '';
-  const region = localStorage.getItem('AZURE_TTS_REGION') || '';
-
-  $('#deepseekKey').value = dsKey;
-  $('#azureKey').value = key;
-  $('#azureRegion').value = region;
-
-  // 根據環境變量是否存在，動態隱藏/顯示前端金鑰輸入框
-  if (VITE_DEEPSEEK_API_KEY) {
-    $('#deepseekKeyGroup').style.display = 'none';
-  } else {
-    $('#deepseekKeyGroup').style.display = 'flex';
-  }
-
-  if (VITE_GOOGLE_CLOUD_API_KEY) {
-    $('#googleKeyGroup').style.display = 'none';
-  } else {
-    $('#googleKeyGroup').style.display = 'flex';
-  }
+  // 完全改用環境變量讀取金鑰，不從 localStorage 讀取
+  const dsKey = VITE_DEEPSEEK_API_KEY || '';
+  const key = VITE_GOOGLE_CLOUD_API_KEY || '';
 
   console.log(`[LLM] 已切换大模型后端至: ${llmModel}, 語音風格: ${voiceStyle}`);
 
-  if (key && region) {
-    azureEngine = new AzureTTS(key, region);
-    console.log('[TTS] 已配置 Azure Speech Services');
-    updateSettingsStatus('已连接 Azure Speech', true);
-  } else if (key && !region) {
+  if (key) {
     googleEngine = new GoogleTTS(key);
-    console.log('[TTS] 已手动配置 Google Cloud API Key');
-    updateSettingsStatus('已连接 Google Cloud', true);
+    console.log('[TTS] 已成功從環境變數載入 Google Cloud API Key');
+    updateSettingsStatus('已連接 Google Cloud', true);
   } else {
-    updateSettingsStatus('未检测到配置，使用 Edge TTS 兜底', false);
-  }
-
-  // 嘗試自動讀取配置 JSON (作為最終備用)
-  if (!googleEngine && !azureEngine) {
-    try {
-      let res = await fetch('./config/google-api-key.json').catch(() => null);
-      if (!res || !res.ok) {
-        res = await fetch('./config/google-speech-key.json').catch(() => null);
-      }
-      
-      if (res && res.ok) {
-        const json = await res.json();
-        const apiKey = json.apiKey || json.api_key || json.API_KEY || json.key;
-        
-        if (apiKey) {
-          googleEngine = new GoogleTTS(apiKey);
-          console.log('[TTS] 成功从 json 自动加载 Google API Key');
-          updateSettingsStatus('已连接 Google Cloud (API Key)', true);
-        } else if (json.private_key && json.client_email) {
-          googleEngine = new GoogleTTS(json);
-          console.log('[TTS] 成功从 json 自动加载 Service Account 密钥，即将生成 OAuth Token');
-          updateSettingsStatus('已连接 Google Cloud (Service Account)', true);
-        }
-      }
-    } catch(e) {
-      console.log('[TTS] 未找到備用配置文件，將使用 Edge TTS 兜底');
-    }
+    console.log('[TTS] 未配置 Google API Key，使用 Edge TTS 兜底');
+    updateSettingsStatus('已連接 Edge TTS (預設)', true);
   }
 }
 
@@ -446,15 +386,6 @@ function toggleSettings() { $('#settingsPanel').classList.toggle('open'); }
 function saveSettings() {
   localStorage.setItem('LLM_MODEL', $('#llmModelSelect').value);
   localStorage.setItem('VOICE_STYLE', $('#voiceStyleSelect').value);
-  
-  // 只有在環境變量不存在時，才將用戶輸入的 Key 保存到 localStorage，避免污染
-  if (!VITE_DEEPSEEK_API_KEY) {
-    localStorage.setItem('DEEPSEEK_API_KEY', $('#deepseekKey').value.trim());
-  }
-  if (!VITE_GOOGLE_CLOUD_API_KEY) {
-    localStorage.setItem('AZURE_TTS_KEY', $('#azureKey').value.trim());
-    localStorage.setItem('AZURE_TTS_REGION', $('#azureRegion').value.trim());
-  }
   
   loadSettings();
   toggleSettings();
@@ -566,76 +497,95 @@ function setVoiceStatus(s){
 }
 
 // === 全双工语音识别 (STT) ===
+let recognitionActive = false; // 避免重複啟動
+
 function startListening(){
-  if(!S.calling)return;
+  if(!S.calling || isBotSpeaking || recognitionActive) return;
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if(!SR){ setVoiceStatus('idle'); return; }
+  if(!SR){ 
+    console.warn('[STT] 瀏覽器不支援 SpeechRecognition 語音識別');
+    setVoiceStatus('idle'); 
+    return; 
+  }
   
-  if(!isBotSpeaking) setVoiceStatus('listening');
+  setVoiceStatus('listening');
+  console.log('[STT] 開始聆聽...');
   
   const r = new SR();
   r.lang = 'zh-CN';
   r.interimResults = true;
-  r.continuous = true; // 全双工：持续监听
+  r.continuous = false; // 使用單次識別配合 onend 自動重啟，比 continuous 穩定10倍
 
-  let silenceTimer = null;
+  let finalResult = '';
+  
+  r.onstart = () => {
+    recognitionActive = true;
+    console.log('[STT] 麥克風已開啟，請說話...');
+  };
   
   r.onresult = e => {
-    const interim = Array.from(e.results).map(res=>res[0].transcript).join('');
-    
-    // 全双工 Barge-in (打断) 逻辑
-    if (interim.trim().length > 0) {
-      if (isBotSpeaking) {
-        console.log('[FullDuplex] 检测到用户说话，立即打断 AI');
-        interruptBot();
+    let interimResult = '';
+    for (let i = e.resultIndex; i < e.results.length; ++i) {
+      if (e.results[i].isFinal) {
+        finalResult += e.results[i][0].transcript;
+      } else {
+        interimResult += e.results[i][0].transcript;
       }
-      $('#subtitle').textContent = '🎤 ' + interim;
     }
     
-    // 静音检测模拟 (如果连续监听，浏览器可能不会触发 isFinal，需手动防抖)
-    clearTimeout(silenceTimer);
-    silenceTimer = setTimeout(() => {
-      if(interim.trim().length > 0 && S.calling && !isBotSpeaking) {
-        // 当用户停止说话 1.5s 后，提交处理
-        processInput(interim.trim());
-        // 清理当前识别，强制重启以清空 transcript
-        stopListening();
-        startListening();
+    const showText = finalResult || interimResult;
+    if (showText.trim().length > 0) {
+      // Barge-in (打断 AI) 逻辑
+      if (isBotSpeaking) {
+        console.log('[STT] 偵測到用戶發音，打斷 AI');
+        interruptBot();
       }
-    }, 1500);
-
-    const lastResult = e.results[e.results.length - 1];
-    if (lastResult.isFinal) {
-      clearTimeout(silenceTimer);
-      const finalTxt = lastResult[0].transcript.trim();
-      if (finalTxt && S.calling && !isBotSpeaking) {
-         processInput(finalTxt);
-      }
+      $('#subtitle').textContent = '🎤 ' + showText;
     }
   };
   
   r.onend = () => {
-    // 全双工模式：只要在通话中，断开就自动重启
-    if(S.calling) {
-      setTimeout(() => { if(S.calling) startListening(); }, 200);
+    recognitionActive = false;
+    console.log('[STT] 聆聽結束，最終識別結果:', finalResult);
+    
+    if (finalResult.trim().length > 0) {
+      const textToProcess = finalResult.trim();
+      finalResult = '';
+      processInput(textToProcess);
+    } else {
+      // 如果無識別內容且仍在通話中，自動重啟
+      if (S.calling && !isBotSpeaking) {
+        setTimeout(() => startListening(), 100);
+      }
     }
   };
   
   r.onerror = (e) => {
-    console.warn('[STT] 识别异常:', e.error);
-    if(e.error === 'not-allowed') { endCall(); alert('请允许麦克风权限以使用语音诊断。'); }
+    recognitionActive = false;
+    console.warn('[STT] 識別異常:', e.error);
+    if(e.error === 'not-allowed') { 
+      endCall(); 
+      alert('請允許麥克風權限以使用語音診斷。'); 
+    } else if (S.calling && !isBotSpeaking) {
+      // 遇到 no-speech 等非權限錯誤自動重啟
+      setTimeout(() => startListening(), 300);
+    }
   };
   
   try {
     S.recognition = r;
     r.start();
-  } catch(e) {}
+  } catch(e) {
+    recognitionActive = false;
+    console.error('[STT] 啟動失敗:', e);
+  }
 }
 
 function stopListening(){
   if(S.recognition){
     try { S.recognition.onend = null; S.recognition.stop(); } catch(e){}
     S.recognition = null;
+    recognitionActive = false;
   }
 }
 
@@ -702,7 +652,7 @@ async function processInput(text){
   
   let resp = '';
   const activeLlm = localStorage.getItem('LLM_MODEL') || 'DeepSeek';
-  const apiKey = VITE_DEEPSEEK_API_KEY || localStorage.getItem('DEEPSEEK_API_KEY') || '';
+  const apiKey = VITE_DEEPSEEK_API_KEY || '';
 
   if ((activeLlm === 'DeepSeek' || activeLlm === 'DeepSeekReasoner') && apiKey && apiKey !== 'sk-your-deepseek-api-key-here' && apiKey.trim() !== '') {
     try {
