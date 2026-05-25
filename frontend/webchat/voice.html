@@ -221,6 +221,7 @@
       <div class="settings-header">
         <span class="settings-title">⚙️ 配置控制台</span>
         <span class="settings-status-indicator" id="settingsStatus">未檢測到配置，使用 Edge TTS 兜底</span>
+        <span class="settings-status-indicator" id="hacStatus" style="margin-top: 0.2rem; font-size: 0.75rem;">⏳ 正在載入 HAC 憲法...</span>
       </div>
       
       <div class="setting-item">
@@ -322,6 +323,40 @@ let edgeEngine = new EdgeTTS('zh-CN-YunjianNeural', '+0%', '-2Hz', '+0%');
 let azureEngine = null;
 let googleEngine = null;
 
+let hacRules = '';
+
+async function loadHacRules() {
+  try {
+    const res = await fetch('./hac-agent-rules.md');
+    if (res.ok) {
+      hacRules = await res.text();
+      console.log('[HAC] 憲法加載成功！');
+      updateHacStatus(true);
+      CONVERSATION_HISTORY[0].content = hacRules + '\n\n=========================================\n\n' + BASE_SYSTEM_PROMPT;
+    } else {
+      console.warn('[HAC] 憲法加載失敗，HTTP 狀態碼：', res.status);
+      updateHacStatus(false);
+    }
+  } catch (e) {
+    console.warn('[HAC] 讀取憲法文件異常：', e);
+    updateHacStatus(false);
+  }
+}
+
+function updateHacStatus(loaded) {
+  const el = document.getElementById('hacStatus');
+  if (el) {
+    if (loaded) {
+      el.textContent = '🟢 已載入 HAC 憲法';
+      el.style.color = 'var(--success)';
+      el.style.fontWeight = '600';
+    } else {
+      el.textContent = '🔴 HAC 憲法載入失敗，使用預設規則';
+      el.style.color = 'var(--danger)';
+    }
+  }
+}
+
 async function loadSettings() {
   const llmModel = localStorage.getItem('LLM_MODEL') || 'DeepSeek';
   $('#llmModelSelect').value = llmModel;
@@ -405,6 +440,7 @@ function updateSettingsStatus(msg, isSuccess) {
 }
 
 loadSettings();
+loadHacRules();
 
 function toggleSettings() { $('#settingsPanel').classList.toggle('open'); }
 function saveSettings() {
@@ -612,8 +648,10 @@ function interruptBot() {
 }
 
 // === 处理用户输入 ===
+const BASE_SYSTEM_PROMPT = '你是 Eliy，一个资深、犀利、专业的商业诊断教练。你的说话风格简练、一针见血，通过严谨的问题引导创业者发现业务瓶颈。你目前正在和用户进行语音/文字通话，请简短回答，每次回答不要超过 120 个字，以方便语音播报。';
+
 const CONVERSATION_HISTORY = [
-  { role: 'system', content: '你是 Eliy，一个资深、犀利、专业的商业诊断教练。你的说话风格简练、一针见血，通过严谨的问题引导创业者发现业务瓶颈。你目前正在和用户进行语音/文字通话，请简短回答，每次回答不要超过 120 个字，以方便语音播报。' }
+  { role: 'system', content: BASE_SYSTEM_PROMPT }
 ];
 
 async function fetchDeepSeekResponse(text, modelType, apiKey) {
@@ -890,6 +928,7 @@ window.saveSettings = saveSettings;
 window.toggleCall = toggleCall;
 window.toggleTextPanel = toggleTextPanel;
 window.sendText = sendText;
+window.loadHacRules = loadHacRules;
 </script>
 </body>
 </html>

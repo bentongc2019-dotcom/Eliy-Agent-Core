@@ -14,6 +14,8 @@ import type { RelationalStorage, VectorStorage } from '../../adapters/storage/ty
 import type { UIAdapter, UIInputEvent, UIOutputEvent } from '../../adapters/ui/types.js';
 import type { STTAdapter, TTSAdapter } from '../../adapters/voice/types.js';
 import { SessionManager, type SessionState } from './session.js';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // === 配置 ===
 export interface EliyRuntimeConfig {
@@ -41,6 +43,7 @@ export class EliyRuntime {
   private governance: LLMGovernanceHook;
   private toolExecutor: ToolExecutor;
   private sessionManager: SessionManager;
+  private hacRules: string = ''; // HAC 憲法文字
   // 方法论引擎（Kernel 内部，不可被外部替换）
   private readonly tpLite = new TPLiteEngine();
   private readonly sFocus = new SFocusEngine();
@@ -80,6 +83,18 @@ export class EliyRuntime {
   // === 生命周期 ===
   async start(): Promise<void> {
     this.status = 'INITIALIZING';
+
+    // 載入 HAC 智能體憲法
+    try {
+      const rulesPath = path.resolve(process.cwd(), 'eliy-kernel/hac/hac-agent-rules.md');
+      if (fs.existsSync(rulesPath)) {
+        this.hacRules = fs.readFileSync(rulesPath, 'utf-8');
+        console.log('[Runtime] 📜 成功載入 HAC 智能體憲法 (hac-agent-rules.md)');
+      }
+    } catch (err) {
+      console.warn('[Runtime] ⚠️ 載入 HAC 智能體憲法失敗:', err);
+    }
+
     const llmHealth = await this.activeLlm.healthCheck();
     if (!llmHealth.available) console.warn(`[Runtime] ⚠️ LLM (${this.activeLlm.name}) 不可用: ${llmHealth.error}`);
     if (this.config.relationalStorage) {
@@ -224,7 +239,13 @@ export class EliyRuntime {
       PRESCRIPTION: '当前可以给出行动建议，必须标注确认等级',
       FOLLOW_UP: '跟踪复盘阶段，关注行动结果与预期偏差',
     };
-    return `你是 Eliy，商业诊断教练（不是聊天助手）。\n角色：帮助创业者看清问题、做判断。\n当前阶段: ${session.currentPhase} — ${phaseGuide[session.currentPhase]}\n禁止空洞表达、捏造数据、跳阶段处方。`;
+    let prompt = `你是 Eliy，商业诊断教练（不是聊天助手）。\n角色：帮助创业者看清问题、做判断。\n当前阶段: ${session.currentPhase} — ${phaseGuide[session.currentPhase]}\n禁止空洞表达、捏造数据、跳阶段处方。`;
+    
+    if (this.hacRules) {
+      prompt = `${this.hacRules}\n\n=========================================\n\n${prompt}`;
+    }
+    
+    return prompt;
   }
 
   private async streamLLMResponse(request: LLMRequest): Promise<void> {
