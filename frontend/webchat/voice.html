@@ -83,13 +83,118 @@
     .msg.user{align-self:flex-end;background:var(--accent);color:var(--navy-900);border-bottom-right-radius:2px;font-weight:500;}
     .msg.assistant{align-self:flex-start;background:var(--navy-700);border:1px solid var(--border);border-bottom-left-radius:2px;}
     
-    /* 设置面板 */
-    .settings-panel{position:absolute;top:1.5rem;right:1.5rem;background:var(--navy-800);border:1px solid var(--border);padding:1rem;border-radius:8px;z-index:30;display:none;flex-direction:column;gap:0.8rem;box-shadow:0 10px 25px rgba(0,0,0,0.5);}
-    .settings-panel.open{display:flex;}
-    .settings-panel input{background:var(--navy-900);border:1px solid var(--border);color:white;padding:0.5rem;border-radius:4px;font-size:0.8rem;width:200px;}
-    .settings-panel button{background:var(--accent);color:white;border:none;padding:0.5rem;border-radius:4px;cursor:pointer;}
-    .settings-btn{position:absolute;top:1.5rem;right:1.5rem;background:none;border:none;color:var(--text-muted);font-size:1.2rem;cursor:pointer;z-index:20;}
-    .settings-btn:hover{color:var(--text);}
+    /* 设置面板 - 奢华深紫金色风格 */
+    .settings-panel {
+      position: absolute;
+      top: 4.5rem;
+      right: 1.5rem;
+      background: rgba(30, 15, 58, 0.9);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--accent);
+      padding: 1.5rem;
+      border-radius: 12px;
+      z-index: 30;
+      display: none;
+      flex-direction: column;
+      gap: 1rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      width: 280px;
+      animation: slideIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .settings-panel.open {
+      display: flex;
+    }
+    .settings-header {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.6rem;
+      margin-bottom: 0.2rem;
+    }
+    .settings-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .settings-status-indicator {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      word-break: break-all;
+    }
+    .setting-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .setting-item label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .settings-panel select, .settings-panel input {
+      background: var(--navy-900);
+      border: 1px solid var(--border);
+      color: white;
+      padding: 0.6rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      width: 100%;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+    .settings-panel select:focus, .settings-panel input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+    .settings-save-btn {
+      background: var(--accent);
+      color: var(--navy-900) !important;
+      border: none;
+      padding: 0.7rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 0.85rem;
+      transition: all 0.2s ease;
+      text-align: center;
+      margin-top: 0.5rem;
+    }
+    .settings-save-btn:hover {
+      background: #ffd700;
+      transform: scale(1.02);
+      box-shadow: 0 0 15px var(--accent-glow);
+    }
+    .settings-btn {
+      position: absolute;
+      top: 1.5rem;
+      right: 1.5rem;
+      background: var(--navy-800);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      cursor: pointer;
+      z-index: 20;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+    .settings-btn:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
 
     @media(max-width:768px){.sidebar{display:none}.avatar-ring{width:200px;height:200px}.settings-btn{top:1rem;right:1rem;}}
   </style>
@@ -113,22 +218,42 @@
   <main class="main">
     <button class="settings-btn" onclick="toggleSettings()">⚙️</button>
     <div class="settings-panel" id="settingsPanel">
-      <div style="font-size:0.8rem;color:var(--text-muted);">大模型配置 (LLM)</div>
-      <select id="llmModelSelect" style="background:var(--navy-900);border:1px solid var(--border);color:white;padding:0.5rem;border-radius:4px;font-size:0.8rem;width:200px;">
-        <option value="DeepSeek">DeepSeek V4 (deepseek-chat)</option>
-        <option value="DeepSeekReasoner">DeepSeek Reasoner</option>
-        <option value="Google">Google / Azure</option>
-        <option value="OpenAI">OpenAI</option>
-        <option value="Anthropic">Anthropic</option>
-      </select>
-
-      <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem;">DeepSeek API Key 密钥配置</div>
-      <input type="password" id="deepseekKey" placeholder="输入 sk-your-deepseek-api-key-here" style="background:var(--navy-900);border:1px solid var(--border);color:white;padding:0.5rem;border-radius:4px;font-size:0.8rem;width:200px;" />
+      <div class="settings-header">
+        <span class="settings-title">⚙️ 配置控制台</span>
+        <span class="settings-status-indicator" id="settingsStatus">未檢測到配置，使用 Edge TTS 兜底</span>
+      </div>
       
-      <div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.5rem;">Google Cloud / Azure 语音配置</div>
-      <input type="text" id="azureKey" placeholder="输入 Google API Key 或 Azure Key" />
-      <input type="text" id="azureRegion" placeholder="Region (如果是 Azure)" />
-      <button onclick="saveSettings()" style="color:var(--navy-900);font-weight:600;">保存配置</button>
+      <div class="setting-item">
+        <label for="llmModelSelect">大模型配置 (LLM)</label>
+        <select id="llmModelSelect">
+          <option value="DeepSeek">DeepSeek V4 (deepseek-chat)</option>
+          <option value="DeepSeekReasoner">DeepSeek Reasoner</option>
+        </select>
+      </div>
+
+      <div class="setting-item">
+        <label for="voiceStyleSelect">語音風格選擇</label>
+        <select id="voiceStyleSelect">
+          <option value="zh-CN-YunjianNeural">專業男聲 (雲健)</option>
+          <option value="zh-CN-XiaoxiaoNeural">溫暖女聲 (曉曉)</option>
+          <option value="zh-CN-YunxiNeural">活潑男聲 (雲希)</option>
+          <option value="zh-CN-XiaoyiNeural">溫柔女聲 (曉依)</option>
+        </select>
+      </div>
+
+      <!-- 下列敏感金鑰輸入欄位只在環境變數不存在時才顯示作為備用 -->
+      <div class="setting-item key-input-group" id="deepseekKeyGroup">
+        <label for="deepseekKey">DeepSeek API Key 密鑰配置</label>
+        <input type="password" id="deepseekKey" placeholder="輸入 sk-your-deepseek-api-key" />
+      </div>
+      
+      <div class="setting-item key-input-group" id="googleKeyGroup">
+        <label for="azureKey">Google Cloud 語音配置</label>
+        <input type="password" id="azureKey" placeholder="輸入 Google API Key" />
+        <input type="text" id="azureRegion" placeholder="Region (如果是 Azure)" style="margin-top: 0.4rem;" />
+      </div>
+
+      <button class="settings-save-btn" onclick="saveSettings()">保存配置</button>
     </div>
 
     <div class="avatar-area">
@@ -167,7 +292,19 @@
 <script src="./google-tts.js"></script>
 <script src="./azure-tts.js"></script>
 <script src="./edge-tts.js"></script>
-<script>
+<script type="module">
+// === 環境變數安全讀取 ===
+let VITE_DEEPSEEK_API_KEY = '';
+let VITE_GOOGLE_CLOUD_API_KEY = '';
+
+try {
+  // Vite 構建時會將其靜態替換。在非 Vite 環境下用 try-catch 容錯
+  VITE_DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY || '';
+  VITE_GOOGLE_CLOUD_API_KEY = import.meta.env.VITE_GOOGLE_CLOUD_API_KEY || '';
+} catch (e) {
+  console.log('[Env] Not running under Vite or import.meta.env is undefined, fallback to local storage.');
+}
+
 // === 状态 ===
 const S = { 
   calling: false, status: 'idle', phase: 'INTAKE', recognition: null, msgCount: 0,
@@ -181,7 +318,7 @@ const WELCOME = '你好，我是 Eliy，你的商业诊断教练。我们不聊�
 const $ = s => document.querySelector(s);
 
 // === TTS 引擎初始化 ===
-const edgeEngine = new EdgeTTS('zh-CN-YunjianNeural', '+0%', '-2Hz', '+0%');
+let edgeEngine = new EdgeTTS('zh-CN-YunjianNeural', '+0%', '-2Hz', '+0%');
 let azureEngine = null;
 let googleEngine = null;
 
@@ -189,16 +326,35 @@ async function loadSettings() {
   const llmModel = localStorage.getItem('LLM_MODEL') || 'DeepSeek';
   $('#llmModelSelect').value = llmModel;
 
-  const key = localStorage.getItem('AZURE_TTS_KEY') || '';
+  const voiceStyle = localStorage.getItem('VOICE_STYLE') || 'zh-CN-YunjianNeural';
+  $('#voiceStyleSelect').value = voiceStyle;
+  
+  // 動態更新 Edge TTS 語音風格
+  edgeEngine = new EdgeTTS(voiceStyle, '+0%', '-2Hz', '+0%');
+
+  // 優先從環境變量讀取金鑰，如果不存在則從 localStorage 讀取
+  const dsKey = VITE_DEEPSEEK_API_KEY || localStorage.getItem('DEEPSEEK_API_KEY') || '';
+  const key = VITE_GOOGLE_CLOUD_API_KEY || localStorage.getItem('AZURE_TTS_KEY') || '';
   const region = localStorage.getItem('AZURE_TTS_REGION') || '';
+
+  $('#deepseekKey').value = dsKey;
   $('#azureKey').value = key;
   $('#azureRegion').value = region;
 
-  const dsKey = localStorage.getItem('DEEPSEEK_API_KEY') || '';
-  $('#deepseekKey').value = dsKey;
-  
-  // 将所选的大模型同步到后端 (由于当前是MVP前端模拟，我们仅做控制台记录)
-  console.log(`[LLM] 已切换大模型后端至: ${llmModel}`);
+  // 根據環境變量是否存在，動態隱藏/顯示前端金鑰輸入框
+  if (VITE_DEEPSEEK_API_KEY) {
+    $('#deepseekKeyGroup').style.display = 'none';
+  } else {
+    $('#deepseekKeyGroup').style.display = 'flex';
+  }
+
+  if (VITE_GOOGLE_CLOUD_API_KEY) {
+    $('#googleKeyGroup').style.display = 'none';
+  } else {
+    $('#googleKeyGroup').style.display = 'flex';
+  }
+
+  console.log(`[LLM] 已切换大模型后端至: ${llmModel}, 語音風格: ${voiceStyle}`);
 
   if (key && region) {
     azureEngine = new AzureTTS(key, region);
@@ -208,9 +364,11 @@ async function loadSettings() {
     googleEngine = new GoogleTTS(key);
     console.log('[TTS] 已手动配置 Google Cloud API Key');
     updateSettingsStatus('已连接 Google Cloud', true);
+  } else {
+    updateSettingsStatus('未检测到配置，使用 Edge TTS 兜底', false);
   }
-  
-  // 尝试自动读取 config/google-api-key.json 或 config/google-speech-key.json
+
+  // 嘗試自動讀取配置 JSON (作為最終備用)
   if (!googleEngine && !azureEngine) {
     try {
       let res = await fetch('./config/google-api-key.json').catch(() => null);
@@ -227,29 +385,22 @@ async function loadSettings() {
           console.log('[TTS] 成功从 json 自动加载 Google API Key');
           updateSettingsStatus('已连接 Google Cloud (API Key)', true);
         } else if (json.private_key && json.client_email) {
-          // 传入整个 Service Account JSON
           googleEngine = new GoogleTTS(json);
           console.log('[TTS] 成功从 json 自动加载 Service Account 密钥，即将生成 OAuth Token');
           updateSettingsStatus('已连接 Google Cloud (Service Account)', true);
-        } else {
-          console.warn('[TTS] JSON 格式不支持');
-          updateSettingsStatus('密钥格式不支持，已降级 Edge TTS', false);
         }
-      } else {
-        updateSettingsStatus('未检测到配置，使用 Edge TTS 兜底', false);
       }
     } catch(e) {
-      console.log('[TTS] 未找到配置文件，将使用 Edge TTS 兜底');
-      updateSettingsStatus('未检测到配置，使用 Edge TTS 兜底', false);
+      console.log('[TTS] 未找到備用配置文件，將使用 Edge TTS 兜底');
     }
   }
 }
 
 function updateSettingsStatus(msg, isSuccess) {
-  const title = document.querySelector('#settingsPanel div');
-  if(title) {
-    title.textContent = msg;
-    title.style.color = isSuccess ? 'var(--success)' : 'var(--warning)';
+  const statusEl = document.querySelector('#settingsStatus');
+  if(statusEl) {
+    statusEl.textContent = msg;
+    statusEl.style.color = isSuccess ? 'var(--success)' : 'var(--warning)';
   }
 }
 
@@ -258,9 +409,17 @@ loadSettings();
 function toggleSettings() { $('#settingsPanel').classList.toggle('open'); }
 function saveSettings() {
   localStorage.setItem('LLM_MODEL', $('#llmModelSelect').value);
-  localStorage.setItem('DEEPSEEK_API_KEY', $('#deepseekKey').value.trim());
-  localStorage.setItem('AZURE_TTS_KEY', $('#azureKey').value.trim());
-  localStorage.setItem('AZURE_TTS_REGION', $('#azureRegion').value.trim());
+  localStorage.setItem('VOICE_STYLE', $('#voiceStyleSelect').value);
+  
+  // 只有在環境變量不存在時，才將用戶輸入的 Key 保存到 localStorage，避免污染
+  if (!VITE_DEEPSEEK_API_KEY) {
+    localStorage.setItem('DEEPSEEK_API_KEY', $('#deepseekKey').value.trim());
+  }
+  if (!VITE_GOOGLE_CLOUD_API_KEY) {
+    localStorage.setItem('AZURE_TTS_KEY', $('#azureKey').value.trim());
+    localStorage.setItem('AZURE_TTS_REGION', $('#azureRegion').value.trim());
+  }
+  
   loadSettings();
   toggleSettings();
   alert('设置已保存');
@@ -505,7 +664,7 @@ async function processInput(text){
   
   let resp = '';
   const activeLlm = localStorage.getItem('LLM_MODEL') || 'DeepSeek';
-  const apiKey = localStorage.getItem('DEEPSEEK_API_KEY') || '';
+  const apiKey = VITE_DEEPSEEK_API_KEY || localStorage.getItem('DEEPSEEK_API_KEY') || '';
 
   if ((activeLlm === 'DeepSeek' || activeLlm === 'DeepSeekReasoner') && apiKey && apiKey !== 'sk-your-deepseek-api-key-here' && apiKey.trim() !== '') {
     try {
@@ -724,6 +883,13 @@ window.addEventListener('load', () => {
     }).catch(() => console.warn('用户暂未授予麦克风权限'));
   }
 });
+
+// === 模組導出至 window 確保 HTML 事件調用正常 ===
+window.toggleSettings = toggleSettings;
+window.saveSettings = saveSettings;
+window.toggleCall = toggleCall;
+window.toggleTextPanel = toggleTextPanel;
+window.sendText = sendText;
 </script>
 </body>
 </html>
