@@ -196,6 +196,17 @@
       box-shadow: 0 0 10px var(--accent-glow);
     }
 
+    /* 聆聽中狀態發光提示 */
+    .status-badge.listening {
+      border-color: var(--success) !important;
+      box-shadow: 0 0 15px rgba(52,211,153,0.5);
+      animation: listening-glow 1.5s infinite;
+    }
+    @keyframes listening-glow {
+      0%, 100% { box-shadow: 0 0 8px rgba(52,211,153,0.3); }
+      50% { box-shadow: 0 0 22px rgba(52,211,153,0.7); }
+    }
+
     @media(max-width:768px){.sidebar{display:none}.avatar-ring{width:200px;height:200px}.settings-btn{top:1rem;right:1rem;}}
   </style>
 </head>
@@ -363,9 +374,20 @@ async function loadSettings() {
 
   if (key) {
     googleEngine = new GoogleTTS(key);
-    console.log('[TTS] 已成功從環境變數載入 Google Cloud API Key');
-    updateSettingsStatus('已連接 Google Cloud', true);
+    
+    // 將 Edge TTS 的語音風格無縫映射到 Google Cloud Neural TTS 聲線
+    const googleVoiceMap = {
+      'zh-CN-YunjianNeural': 'cmn-CN-Wavenet-B', // 低沉專業男聲 (預設)
+      'zh-CN-XiaoxiaoNeural': 'cmn-CN-Wavenet-A',  // 溫暖女聲
+      'zh-CN-YunxiNeural': 'cmn-CN-Wavenet-C',     // 活潑男聲
+      'zh-CN-XiaoyiNeural': 'cmn-CN-Wavenet-D'     // 溫柔女聲
+    };
+    googleEngine.voiceName = googleVoiceMap[voiceStyle] || 'cmn-CN-Wavenet-B';
+    
+    console.log(`[TTS] 已成功從環境變數載入 Google Cloud API Key，聲線已設定為: ${googleEngine.voiceName}`);
+    updateSettingsStatus(`已連接 Google (${googleEngine.voiceName})`, true);
   } else {
+    googleEngine = null;
     console.log('[TTS] 未配置 Google API Key，使用 Edge TTS 兜底');
     updateSettingsStatus('已連接 Edge TTS (預設)', true);
   }
@@ -478,9 +500,13 @@ function endCall(){
 // === 语音状态 ===
 function setVoiceStatus(s){
   S.status=s;
-  const ring=$('#avatarRing'),wb=$('#waveBar'),dot=$('#sDot'),txt=$('#sText');
+  const ring=$('#avatarRing'),wb=$('#waveBar'),dot=$('#sDot'),txt=$('#sText'),badge=$('.status-badge');
   ring.className='avatar-ring '+(s==='idle'?'':s);
   wb.className='wave-bar '+s;
+  
+  if(badge) {
+    badge.className = 'status-badge ' + (s === 'listening' ? 'listening' : '');
+  }
   
   // 恢复 wave-bar css 动画(如果处于 thinking 状态)
   if(s === 'thinking') {
@@ -488,10 +514,10 @@ function setVoiceStatus(s){
   }
 
   const map={
-    idle:['var(--accent)','点击开始通话'],
-    listening:['var(--success)','聆听中...'],
+    idle:['var(--accent)','點擊開始通話'],
+    listening:['var(--success)','正在聆聽中，請發言...'],
     thinking:['var(--warning)','分析中...'],
-    speaking:['var(--info)','说话中']
+    speaking:['var(--info)','Eliy 正在說話']
   };
   dot.style.background=map[s][0];txt.textContent=map[s][1];
 }
@@ -509,6 +535,13 @@ function startListening(){
   }
   
   setVoiceStatus('listening');
+  
+  // 字幕欄視覺引導
+  if ($('#subtitle').textContent === '' || $('#subtitle').textContent === WELCOME) {
+    $('#subtitle').textContent = '🎤 正在聆聽，請隨時說話...';
+    $('#subtitle').style.opacity = '0.6';
+  }
+  
   console.log('[STT] 開始聆聽...');
   
   const r = new SR();
@@ -540,6 +573,7 @@ function startListening(){
         console.log('[STT] 偵測到用戶發音，打斷 AI');
         interruptBot();
       }
+      $('#subtitle').style.opacity = '1.0';
       $('#subtitle').textContent = '🎤 ' + showText;
     }
   };
@@ -547,6 +581,11 @@ function startListening(){
   r.onend = () => {
     recognitionActive = false;
     console.log('[STT] 聆聽結束，最終識別結果:', finalResult);
+    
+    if (!S.calling) {
+      console.log('[STT] 通話已結束，不再自動重啟');
+      return;
+    }
     
     if (finalResult.trim().length > 0) {
       const textToProcess = finalResult.trim();
@@ -565,7 +604,7 @@ function startListening(){
     console.warn('[STT] 識別異常:', e.error);
     if(e.error === 'not-allowed') { 
       endCall(); 
-      alert('請允許麥克風權限以使用語音診斷。'); 
+      alert('請允許麥克風權限以使用語音診斷。請在瀏覽器網址列左側點選「鎖頭 🔒」或「控制圖標」允許麥克風訪問。'); 
     } else if (S.calling && !isBotSpeaking) {
       // 遇到 no-speech 等非權限錯誤自動重啟
       setTimeout(() => startListening(), 300);
