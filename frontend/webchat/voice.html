@@ -253,6 +253,11 @@
         </select>
       </div>
 
+      <div class="setting-item">
+        <label for="proxyUrlInput">代理伺服器地址 (API Proxy)</label>
+        <input type="text" id="proxyUrlInput" placeholder="例如 https://eliy-proxy.workers.dev (選填)" />
+      </div>
+
       <button class="settings-save-btn" onclick="saveSettings()">保存配置</button>
     </div>
 
@@ -288,21 +293,18 @@
 </div>
 
 <!-- 引入语音引擎 -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsrsasign/10.9.0/jsrsasign-all-min.js"></script>
 <script src="./google-tts.js"></script>
 <script src="./azure-tts.js"></script>
 <script src="./edge-tts.js"></script>
 <script type="module">
 // === 環境變數安全讀取 ===
-let VITE_DEEPSEEK_API_KEY = '';
-let VITE_GOOGLE_CLOUD_API_KEY = '';
+let VITE_API_PROXY_URL = '';
 
 try {
   // Vite 構建時會將其靜態替換。在非 Vite 環境下用 try-catch 容錯
-  VITE_DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY || '';
-  VITE_GOOGLE_CLOUD_API_KEY = import.meta.env.VITE_GOOGLE_CLOUD_API_KEY || '';
+  VITE_API_PROXY_URL = import.meta.env.VITE_API_PROXY_URL || '';
 } catch (e) {
-  console.log('[Env] Not running under Vite or import.meta.env is undefined, fallback to local storage.');
+  console.log('[Env] Not running under Vite or import.meta.env is undefined.');
 }
 
 // === 状态 ===
@@ -362,35 +364,28 @@ async function loadSettings() {
 
   const voiceStyle = localStorage.getItem('VOICE_STYLE') || 'zh-CN-YunjianNeural';
   $('#voiceStyleSelect').value = voiceStyle;
+
+  const proxyUrl = localStorage.getItem('API_PROXY_URL') || VITE_API_PROXY_URL || '';
+  $('#proxyUrlInput').value = proxyUrl;
   
   // 動態更新 Edge TTS 語音風格
   edgeEngine = new EdgeTTS(voiceStyle, '+0%', '-2Hz', '+0%');
 
-  // 完全改用環境變量讀取金鑰，不從 localStorage 讀取
-  const dsKey = VITE_DEEPSEEK_API_KEY || '';
-  const key = VITE_GOOGLE_CLOUD_API_KEY || '';
+  console.log(`[LLM] 已切换大模型后端至: ${llmModel}, 語音風格: ${voiceStyle}, 代理地址: ${proxyUrl || '相對路徑'}`);
 
-  console.log(`[LLM] 已切换大模型后端至: ${llmModel}, 語音風格: ${voiceStyle}`);
-
-  if (key) {
-    googleEngine = new GoogleTTS(key);
-    
-    // 將 Edge TTS 的語音風格無縫映射到 Google Cloud Neural TTS 聲線
-    const googleVoiceMap = {
-      'zh-CN-YunjianNeural': 'cmn-CN-Wavenet-B', // 低沉專業男聲 (預設)
-      'zh-CN-XiaoxiaoNeural': 'cmn-CN-Wavenet-A',  // 溫暖女聲
-      'zh-CN-YunxiNeural': 'cmn-CN-Wavenet-C',     // 活潑男聲
-      'zh-CN-XiaoyiNeural': 'cmn-CN-Wavenet-D'     // 溫柔女聲
-    };
-    googleEngine.voiceName = googleVoiceMap[voiceStyle] || 'cmn-CN-Wavenet-B';
-    
-    console.log(`[TTS] 已成功從環境變數載入 Google Cloud API Key，聲線已設定為: ${googleEngine.voiceName}`);
-    updateSettingsStatus(`已連接 Google (${googleEngine.voiceName})`, true);
-  } else {
-    googleEngine = null;
-    console.log('[TTS] 未配置 Google API Key，使用 Edge TTS 兜底');
-    updateSettingsStatus('已連接 Edge TTS (預設)', true);
-  }
+  // 自動對接 Google TTS 代理 (如果 proxyUrl 是相對路徑，會自動拼裝 /api/tts)
+  googleEngine = new GoogleTTS(proxyUrl ? (proxyUrl.replace(/\/+$/, '') + '/api/tts') : '/api/tts');
+  
+  // 將 Edge TTS 的語音風格無縫映射到 Google Cloud Neural TTS 聲線
+  const googleVoiceMap = {
+    'zh-CN-YunjianNeural': 'cmn-CN-Wavenet-B', // 低沉專業男聲 (預設)
+    'zh-CN-XiaoxiaoNeural': 'cmn-CN-Wavenet-A',  // 溫暖女聲
+    'zh-CN-YunxiNeural': 'cmn-CN-Wavenet-C',     // 活潑男聲
+    'zh-CN-XiaoyiNeural': 'cmn-CN-Wavenet-D'     // 溫柔女聲
+  };
+  googleEngine.voiceName = googleVoiceMap[voiceStyle] || 'cmn-CN-Wavenet-B';
+  
+  updateSettingsStatus(`已連接 Google 代理 (${googleEngine.voiceName})`, true);
 }
 
 function updateSettingsStatus(msg, isSuccess) {
@@ -408,6 +403,7 @@ function toggleSettings() { $('#settingsPanel').classList.toggle('open'); }
 function saveSettings() {
   localStorage.setItem('LLM_MODEL', $('#llmModelSelect').value);
   localStorage.setItem('VOICE_STYLE', $('#voiceStyleSelect').value);
+  localStorage.setItem('API_PROXY_URL', $('#proxyUrlInput').value.trim());
   
   loadSettings();
   toggleSettings();
@@ -691,14 +687,13 @@ async function processInput(text){
   
   let resp = '';
   const activeLlm = localStorage.getItem('LLM_MODEL') || 'DeepSeek';
-  const apiKey = VITE_DEEPSEEK_API_KEY || '';
 
-  if ((activeLlm === 'DeepSeek' || activeLlm === 'DeepSeekReasoner') && apiKey && apiKey !== 'sk-your-deepseek-api-key-here' && apiKey.trim() !== '') {
+  if (activeLlm === 'DeepSeek' || activeLlm === 'DeepSeekReasoner') {
     try {
-      resp = await fetchDeepSeekResponse(text, activeLlm, apiKey);
+      resp = await fetchDeepSeekResponse(text, activeLlm);
     } catch (err) {
-      console.error('DeepSeek API 调用失败:', err);
-      resp = `[API 错误] 无法连接到 DeepSeek。错误详情: ${err.message || err}。已自动降级至模拟回答。\n\n` + genResponse(text);
+      console.error('DeepSeek API 代理调用失败:', err);
+      resp = `[API 错误] 无法连接到 DeepSeek 代理。错误详情: ${err.message || err}。已自动降级至模拟回答。\n\n` + genResponse(text);
     }
   } else {
     await sleep(600 + Math.random()*400); // 模拟网络延迟
