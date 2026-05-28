@@ -74,7 +74,7 @@ function formatText(text) {
   }).join('');
 }
 
-// === Streaming 模拟（MVP：替代真实 LLM 调用） ===
+// === Real & Streaming 交互（替代纯前端 Mock 模拟，打通后端闭环） ===
 async function simulateEliyResponse(userText) {
   state.isStreaming = true;
   setStatus('思考中...', false);
@@ -82,9 +82,28 @@ async function simulateEliyResponse(userText) {
   // 显示打字指示器
   const typingDiv = appendMessage('assistant', '<div class="typing-indicator"><span></span><span></span><span></span></div>', true);
 
-  // 生成响应内容（基于投料阶段）
-  const response = generatePhaseResponse(userText);
-  await sleep(800 + Math.random() * 600);
+  let response = '';
+  try {
+    // 请求本地 API 进行智能体对话与 transcript 记录
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: userText,
+        model: 'deepseek-chat',
+        history: [{ role: 'user', content: userText }]
+      })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      response = data.reply;
+    } else {
+      throw new Error('Server returned error status');
+    }
+  } catch (e) {
+    console.warn('[API] 无法连接到后端 /api/chat，降级使用本地 Mock', e);
+    response = generatePhaseResponse(userText);
+  }
 
   // streaming 渲染
   const bubble = typingDiv.querySelector('.bubble');
@@ -104,6 +123,22 @@ async function simulateEliyResponse(userText) {
 
   state.isStreaming = false;
   setStatus('就绪', true);
+
+  // 触发后台记录模块并重新载入 NEXT_CONTEXT.md，完成闭环交互测试
+  try {
+    console.log('[Recorder] 正在触发后台记录模块...');
+    const recRes = await fetch('/api/record', { method: 'POST' });
+    if (recRes.ok) {
+      console.log('[Recorder] 后台记录处理完成！');
+      const nextCtxRes = await fetch('/eliy-kernel/memory/NEXT_CONTEXT.md');
+      if (nextCtxRes.ok) {
+        const nextCtxText = await nextCtxRes.text();
+        console.log('[Context Reload] 成功读取下一轮 NEXT_CONTEXT.md 内容:\n', nextCtxText);
+      }
+    }
+  } catch (e) {
+    console.warn('[Recorder] 触发后台记录或重载 NEXT_CONTEXT 失败:', e);
+  }
 }
 
 // === 基于投料阶段的响应生成 ===

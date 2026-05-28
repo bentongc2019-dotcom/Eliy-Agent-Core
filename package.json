@@ -7,7 +7,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "dev": "tsx watch eliy-kernel/runtime/session_state.ts",
+    "dev": "node eliy-kernel/runtime/server.js",
     "test": "vitest",
     "test:spikes": "vitest run tests/spikes/",
     "test:integration": "vitest run tests/integration/",

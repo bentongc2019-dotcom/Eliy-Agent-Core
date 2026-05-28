@@ -639,24 +639,23 @@ const CONVERSATION_HISTORY = [
   { role: 'system', content: BASE_SYSTEM_PROMPT }
 ];
 
-async function fetchDeepSeekResponse(text, modelType, apiKey) {
+async function fetchDeepSeekResponse(text, modelType) {
   CONVERSATION_HISTORY.push({ role: 'user', content: text });
   if (CONVERSATION_HISTORY.length > 11) {
     CONVERSATION_HISTORY.splice(1, CONVERSATION_HISTORY.length - 11);
   }
   const modelName = modelType === 'DeepSeekReasoner' ? 'deepseek-reasoner' : 'deepseek-chat';
   
-  const response = await fetch('https://api.deepseek.com/chat/completions', {
+  // 安全加固：直接请求本地 Node.js 服务的 /api/chat，不再暴露 API Key
+  const response = await fetch('/api/chat', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify({
+      text: text,
       model: modelName,
-      messages: CONVERSATION_HISTORY,
-      temperature: modelName === 'deepseek-reasoner' ? 1.0 : 0.7,
-      max_tokens: 1024
+      history: CONVERSATION_HISTORY
     })
   });
   
@@ -666,14 +665,9 @@ async function fetchDeepSeekResponse(text, modelType, apiKey) {
   }
   
   const data = await response.json();
-  const reply = data.choices[0]?.message?.content || '';
+  const reply = data.reply || '';
   
   CONVERSATION_HISTORY.push({ role: 'assistant', content: reply });
-  
-  if (data.choices[0]?.message?.reasoning_content) {
-    console.log(`[DeepSeek R1 深度思考过程]:\n`, data.choices[0].message.reasoning_content);
-  }
-  
   return reply;
 }
 
@@ -688,16 +682,12 @@ async function processInput(text){
   let resp = '';
   const activeLlm = localStorage.getItem('LLM_MODEL') || 'DeepSeek';
 
-  if (activeLlm === 'DeepSeek' || activeLlm === 'DeepSeekReasoner') {
-    try {
-      resp = await fetchDeepSeekResponse(text, activeLlm);
-    } catch (err) {
-      console.error('DeepSeek API 代理调用失败:', err);
-      resp = `[API 错误] 无法连接到 DeepSeek 代理。错误详情: ${err.message || err}。已自动降级至模拟回答。\n\n` + genResponse(text);
-    }
-  } else {
-    await sleep(600 + Math.random()*400); // 模拟网络延迟
-    resp = genResponse(text);
+  try {
+    resp = await fetchDeepSeekResponse(text, activeLlm);
+  } catch (err) {
+    console.error('API 调用失败:', err);
+    resp = `[API 错误] 无法连接到本地服务。已降级至本地模拟回答。\n\n` + genResponse(text);
+    CONVERSATION_HISTORY.push({ role: 'assistant', content: resp });
   }
   
   addTextMsg('assistant', resp);
@@ -708,6 +698,23 @@ async function processInput(text){
   }
   
   checkPhase();
+
+  // 触发后台记录模块并重新载入 NEXT_CONTEXT.md
+  try {
+    console.log('[Recorder] 正在触发后台记录模块...');
+    const recRes = await fetch('/api/record', { method: 'POST' });
+    if (recRes.ok) {
+      console.log('[Recorder] 后台记录处理完成！');
+      // 读取最新的 NEXT_CONTEXT.md 达到 Context Reload 闭环
+      const nextCtxRes = await fetch('/eliy-kernel/memory/NEXT_CONTEXT.md');
+      if (nextCtxRes.ok) {
+        const nextCtxText = await nextCtxRes.text();
+        console.log('[Context Reload] 成功读取下一轮 NEXT_CONTEXT.md 内容:\n', nextCtxText);
+      }
+    }
+  } catch (e) {
+    console.warn('[Recorder] 触发后台记录或重载 NEXT_CONTEXT 失败:', e);
+  }
 }
 
 // === Streaming 字幕 + 真实 TTS 引擎 ===
