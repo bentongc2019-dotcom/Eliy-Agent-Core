@@ -277,11 +277,12 @@ async function handleSTT(req, res) {
       
       const googleRequestBody = {
         config: {
+          // WEBM_OPUS 不能指定 sampleRateHertz，Google 从 WebM 容器头部自动读取
           encoding: 'WEBM_OPUS',
-          sampleRateHertz: 48000,
           languageCode: 'cmn-Hans-CN',
           alternativeLanguageCodes: ['zh-TW', 'en-US'],
           enableAutomaticPunctuation: true
+          // 不指定 model，使用 Google 默认（兼容性最好）
         },
         audio: {
           content: base64Audio
@@ -290,7 +291,12 @@ async function handleSTT(req, res) {
 
       const response = await fetch(googleEndpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          // 加上 Referer/Origin 以满足 Google API Key 的 HTTP 引用来源限制
+          'Referer': 'http://localhost:3001',
+          'Origin': 'http://localhost:3001'
+        },
         body: JSON.stringify(googleRequestBody)
       });
 

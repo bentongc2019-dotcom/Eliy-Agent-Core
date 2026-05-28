@@ -486,6 +486,8 @@ async function toggleCall(){
 function endCall(){
   S.calling=false;
   stopListening();
+  stopVadAndRecording();  // 真正停止录音
+  _cleanupStream();       // 释放麦克风
   interruptBot();
   $('#callBtn').className='call-btn start';$('#callBtn').textContent='📞';
   setVoiceStatus('idle');
@@ -518,144 +520,139 @@ function setVoiceStatus(s){
   dot.style.background=map[s][0];txt.textContent=map[s][1];
 }
 
-// === VAD 与音频录音 (Offline Voice Activity Detection) ===
+// === 音频录音（固定分段录音 — 最可靠方案）===
+// 放弃 AudioContext VAD（Chrome 会自动 suspend 导致 getByteFrequencyData 永远返回 0）
+// 改用固定 5 秒分段录音循环：录 5 秒 → 发 STT → 继续录
 let vadStream = null;
+let vadMediaRecorder = null;
+let isRecordingActive = false;
+// 保留兼容旧调用的空变量
 let vadAudioContext = null;
 let vadAnalyser = null;
-let vadMediaRecorder = null;
 let vadChunks = [];
 let silenceTimer = null;
-let isRecordingActive = false;
 let userIsSpeaking = false;
 
 async function startVadAndRecording() {
   if (isRecordingActive) return;
+  
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    vadStream = stream;
-    
-    // 1. 初始化 MediaRecorder
-    let options = {};
-    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-      options = { mimeType: 'audio/webm;codecs=opus' };
-    } else if (MediaRecorder.isTypeSupported('audio/webm')) {
-      options = { mimeType: 'audio/webm' };
+    // 获取麦克风权限（只申请一次，stream 复用）
+    if (!vadStream) {
+      vadStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('[STT] 麦克风权限已获取，开始分段录音循环...');
     }
     
-    vadMediaRecorder = new MediaRecorder(stream, options);
-    vadChunks = [];
+    isRecordingActive = true;
+    _recordSegment(); // 启动第一段录音
     
-    vadMediaRecorder.ondataavailable = (e) => {
-      if (e.data && e.data.size > 0) {
-        vadChunks.push(e.data);
-      }
-    };
+  } catch (err) {
+    console.error('[STT] 麦克风启动失败:', err);
+    if (err.name === 'NotAllowedError') {
+      alert('请允许麦克风权限以使用语音功能');
+    }
+  }
+}
+
+function _recordSegment() {
+  if (!isRecordingActive || !vadStream) return;
+  
+  // 检查 stream 是否还有效
+  if (vadStream.getTracks().every(t => t.readyState === 'ended')) {
+    console.warn('[STT] 麦克风流已失效，尝试重新获取...');
+    vadStream = null;
+    isRecordingActive = false;
+    if (S.calling && !isBotSpeaking) {
+      setTimeout(() => startVadAndRecording(), 500);
+    }
+    return;
+  }
+  
+  let options = {};
+  if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+    options = { mimeType: 'audio/webm;codecs=opus' };
+  } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+    options = { mimeType: 'audio/webm' };
+  }
+  
+  const recorder = new MediaRecorder(vadStream, options);
+  const chunks = [];
+  vadMediaRecorder = recorder;
+  
+  recorder.ondataavailable = (e) => {
+    if (e.data && e.data.size > 0) chunks.push(e.data);
+  };
+  
+  recorder.onstop = async () => {
+    const mimeType = recorder.mimeType || 'audio/webm';
+    const audioBlob = new Blob(chunks, { type: mimeType });
+    console.log(`[STT] 录音段落完成，Blob: ${audioBlob.size} 字节，格式: ${mimeType}`);
     
-    vadMediaRecorder.onstop = async () => {
-      console.log(`[VAD] 录音停止，切片数量: ${vadChunks.length}`);
-      const audioBlob = new Blob(vadChunks, { type: vadMediaRecorder.mimeType });
-      if (audioBlob.size > 1000) { // 过滤极小微音片段
-        console.log(`[VAD] 录音就绪，大小: ${audioBlob.size} 字节，正在转换为 Base64 并上传...`);
+    // 录音被真正终止（endCall），不继续
+    if (!isRecordingActive) {
+      console.log('[STT] 录音已终止，不提交本段');
+      return;
+    }
+    
+    if (audioBlob.size > 5000) {
+      if (isBotSpeaking) {
+        // AI 正在说话：跳过本段 STT，直接开下一段录音
+        console.log('[STT] AI 正在说话，跳过本段 STT，继续录制下一段...');
+        setTimeout(() => _recordSegment(), 100);
+      } else {
+        // 用户说话段落：发 STT
         const reader = new FileReader();
         reader.readAsDataURL(audioBlob);
         reader.onloadend = async () => {
           const base64Audio = reader.result.split(',')[1];
+          console.log(`[STT] 发送 ${base64Audio.length} 字符到 /api/stt...`);
           await sendAudioToSTT(base64Audio);
+          // sendAudioToSTT 完成后（processInput 或空结果），继续下一段录音
+          if (isRecordingActive) {
+            setTimeout(() => _recordSegment(), 100);
+          }
         };
-      } else {
-        console.log('[VAD] 录音片段太小，忽略提交');
       }
-    };
-    
-    // 2. 初始化 Web Audio API 音量监听
-    vadAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const source = vadAudioContext.createMediaStreamSource(stream);
-    vadAnalyser = vadAudioContext.createAnalyser();
-    vadAnalyser.fftSize = 256;
-    source.connect(vadAnalyser);
-    
-    const bufferLength = vadAnalyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    
-    isRecordingActive = true;
-    userIsSpeaking = false;
-    vadMediaRecorder.start();
-    console.log('[VAD] 麦克风录音已启动，正在进行本地音量门限监测...');
-    
-    const checkVolume = () => {
-      if (!isRecordingActive) return;
-      
-      vadAnalyser.getByteFrequencyData(dataArray);
-      
-      let sum = 0;
-      for (let i = 0; i < bufferLength; i++) {
-        sum += dataArray[i];
+    } else {
+      console.log(`[STT] 录音太小 (${audioBlob.size} bytes)，跳过，继续下一段...`);
+      if (isRecordingActive) {
+        setTimeout(() => _recordSegment(), 100);
       }
-      const avgVolume = sum / bufferLength;
-      
-      // 门槛阈值，静音背景一般 0~5 说话一般 12~80
-      const volumeThreshold = 10; 
-      
-      if (avgVolume > volumeThreshold) {
-        if (!userIsSpeaking) {
-          userIsSpeaking = true;
-          console.log('[VAD] >>> 检测到用户开始说话 (Volume:', Math.round(avgVolume), ')');
-          
-          if (isBotSpeaking) {
-            console.log('[VAD] 检测到用户说话音量，打断 AI');
-            interruptBot();
-          }
-        }
-        
-        if (silenceTimer) {
-          clearTimeout(silenceTimer);
-          silenceTimer = null;
-        }
-      } else {
-        if (userIsSpeaking) {
-          if (!silenceTimer) {
-            silenceTimer = setTimeout(() => {
-              console.log('[VAD] 说话结束，连续静音 1.5 秒，自动分段提交...');
-              stopVadAndRecording();
-            }, 1500);
-          }
-        }
-      }
-      
-      requestAnimationFrame(checkVolume);
-    };
-    
-    checkVolume();
-  } catch (err) {
-    console.error('[VAD] 开启录音或麦克风监听失败:', err);
-  }
+    }
+  };
+  
+  recorder.start(100); // 每 100ms 一个 chunk，确保数据完整
+  console.log('[STT] 开始录制 5 秒音频段...');
+  
+  // 固定 5 秒后停止本段（onstop 会自动触发下一段）
+  setTimeout(() => {
+    if (recorder.state === 'recording') {
+      recorder.stop();
+    }
+  }, 5000);
 }
 
 function stopVadAndRecording() {
-  if (!isRecordingActive) return;
   isRecordingActive = false;
-  userIsSpeaking = false;
-  
-  if (silenceTimer) {
-    clearTimeout(silenceTimer);
-    silenceTimer = null;
-  }
   
   if (vadMediaRecorder && vadMediaRecorder.state !== 'inactive') {
-    try { vadMediaRecorder.stop(); } catch(e){}
+    try { vadMediaRecorder.stop(); } catch(e) {}
   }
   
+  // 注意：不关闭 stream，下次通话可复用
+  // stream 在 endCall 时才关闭
+  console.log('[STT] 分段录音已停止');
+}
+
+function _cleanupStream() {
+  // 在 endCall 时调用，彻底释放麦克风
   if (vadStream) {
     vadStream.getTracks().forEach(t => t.stop());
     vadStream = null;
   }
-  
-  if (vadAudioContext && vadAudioContext.state !== 'closed') {
-    try { vadAudioContext.close(); } catch(e){}
-  }
-  
-  console.log('[VAD] 麦克风录音及 VAD 监测已停止');
 }
+
+
 
 async function sendAudioToSTT(base64Audio) {
   setVoiceStatus('thinking');
@@ -696,131 +693,47 @@ async function sendAudioToSTT(base64Audio) {
 }
 
 // === 全双工语音识别 (STT) ===
-let recognitionActive = false; // 避免重複啟動
+// 已彻底废弃 webkitSpeechRecognition（依赖 Google 云端，在当前网络环境下 no-speech 失败）
+// 全部走本地 固定分段录音 → /api/stt 管道
+// 核心原则：录音贯穿整个通话，不因 TTS 播放而中断
 
-function startListening(){
-  if(!S.calling || isBotSpeaking) return;
-  
-  // 启动本地硬件 VAD 与录音管道
-  startVadAndRecording();
-  
-  if(recognitionActive) return;
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if(!SR){ 
-    console.warn('[STT] 瀏覽器不支援 SpeechRecognition 語音識別');
-    setVoiceStatus('listening'); 
-    return; 
-  }
+function startListening() {
+  if (!S.calling) return;
   
   setVoiceStatus('listening');
   
-  // 字幕欄視覺引導
+  // 字幕视觉引导
   if ($('#subtitle').textContent === '' || $('#subtitle').textContent === WELCOME) {
     $('#subtitle').textContent = '🎤 正在聆聽，請隨時說話...';
     $('#subtitle').style.opacity = '0.6';
   }
   
-  console.log('[STT] 開始聆聽...');
-  
-  const r = new SR();
-  r.lang = 'zh-CN';
-  r.interimResults = true;
-  r.continuous = false; // 使用單次識別配合 onend 自動重啟，比 continuous 穩定10倍
-
-  let finalResult = '';
-  
-  r.onstart = () => {
-    recognitionActive = true;
-    console.log('[STT] 麥克風已開啟，請說話...');
-  };
-  
-  r.onresult = e => {
-    let interimResult = '';
-    for (let i = e.resultIndex; i < e.results.length; ++i) {
-      if (e.results[i].isFinal) {
-        finalResult += e.results[i][0].transcript;
-      } else {
-        interimResult += e.results[i][0].transcript;
-      }
-    }
-    
-    const showText = finalResult || interimResult;
-    if (showText.trim().length > 0) {
-      // Barge-in (打断 AI) 逻辑
-      if (isBotSpeaking) {
-        console.log('[STT] 偵測到用戶發音，打斷 AI');
-        interruptBot();
-      }
-      $('#subtitle').style.opacity = '1.0';
-      $('#subtitle').textContent = '🎤 ' + showText;
-    }
-  };
-  
-  r.onend = () => {
-    recognitionActive = false;
-    console.log('[STT] 聆聽結束，最終識別結果:', finalResult);
-    
-    if (!S.calling) {
-      console.log('[STT] 通話已結束，不再自動重啟');
-      return;
-    }
-    
-    if (finalResult.trim().length > 0) {
-      const textToProcess = finalResult.trim();
-      finalResult = '';
-      processInput(textToProcess);
-    } else {
-      // 如果無識別內容且仍在通話中，自動重啟
-      if (S.calling && !isBotSpeaking) {
-        setTimeout(() => startListening(), 100);
-      }
-    }
-  };
-  
-  r.onerror = (e) => {
-    recognitionActive = false;
-    console.warn('[STT] 識別異常:', e.error);
-    if(e.error === 'not-allowed') { 
-      endCall(); 
-      alert('請允許麥克風權限以使用語音診斷。請在瀏覽器網址列左側點選「鎖頭 🔒」或「控制圖標」允許麥克風訪問。'); 
-    } else if (S.calling && !isBotSpeaking) {
-      // 遇到 no-speech 等非權限錯誤自動重啟
-      setTimeout(() => startListening(), 300);
-    }
-  };
-  
-  try {
-    S.recognition = r;
-    r.start();
-  } catch(e) {
-    recognitionActive = false;
-    console.error('[STT] 啟動失敗:', e);
+  // 录音持续整个通话，只要还没启动就启动
+  if (!isRecordingActive) {
+    console.log('[STT] 启动分段录音循环...');
+    startVadAndRecording();
   }
 }
 
-
-function stopListening(){
-  stopVadAndRecording();
-  if(S.recognition){
-    try { S.recognition.onend = null; S.recognition.stop(); } catch(e){}
+function stopListening() {
+  // 关键变更：stopListening 不再停止录音！
+  // 录音贯穿整个通话，TTS 播放时只跳过 STT 处理，不中断录音
+  // 只清理旧的 recognition 引用（防御性）
+  if (S.recognition) {
+    try { S.recognition.onend = null; S.recognition.stop(); } catch(e) {}
     S.recognition = null;
-    recognitionActive = false;
   }
+  // 不调用 stopVadAndRecording()！
 }
 
 // === 打断 AI 说话 ===
 function interruptBot() {
   isBotSpeaking = false;
-  stopVadAndRecording();
   stopCurrentAudio();
   if (visemeAnimFrame) cancelAnimationFrame(visemeAnimFrame);
+  // 不停录音，录音一直在跑
   if(S.calling) {
     setVoiceStatus('listening');
-    setTimeout(() => {
-      if (S.calling && !isBotSpeaking) {
-        startVadAndRecording();
-      }
-    }, 200);
   }
 }
 
