@@ -514,6 +514,15 @@ function animateViseme() {
 // === 通话控制 ===
 async function toggleCall(){
   if(S.calling){endCall();return}
+  
+  // 强行同步激活所有的 AudioContext (借助用户的 Click 点击流，防范 Autoplay 阻断)
+  if (inputAudioContext && inputAudioContext.state === 'suspended') {
+    try { inputAudioContext.resume(); } catch(e){}
+  }
+  if (audioContext && audioContext.state === 'suspended') {
+    try { audioContext.resume(); } catch(e){}
+  }
+  
   S.calling=true;
   $('#callBtn').className='call-btn end';$('#callBtn').textContent='🔴';
   
@@ -806,8 +815,9 @@ function _recordSegment() {
       return;
     }
     
-    // 判定这一段是否确实为完全静音 (音量电平小于 0.015 即约 1.5% 时，视为没有说话)
-    const isSilentThisSegment = maxVolumeThisSegment < 0.015;
+    // 判定这一段是否确实为完全静音 (音量电平小于 0.015 即约 1.5% 时，视为没有说话)。
+    // 容错防呆：如果录音文件体积大 (大于 5000 字节)，即使 Web Audio 监测电平由于特定平台沙箱限制显示为 0，也直接判定为有声段，予以放行。
+    const isSilentThisSegment = maxVolumeThisSegment < 0.015 && audioBlob.size < 5000;
     
     // 结合 Blob 字节大小 (降为 2000B) 与音量活动检测双重把关
     if (audioBlob.size > 2000 && !isSilentThisSegment) {
