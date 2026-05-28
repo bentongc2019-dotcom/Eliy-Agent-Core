@@ -68,6 +68,8 @@ const server = http.createServer(async (req, res) => {
     await handleRecord(req, res);
   } else if (pathname === '/api/tts' && req.method === 'POST') {
     await handleTTS(req, res);
+  } else if (pathname === '/api/stt' && req.method === 'POST') {
+    await handleSTT(req, res);
   } else {
     // --- 静态文件托管 ---
     let filePath = '';
@@ -250,6 +252,67 @@ async function handleTTS(req, res) {
       res.end(JSON.stringify({ audioContent: silentMp3Base64 }));
     }
   } catch (err) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: err.message }));
+  }
+}
+
+// === 7. /api/stt 处理逻辑 ===
+async function handleSTT(req, res) {
+  try {
+    const body = await parseJsonBody(req);
+    const base64Audio = body.audio || '';
+    if (!base64Audio) {
+      throw new Error('未接收到音频数据');
+    }
+
+    console.log(`[API /api/stt] 收到音频数据，字符长度: ${base64Audio.length}`);
+
+    const sttApiKey = process.env.GOOGLE_CLOUD_API_KEY || process.env.STT_API_KEY;
+
+    if (sttApiKey && sttApiKey !== 'your_stt_api_key_here') {
+      console.log('[API /api/stt] 代理真实 Google Cloud Speech-to-Text 请求...');
+      
+      const googleEndpoint = `https://speech.googleapis.com/v1/speech:recognize?key=${sttApiKey}`;
+      
+      const googleRequestBody = {
+        config: {
+          encoding: 'WEBM_OPUS',
+          sampleRateHertz: 48000,
+          languageCode: 'cmn-Hans-CN',
+          alternativeLanguageCodes: ['zh-TW', 'en-US'],
+          enableAutomaticPunctuation: true
+        },
+        audio: {
+          content: base64Audio
+        }
+      };
+
+      const response = await fetch(googleEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(googleRequestBody)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const transcript = data.results?.[0]?.alternatives?.[0]?.transcript || '';
+        console.log(`[API /api/stt] Google Cloud Speech-to-Text 识别结果: "${transcript}"`);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ text: transcript }));
+      } else {
+        const errText = await response.text();
+        throw new Error(`Google Speech-to-Text API 响应失败: ${response.status} - ${errText}`);
+      }
+    } else {
+      console.log('[API /api/stt] 未检测到有效的 STT API Key，采用仿真 Mock 转写服务...');
+      const mockResult = '我需要诊断我的业务瓶颈，目前获客成本太高了';
+      console.log(`[API /api/stt] Mock 识别结果: "${mockResult}"`);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ text: mockResult }));
+    }
+  } catch (err) {
+    console.error('[API /api/stt] 识别逻辑异常:', err);
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: err.message }));
   }

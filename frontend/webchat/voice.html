@@ -518,15 +518,197 @@ function setVoiceStatus(s){
   dot.style.background=map[s][0];txt.textContent=map[s][1];
 }
 
+// === VAD 与音频录音 (Offline Voice Activity Detection) ===
+let vadStream = null;
+let vadAudioContext = null;
+let vadAnalyser = null;
+let vadMediaRecorder = null;
+let vadChunks = [];
+let silenceTimer = null;
+let isRecordingActive = false;
+let userIsSpeaking = false;
+
+async function startVadAndRecording() {
+  if (isRecordingActive) return;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    vadStream = stream;
+    
+    // 1. 初始化 MediaRecorder
+    let options = {};
+    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+      options = { mimeType: 'audio/webm;codecs=opus' };
+    } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+      options = { mimeType: 'audio/webm' };
+    }
+    
+    vadMediaRecorder = new MediaRecorder(stream, options);
+    vadChunks = [];
+    
+    vadMediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) {
+        vadChunks.push(e.data);
+      }
+    };
+    
+    vadMediaRecorder.onstop = async () => {
+      console.log(`[VAD] 录音停止，切片数量: ${vadChunks.length}`);
+      const audioBlob = new Blob(vadChunks, { type: vadMediaRecorder.mimeType });
+      if (audioBlob.size > 1000) { // 过滤极小微音片段
+        console.log(`[VAD] 录音就绪，大小: ${audioBlob.size} 字节，正在转换为 Base64 并上传...`);
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = async () => {
+          const base64Audio = reader.result.split(',')[1];
+          await sendAudioToSTT(base64Audio);
+        };
+      } else {
+        console.log('[VAD] 录音片段太小，忽略提交');
+      }
+    };
+    
+    // 2. 初始化 Web Audio API 音量监听
+    vadAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const source = vadAudioContext.createMediaStreamSource(stream);
+    vadAnalyser = vadAudioContext.createAnalyser();
+    vadAnalyser.fftSize = 256;
+    source.connect(vadAnalyser);
+    
+    const bufferLength = vadAnalyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    
+    isRecordingActive = true;
+    userIsSpeaking = false;
+    vadMediaRecorder.start();
+    console.log('[VAD] 麦克风录音已启动，正在进行本地音量门限监测...');
+    
+    const checkVolume = () => {
+      if (!isRecordingActive) return;
+      
+      vadAnalyser.getByteFrequencyData(dataArray);
+      
+      let sum = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        sum += dataArray[i];
+      }
+      const avgVolume = sum / bufferLength;
+      
+      // 门槛阈值，静音背景一般 0~5 说话一般 12~80
+      const volumeThreshold = 10; 
+      
+      if (avgVolume > volumeThreshold) {
+        if (!userIsSpeaking) {
+          userIsSpeaking = true;
+          console.log('[VAD] >>> 检测到用户开始说话 (Volume:', Math.round(avgVolume), ')');
+          
+          if (isBotSpeaking) {
+            console.log('[VAD] 检测到用户说话音量，打断 AI');
+            interruptBot();
+          }
+        }
+        
+        if (silenceTimer) {
+          clearTimeout(silenceTimer);
+          silenceTimer = null;
+        }
+      } else {
+        if (userIsSpeaking) {
+          if (!silenceTimer) {
+            silenceTimer = setTimeout(() => {
+              console.log('[VAD] 说话结束，连续静音 1.5 秒，自动分段提交...');
+              stopVadAndRecording();
+            }, 1500);
+          }
+        }
+      }
+      
+      requestAnimationFrame(checkVolume);
+    };
+    
+    checkVolume();
+  } catch (err) {
+    console.error('[VAD] 开启录音或麦克风监听失败:', err);
+  }
+}
+
+function stopVadAndRecording() {
+  if (!isRecordingActive) return;
+  isRecordingActive = false;
+  userIsSpeaking = false;
+  
+  if (silenceTimer) {
+    clearTimeout(silenceTimer);
+    silenceTimer = null;
+  }
+  
+  if (vadMediaRecorder && vadMediaRecorder.state !== 'inactive') {
+    try { vadMediaRecorder.stop(); } catch(e){}
+  }
+  
+  if (vadStream) {
+    vadStream.getTracks().forEach(t => t.stop());
+    vadStream = null;
+  }
+  
+  if (vadAudioContext && vadAudioContext.state !== 'closed') {
+    try { vadAudioContext.close(); } catch(e){}
+  }
+  
+  console.log('[VAD] 麦克风录音及 VAD 监测已停止');
+}
+
+async function sendAudioToSTT(base64Audio) {
+  setVoiceStatus('thinking');
+  console.log(`[STT] 发起 POST /api/stt 请求，Base64 长度: ${base64Audio.length}`);
+  
+  try {
+    const res = await fetch('/api/stt', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ audio: base64Audio })
+    });
+    
+    if (!res.ok) {
+      throw new Error(`HTTP 状态码 ${res.status}`);
+    }
+    
+    const data = await res.json();
+    console.log('[STT] 后端转写文本成功:', data.text);
+    
+    if (data.text && data.text.trim()) {
+      $('#subtitle').style.opacity = '1.0';
+      $('#subtitle').textContent = '🎤 ' + data.text;
+      await processInput(data.text);
+    } else {
+      console.log('[STT] 转写文本为空，忽略本轮并重启监听');
+      if (S.calling && !isBotSpeaking) {
+        startListening();
+      }
+    }
+  } catch (err) {
+    console.error('[STT] /api/stt 请求出错:', err);
+    if (S.calling && !isBotSpeaking) {
+      startListening();
+    }
+  }
+}
+
 // === 全双工语音识别 (STT) ===
 let recognitionActive = false; // 避免重複啟動
 
 function startListening(){
-  if(!S.calling || isBotSpeaking || recognitionActive) return;
+  if(!S.calling || isBotSpeaking) return;
+  
+  // 启动本地硬件 VAD 与录音管道
+  startVadAndRecording();
+  
+  if(recognitionActive) return;
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SR){ 
     console.warn('[STT] 瀏覽器不支援 SpeechRecognition 語音識別');
-    setVoiceStatus('idle'); 
+    setVoiceStatus('listening'); 
     return; 
   }
   
@@ -616,7 +798,9 @@ function startListening(){
   }
 }
 
+
 function stopListening(){
+  stopVadAndRecording();
   if(S.recognition){
     try { S.recognition.onend = null; S.recognition.stop(); } catch(e){}
     S.recognition = null;
@@ -627,9 +811,17 @@ function stopListening(){
 // === 打断 AI 说话 ===
 function interruptBot() {
   isBotSpeaking = false;
+  stopVadAndRecording();
   stopCurrentAudio();
   if (visemeAnimFrame) cancelAnimationFrame(visemeAnimFrame);
-  if(S.calling) setVoiceStatus('listening');
+  if(S.calling) {
+    setVoiceStatus('listening');
+    setTimeout(() => {
+      if (S.calling && !isBotSpeaking) {
+        startVadAndRecording();
+      }
+    }, 200);
+  }
 }
 
 // === 处理用户输入 ===
