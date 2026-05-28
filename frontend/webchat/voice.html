@@ -258,6 +258,18 @@
         <input type="text" id="proxyUrlInput" placeholder="例如 https://eliy-proxy.workers.dev (選填)" />
       </div>
 
+      <div class="setting-item">
+        <label for="micSelect">选择麦克风输入源 (Microphone)</label>
+        <select id="micSelect" onchange="changeMicDevice()"></select>
+      </div>
+
+      <div class="setting-item">
+        <label>实时麦克风音量 (Volume Level)</label>
+        <div style="width: 100%; height: 8px; background: var(--navy-900); border-radius: 4px; overflow: hidden; border: 1px solid var(--border); position: relative; margin-top: 4px;">
+          <div id="micVolumeBar" style="width: 0%; height: 100%; background: var(--success); transition: width 0.05s ease; box-shadow: 0 0 8px var(--success);"></div>
+        </div>
+      </div>
+
       <button class="settings-save-btn" onclick="saveSettings()">保存配置</button>
     </div>
 
@@ -271,6 +283,17 @@
       <div class="status-badge"><span class="sdot" id="sDot"></span><span id="sText">点击开始通话</span></div>
     </div>
     
+    <!-- 连续静音自诊断警告框 (富老板奢华毛玻璃风格) -->
+    <div id="silenceAlert" style="display:none; max-width:380px; background:rgba(245, 197, 24, 0.08); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); border:1px solid var(--accent); border-radius:10px; padding:0.8rem 1rem; color:var(--text); font-size:0.8rem; line-height:1.5; margin-bottom:1.5rem; text-align:left; z-index:15; box-shadow:0 8px 32px rgba(0,0,0,0.3); animation:slideIn 0.3s ease;">
+      <div style="display:flex; align-items:flex-start; gap:0.6rem;">
+        <span style="font-size:1.1rem; line-height:1;">⚠️</span>
+        <div>
+          <strong style="color:var(--accent); font-weight:700; display:block; margin-bottom:0.25rem; letter-spacing:0.03em;">诊断助理提示：未检测到输入音量</strong>
+          若已在发言，可能是麦克风被物理静音或系统未授予本客户端麦克风权限。请在右上角 ⚙️ 配置控制台中切换不同的输入设备。
+        </div>
+      </div>
+    </div>
+
     <div class="wave-bar idle" id="waveBar">
       <span></span><span></span><span></span><span></span><span></span>
     </div>
@@ -297,6 +320,23 @@
 <script src="./azure-tts.js"></script>
 <script src="./edge-tts.js"></script>
 <script type="module">
+// === 全局录音与自诊断状态声明（提前防范暂时性死区 TDZ 报错）===
+let vadStream = null;
+let vadMediaRecorder = null;
+let isRecordingActive = false;
+
+// Web Audio API 麦克风输入检测节点
+let inputAudioContext = null;
+let inputAnalyser = null;
+let inputSource = null;
+let inputDataArray = null;
+let inputVolumeAnimFrame = null;
+
+// 音量统计与报警
+let selectedMicId = localStorage.getItem('SELECTED_MIC_ID') || '';
+let consecutiveSilenceCount = 0; // 连续静音段数计数器
+let maxVolumeThisSegment = 0;     // 当前 5 秒分段内最大音量
+
 // === 環境變數安全讀取 ===
 let VITE_API_PROXY_URL = '';
 
@@ -386,6 +426,7 @@ async function loadSettings() {
   googleEngine.voiceName = googleVoiceMap[voiceStyle] || 'cmn-CN-Wavenet-B';
   
   updateSettingsStatus(`已連接 Google 代理 (${googleEngine.voiceName})`, true);
+  loadMicDevices();
 }
 
 function updateSettingsStatus(msg, isSuccess) {
@@ -493,6 +534,10 @@ function endCall(){
   setVoiceStatus('idle');
   $('#subtitle').textContent='';
   document.querySelectorAll('.wave-bar span').forEach(b => { b.style.height = ''; b.style.animation = ''; });
+  
+  // 重置静音诊断状态
+  consecutiveSilenceCount = 0;
+  hideSilenceAlert();
 }
 
 // === 语音状态 ===
@@ -520,36 +565,204 @@ function setVoiceStatus(s){
   dot.style.background=map[s][0];txt.textContent=map[s][1];
 }
 
-// === 音频录音（固定分段录音 — 最可靠方案）===
-// 放弃 AudioContext VAD（Chrome 会自动 suspend 导致 getByteFrequencyData 永远返回 0）
-// 改用固定 5 秒分段录音循环：录 5 秒 → 发 STT → 继续录
-let vadStream = null;
-let vadMediaRecorder = null;
-let isRecordingActive = false;
-// 保留兼容旧调用的空变量
-let vadAudioContext = null;
-let vadAnalyser = null;
-let vadChunks = [];
-let silenceTimer = null;
-let userIsSpeaking = false;
+// === 音频录音与麦克风自诊断（分段录音与输入源切换方案）===
+
+// 开启输入麦克风音量可视化监控
+function setupInputVolumeAnalyser(stream) {
+  try {
+    if (inputVolumeAnimFrame) {
+      cancelAnimationFrame(inputVolumeAnimFrame);
+      inputVolumeAnimFrame = null;
+    }
+    if (inputSource) {
+      try { inputSource.disconnect(); } catch(e){}
+      inputSource = null;
+    }
+    
+    if (!inputAudioContext) {
+      inputAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    if (inputAudioContext.state === 'suspended') {
+      inputAudioContext.resume();
+    }
+    
+    inputAnalyser = inputAudioContext.createAnalyser();
+    inputAnalyser.fftSize = 256;
+    inputAnalyser.smoothingTimeConstant = 0.5;
+    
+    inputSource = inputAudioContext.createMediaStreamSource(stream);
+    inputSource.connect(inputAnalyser);
+    
+    inputDataArray = new Uint8Array(inputAnalyser.frequencyBinCount);
+    
+    function monitorInputVolume() {
+      if (!isRecordingActive || !inputAnalyser) {
+        updateInputVolumeUI(0);
+        return;
+      }
+      
+      inputAnalyser.getByteFrequencyData(inputDataArray);
+      
+      let sum = 0;
+      let count = 0;
+      // 选取中低频段计算声音强度，避开高频噪声
+      for (let i = 0; i < 32; i++) {
+        sum += inputDataArray[i];
+        count++;
+      }
+      const avg = sum / count;
+      const normalizedVolume = avg / 128; // 0.0 ~ 2.0 浮点数
+      
+      // 更新本段内的最大音量记录
+      if (normalizedVolume > maxVolumeThisSegment) {
+        maxVolumeThisSegment = normalizedVolume;
+      }
+      
+      updateInputVolumeUI(normalizedVolume);
+      inputVolumeAnimFrame = requestAnimationFrame(monitorInputVolume);
+    }
+    
+    monitorInputVolume();
+  } catch (e) {
+    console.warn('[Volume Monitor] 初始化输入音量分析器异常：', e);
+  }
+}
+
+function updateInputVolumeUI(volume) {
+  const bar = document.getElementById('micVolumeBar');
+  if (bar) {
+    // 归一化后乘以 120 获得适中的百分比灵敏度
+    const percentage = Math.min(100, Math.floor(volume * 120));
+    bar.style.width = `${percentage}%`;
+  }
+}
+
+// 动态枚举麦克风设备
+async function loadMicDevices() {
+  const micSelect = document.getElementById('micSelect');
+  if (!micSelect) return;
+  
+  try {
+    // 触发授权以允许获取真实设备标签 (Label)
+    if (!vadStream) {
+      const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      tempStream.getTracks().forEach(t => t.stop());
+    }
+    
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const audioInputs = devices.filter(d => d.kind === 'audioinput');
+    
+    micSelect.innerHTML = '';
+    
+    if (audioInputs.length === 0) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = '未检测到麦克风输入设备';
+      micSelect.appendChild(opt);
+      return;
+    }
+    
+    audioInputs.forEach(device => {
+      const opt = document.createElement('option');
+      opt.value = device.deviceId;
+      opt.textContent = device.label || `麦克风 (${micSelect.options.length + 1})`;
+      if (device.deviceId === selectedMicId) {
+        opt.selected = true;
+      }
+      micSelect.appendChild(opt);
+    });
+    
+    if (!selectedMicId && audioInputs.length > 0) {
+      selectedMicId = audioInputs[0].deviceId;
+      localStorage.setItem('SELECTED_MIC_ID', selectedMicId);
+    }
+  } catch (e) {
+    console.warn('[STT] 枚举麦克风设备异常:', e);
+  }
+}
+
+// 用户手动切换麦克风
+async function changeMicDevice() {
+  const micSelect = document.getElementById('micSelect');
+  if (!micSelect) return;
+  
+  selectedMicId = micSelect.value;
+  localStorage.setItem('SELECTED_MIC_ID', selectedMicId);
+  console.log('[STT] 切换麦克风输入源为:', selectedMicId);
+  
+  // 停止当前段的录音
+  if (vadMediaRecorder && vadMediaRecorder.state !== 'inactive') {
+    try { vadMediaRecorder.stop(); } catch(e){}
+  }
+  
+  // 释放原有的麦克风流
+  if (vadStream) {
+    vadStream.getTracks().forEach(t => t.stop());
+    vadStream = null;
+  }
+  
+  // 清空 Web Audio 动画
+  if (inputVolumeAnimFrame) {
+    cancelAnimationFrame(inputVolumeAnimFrame);
+    inputVolumeAnimFrame = null;
+  }
+  
+  // 如果通话在继续，并且并非 AI 说话，重新调起录制
+  if (S.calling && !isBotSpeaking) {
+    isRecordingActive = false;
+    setTimeout(() => startVadAndRecording(), 200);
+  } else {
+    // 处于空闲状态，尝试预获取新麦克风以测试音量条
+    try {
+      const constraints = {
+        audio: selectedMicId ? { deviceId: { exact: selectedMicId } } : true
+      };
+      vadStream = await navigator.mediaDevices.getUserMedia(constraints);
+      isRecordingActive = true;
+      setupInputVolumeAnalyser(vadStream);
+    } catch(err) {
+      console.warn('[STT] 预加载选定麦克风失败:', err);
+    }
+  }
+}
+
+function showSilenceAlert() {
+  const alertEl = document.getElementById('silenceAlert');
+  if (alertEl) {
+    alertEl.style.display = 'block';
+  }
+}
+
+function hideSilenceAlert() {
+  const alertEl = document.getElementById('silenceAlert');
+  if (alertEl) {
+    alertEl.style.display = 'none';
+  }
+}
 
 async function startVadAndRecording() {
   if (isRecordingActive) return;
   
   try {
-    // 获取麦克风权限（只申请一次，stream 复用）
     if (!vadStream) {
-      vadStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      console.log('[STT] 麦克风权限已获取，开始分段录音循环...');
+      const constraints = {
+        audio: selectedMicId ? { deviceId: { exact: selectedMicId } } : true
+      };
+      vadStream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log(`[STT] 麦克风流建立成功 (DeviceID: ${selectedMicId || 'default'})`);
+      
+      // 开启音量能量电平监听
+      setupInputVolumeAnalyser(vadStream);
     }
     
     isRecordingActive = true;
-    _recordSegment(); // 启动第一段录音
+    _recordSegment(); // 启动分段录音
     
   } catch (err) {
-    console.error('[STT] 麦克风启动失败:', err);
+    console.error('[STT] 麦克风流获取失败:', err);
     if (err.name === 'NotAllowedError') {
-      alert('请允许麦克风权限以使用语音功能');
+      alert('请确保已开启本软件的麦克风访问权限！');
     }
   }
 }
@@ -557,9 +770,8 @@ async function startVadAndRecording() {
 function _recordSegment() {
   if (!isRecordingActive || !vadStream) return;
   
-  // 检查 stream 是否还有效
   if (vadStream.getTracks().every(t => t.readyState === 'ended')) {
-    console.warn('[STT] 麦克风流已失效，尝试重新获取...');
+    console.warn('[STT] 检测到麦克风轨道已终止，正在重构流...');
     vadStream = null;
     isRecordingActive = false;
     if (S.calling && !isBotSpeaking) {
@@ -578,6 +790,7 @@ function _recordSegment() {
   const recorder = new MediaRecorder(vadStream, options);
   const chunks = [];
   vadMediaRecorder = recorder;
+  maxVolumeThisSegment = 0; // 重置本段内最大音量
   
   recorder.ondataavailable = (e) => {
     if (e.data && e.data.size > 0) chunks.push(e.data);
@@ -586,45 +799,55 @@ function _recordSegment() {
   recorder.onstop = async () => {
     const mimeType = recorder.mimeType || 'audio/webm';
     const audioBlob = new Blob(chunks, { type: mimeType });
-    console.log(`[STT] 录音段落完成，Blob: ${audioBlob.size} 字节，格式: ${mimeType}`);
+    console.log(`[STT] 录音段落完成，Blob: ${audioBlob.size} 字节，格式: ${mimeType}，段内最大音量电平: ${maxVolumeThisSegment.toFixed(4)}`);
     
-    // 录音被真正终止（endCall），不继续
     if (!isRecordingActive) {
-      console.log('[STT] 录音已终止，不提交本段');
+      console.log('[STT] 通话或录音已停止，丢弃本分段');
       return;
     }
     
-    if (audioBlob.size > 5000) {
+    // 判定这一段是否确实为完全静音 (音量电平小于 0.015 即约 1.5% 时，视为没有说话)
+    const isSilentThisSegment = maxVolumeThisSegment < 0.015;
+    
+    // 结合 Blob 字节大小 (降为 2000B) 与音量活动检测双重把关
+    if (audioBlob.size > 2000 && !isSilentThisSegment) {
+      consecutiveSilenceCount = 0; // 重置静音计数器
+      hideSilenceAlert();
+      
       if (isBotSpeaking) {
-        // AI 正在说话：跳过本段 STT，直接开下一段录音
-        console.log('[STT] AI 正在说话，跳过本段 STT，继续录制下一段...');
+        console.log('[STT] AI 正在播报中，跳过本段语音识别，继续下一段...');
         setTimeout(() => _recordSegment(), 100);
       } else {
-        // 用户说话段落：发 STT
         const reader = new FileReader();
         reader.readAsDataURL(audioBlob);
         reader.onloadend = async () => {
           const base64Audio = reader.result.split(',')[1];
-          console.log(`[STT] 发送 ${base64Audio.length} 字符到 /api/stt...`);
           await sendAudioToSTT(base64Audio);
-          // sendAudioToSTT 完成后（processInput 或空结果），继续下一段录音
           if (isRecordingActive) {
             setTimeout(() => _recordSegment(), 100);
           }
         };
       }
     } else {
-      console.log(`[STT] 录音太小 (${audioBlob.size} bytes)，跳过，继续下一段...`);
+      console.log(`[STT] 静音段过滤 (大小: ${audioBlob.size} bytes, 静音: ${isSilentThisSegment})，继续下一段...`);
+      
+      // 只有当 AI 没在说话（即真正处于 listening 阶段）时才统计用户的静音周期
+      if (S.status === 'listening') {
+        consecutiveSilenceCount++;
+        if (consecutiveSilenceCount >= 2) {
+          showSilenceAlert();
+        }
+      }
+      
       if (isRecordingActive) {
         setTimeout(() => _recordSegment(), 100);
       }
     }
   };
   
-  recorder.start(100); // 每 100ms 一个 chunk，确保数据完整
+  recorder.start(100);
   console.log('[STT] 开始录制 5 秒音频段...');
   
-  // 固定 5 秒后停止本段（onstop 会自动触发下一段）
   setTimeout(() => {
     if (recorder.state === 'recording') {
       recorder.stop();
@@ -639,17 +862,20 @@ function stopVadAndRecording() {
     try { vadMediaRecorder.stop(); } catch(e) {}
   }
   
-  // 注意：不关闭 stream，下次通话可复用
-  // stream 在 endCall 时才关闭
-  console.log('[STT] 分段录音已停止');
+  if (inputVolumeAnimFrame) {
+    cancelAnimationFrame(inputVolumeAnimFrame);
+    inputVolumeAnimFrame = null;
+  }
+  
+  console.log('[STT] 分段录音与输入音量检测已停止');
 }
 
 function _cleanupStream() {
-  // 在 endCall 时调用，彻底释放麦克风
   if (vadStream) {
     vadStream.getTracks().forEach(t => t.stop());
     vadStream = null;
   }
+  updateInputVolumeUI(0);
 }
 
 
