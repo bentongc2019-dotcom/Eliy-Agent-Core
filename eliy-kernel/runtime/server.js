@@ -723,40 +723,48 @@ function writeKernelFile(relPath, content) {
 }
 
 /**
- * 從用戶輸入中提取舊版本內容並生成候選改寫句（Mock 模式下替代 LLM）
- * 僅做簡單的結構提取，不做任何業務分析推斷
+ * 從用戶輸入中生成乾淨、真實的候選 artifact 文字（Mock 模式）
+ * 優先從原始輸入提取，再從當前版本提取，不添加任何前綴/後綴標籤
  */
 function generateCandidateFromInput(userText) {
-  // 嘗試提取「當前版本：」之後的文本
-  let legacyContent = '';
-
-  const patterns = [
-    /當前版本[：:]\s*\n?([\s\S]+?)(?:\n\n|$)/,
-    /当前版本[：:]\s*\n?([\s\S]+?)(?:\n\n|$)/,
-    /現在提取出的待辦[：:]\s*\n?([\s\S]+?)(?:\n\n|$)/,
-    /现在提取出的待办[：:]\s*\n?([\s\S]+?)(?:\n\n|$)/,
-    /原始輸入[：:]\s*\n?([\s\S]+?)(?:\n\n|$)/,
-    /原始输入[：:]\s*\n?([\s\S]+?)(?:\n\n|$)/,
-  ];
-
-  for (const pat of patterns) {
-    const m = userText.match(pat);
-    if (m) { legacyContent = m[1].trim(); break; }
+  // === 優先嘗試提取「原始輸入：」後的自然語言（R1 場景）===
+  const rawInputMatch = userText.match(/原始輸入[：:]\s*(.+?)(?=\n現在提取|\n当前|\n當前|\n旧|\n舊|$)/s) ||
+                        userText.match(/原始输入[：:]\s*(.+?)(?=\n現在提取|\n当前|\n當前|\n旧|\n舊|$)/s);
+  if (rawInputMatch) {
+    const rawText = rawInputMatch[1].trim();
+    // 按中文逗號/頓號分段，每段構建為獨立行動句
+    const segments = rawText
+      .replace(/。\s*$/, '')
+      .split(/[，,、；;]/)
+      .map(s => s.trim())
+      .filter(s => s.length > 3);
+    const lines = segments.map(s => {
+      // 移除口語化連詞前綴（另外、以及、並且等）
+      const clean = s.replace(/^(另外|以及|並且|并且|而且|同時|同时)\s*/, '');
+      // 確保以句號結尾
+      return clean.endsWith('。') || clean.endsWith('？') ? clean : clean + '。';
+    });
+    return lines.join('\n');
   }
 
-  if (!legacyContent) {
-    // 取最後幾行作為候補素材
-    legacyContent = userText.split('\n').filter(l => l.trim()).slice(-2).join(' ');
+  // === 嘗試提取「當前版本：」（R3/R5 email/note 場景）===
+  const currentVersionMatch =
+    userText.match(/當前版本[：:]\s*\n?([\s\S]+?)(?:\n\n|$)/) ||
+    userText.match(/当前版本[：:]\s*\n?([\s\S]+?)(?:\n\n|$)/);
+  if (currentVersionMatch) {
+    // 返回當前版本原文（乾淨格式，LLM 在真實模式下會真正改寫它）
+    return currentVersionMatch[1].trim();
   }
 
-  // 去掉編號前綴，取前 150 字
-  const cleaned = legacyContent
-    .replace(/^\d+\.\s*/gm, '')
-    .replace(/\n/g, ' ')
-    .trim()
-    .substring(0, 150);
+  // === fallback：取用戶輸入最後幾個有意義的非空行 ===
+  const meaningfulLines = userText.split('\n')
+    .map(l => l.replace(/^\d+\.\s*/, '').trim())
+    .filter(l => l.length > 5 && !l.startsWith('我想') && !l.startsWith('這') && !l.startsWith('这'));
+  if (meaningfulLines.length > 0) {
+    return meaningfulLines.slice(-3).join('\n');
+  }
 
-  return `[Mock 候補] ${cleaned}（已在可讀性和明確性上進行優化）`;
+  return userText.trim().substring(0, 120);
 }
 
 function generateMockReply(userText) {
