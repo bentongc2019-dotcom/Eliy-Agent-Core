@@ -692,17 +692,13 @@
 
   // 检查运行环境 (本地 Node.js 还是线上 Pages 静态环境)
   async function detectEnvironment() {
-    try {
-      const res = await fetch(`/eliy-kernel/memory/NEXT_CONTEXT.md?t=${Date.now()}`);
-      if (res.ok) {
-        isLocalMode = true;
-        document.getElementById('runtimeBadge').innerText = "LOCAL NODE.JS RUNTIME";
-        document.getElementById('runtimeBadge').style.borderColor = "var(--accent-gold)";
-        document.getElementById('runtimeBadge').style.color = "var(--accent-gold)";
-      } else {
-        throw new Error('Not running locally');
-      }
-    } catch (e) {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host.startsWith('192.168.')) {
+      isLocalMode = true;
+      document.getElementById('runtimeBadge').innerText = "LOCAL NODE.JS RUNTIME";
+      document.getElementById('runtimeBadge').style.borderColor = "var(--accent-gold)";
+      document.getElementById('runtimeBadge').style.color = "var(--accent-gold)";
+    } else {
       isLocalMode = false;
       document.getElementById('runtimeBadge').innerText = "ONLINE MEMORY SANDBOX";
       document.getElementById('runtimeBadge').style.borderColor = "var(--accent-emerald)";
