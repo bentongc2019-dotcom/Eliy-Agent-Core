@@ -170,47 +170,117 @@ async function handleChat(req, res) {
 }
 
 // === 4.5 Artifact Governance Classifier and Guard ===
+
+// --- 結構性標記檢測函數（基於交付物互動類型，不依賴領域詞）---
+
+// 用戶提供舊版本/當前版本，帶有質量反饋，未提出新候選版本
+function detectLegacyArtifactMarkers(msg) {
+  return (
+    /当前版本[：:]/.test(msg) || /當前版本[：:]/.test(msg) ||
+    /旧版本[：:]/.test(msg)   || /舊版本[：:]/.test(msg)   ||
+    /现在版本[：:]/.test(msg) || /現在版本[：:]/.test(msg) ||
+    /当前输出[：:]/.test(msg) || /當前輸出[：:]/.test(msg) ||
+    /现在提取出的/.test(msg)  || /現在提取出的/.test(msg)  ||
+    /原始输入[：:]/.test(msg) || /原始輸入[：:]/.test(msg) ||
+    /这封.{0,6}写得/.test(msg)  || /這封.{0,6}寫得/.test(msg)  ||
+    /这段.{0,12}不够/.test(msg) || /這段.{0,12}不夠/.test(msg) ||
+    /这个.{0,12}不够/.test(msg) || /這個.{0,12}不夠/.test(msg) ||
+    msg.includes('不够清楚')  || msg.includes('不夠清楚')  ||
+    msg.includes('不够自然')  || msg.includes('不夠自然')  ||
+    msg.includes('不够像人话') || msg.includes('不夠像人話') ||
+    msg.includes('不够可执行') || msg.includes('不夠可執行') ||
+    /提取出来的.{0,12}不够/.test(msg) || /提取出來的.{0,12}不夠/.test(msg) ||
+    msg.includes('想继续改当前') || msg.includes('想繼續改當前') ||
+    /继续改.{0,6}工具/.test(msg) || /繼續改.{0,6}工具/.test(msg)
+  );
+}
+
+// 用戶明確引入一個新的候選版本
+function detectCandidateIntroMarkers(msg) {
+  return (
+    msg.includes('我想改成') ||
+    msg.includes('可以改成') ||
+    msg.includes('我写成这样') || msg.includes('我寫成這樣') ||
+    /候选版本[：:]/.test(msg) || /候選版本[：:]/.test(msg) ||
+    /这个版本[：:]/.test(msg) || /這個版本[：:]/.test(msg)
+  );
+}
+
+// 用戶明確要求對候選版本做判斷
+function detectJudgmentRequestMarkers(msg) {
+  return (
+    msg.includes('你判断一下') || msg.includes('你判斷一下') ||
+    /是否.*更自然/.test(msg)  ||
+    /是否.*更清楚/.test(msg)  ||
+    /是否.*符合要求/.test(msg) ||
+    /是否.*更适合/.test(msg)  || /是否.*更適合/.test(msg) ||
+    /是否比.*更/.test(msg)    ||
+    msg.includes('这句话是否') || msg.includes('這句話是否') ||
+    /是否.*待办/.test(msg)    || /是否.*待辦/.test(msg)   ||
+    /是否.*合适/.test(msg)    || /是否.*合適/.test(msg)
+  );
+}
+
+// 用戶明確接受
+function detectExplicitAcceptanceMarkers(msg) {
+  const t = msg.trim();
+  return (
+    /确认[，,]就用/.test(t) || /確認[，,]就用/.test(t) ||
+    t.includes('我接受') ||
+    t.includes('接受这个') || t.includes('接受這個') ||
+    /^確認/.test(t) || /^确认/.test(t) ||
+    t === '接受' || t === '接受。'
+  );
+}
+
+// 用戶明確凍結
+function detectExplicitFreezeMarkers(msg) {
+  return (
+    msg.includes('冻结') || msg.includes('凍結') ||
+    msg.includes('以后按这个') || msg.includes('以後按這個')
+  );
+}
+
 function classifyArtifactInput(userMsg) {
   const msg = userMsg || '';
-  
-  // 1. 系統/接續測試信號，不屬於任何交付物治理輸入
-  const isTestSignal = 
-    msg.includes('NEXT_CONTEXT') || 
-    msg.includes('接续') || 
-    msg.includes('接續') || 
-    msg.includes('test') || 
-    msg.includes('测试') || 
-    msg.includes('測試') || 
-    msg.trim() === '';
-  if (isTestSignal) {
-    return 'no_artifact_input';
-  }
 
-  // 2. 凍結指令 (explicit_freeze)
-  if (msg.includes('冻结') || msg.includes('凍結') || msg.includes('以后按这个') || msg.includes('以後按這個')) {
-    return 'explicit_freeze';
-  }
-  
-  // 3. 明確確認/接受 (explicit_acceptance)
-  if (msg.includes('确认，就用') || msg.includes('確認，就用') || msg.includes('我接受') || msg.includes('接受這個') || msg.includes('接受这个') || msg.startsWith('確認') || msg.startsWith('确认') || msg.trim() === '接受' || msg.trim() === '接受。') {
-    return 'explicit_acceptance';
-  }
-  
-  // 4. 明確拒絕 (explicit_rejection)
-  if (msg.includes('拒绝') || msg.includes('拒絕') || msg.includes('不对') || msg.includes('不對') || msg.includes('重新改') || msg.includes('重新修改')) {
-    return 'explicit_rejection';
-  }
-  
-  // 5. 用戶提供候補並要求判斷 (user_candidate_requires_judgment)
-  if (msg.includes('是否') || msg.includes('判斷') || msg.includes('判断') || msg.includes('改一個點') || msg.includes('改一个点') || msg.includes('候補') || msg.includes('候选') || msg.includes('你看這樣')) {
+  // 1. 系統/接續測試信號
+  const isTestSignal =
+    msg.includes('NEXT_CONTEXT') ||
+    msg.includes('接续') || msg.includes('接續') ||
+    msg.includes('test') ||
+    msg.includes('测试') || msg.includes('測試') ||
+    msg.trim() === '';
+  if (isTestSignal) return 'no_artifact_input';
+
+  // 2. 凍結指令
+  if (detectExplicitFreezeMarkers(msg)) return 'explicit_freeze';
+
+  // 3. 明確確認/接受
+  if (detectExplicitAcceptanceMarkers(msg)) return 'explicit_acceptance';
+
+  // 4. 明確拒絕
+  if (
+    msg.includes('拒绝') || msg.includes('拒絕') ||
+    msg.includes('不对') || msg.includes('不對') ||
+    msg.includes('重新改') || msg.includes('重新修改')
+  ) return 'explicit_rejection';
+
+  // 5. 用戶提供候補並要求判斷（需同時滿足引入 + 判斷請求）
+  if (detectCandidateIntroMarkers(msg) && detectJudgmentRequestMarkers(msg)) {
     return 'user_candidate_requires_judgment';
   }
-  
-  // 6. 帶有歷史/舊交付物的原始素材輸入 (raw_material_with_legacy_artifact)
-  if (msg.includes('原始輸入') || msg.includes('原始输入') || msg.includes('當前版本') || msg.includes('当前版本') || msg.includes('當前工具') || msg.includes('当前工具') || msg.includes('提取出') || msg.includes('提取出來') || msg.includes('紀要不夠清楚') || msg.includes('纪要不够清楚')) {
+
+  // 6. 帶有舊版本/原始素材的輸入 → assistant 負責提出候補
+  if (detectLegacyArtifactMarkers(msg)) {
     return 'raw_material_with_legacy_artifact';
   }
-  
+
+  // 7. 僅有候選引入詞，也視為候選確認類
+  if (detectCandidateIntroMarkers(msg)) {
+    return 'user_candidate_requires_judgment';
+  }
+
   return 'no_artifact_input';
 }
 
@@ -302,76 +372,86 @@ async function handleRecord(req, res) {
     const userMsg = userMatch ? userMatch[1].trim() : '';
     const assistantMsg = assistantMatch ? assistantMatch[1].trim() : '';
 
-    // 安全保护校验逻辑 (Guards)
-    const isTestSignal = 
-      userMsg.includes('NEXT_CONTEXT') || 
-      userMsg.includes('接续') || 
-      userMsg.includes('接續') || 
-      userMsg.includes('test') || 
-      userMsg.includes('测试') || 
-      userMsg.includes('測試') || 
-      userMsg.trim() === '';
+    // === 使用泛化分類器統一驅動所有落盤邏輯 ===
+    const classification = classifyArtifactInput(userMsg);
+    const artifactGuard = determineArtifactStatus(userMsg, assistantMsg);
 
-    const isTestA = userMsg.includes("这里先只改一个点") || userMsg.includes("這裡先只改一個點") || userMsg.includes("这句话是否符合 you 想要的待办表达") || userMsg.includes("這句話是否符合你想要的待辦表達") || userMsg.includes("这句话是否符合你想要的待办表达");
-    const isTestB = userMsg.includes("确认，就用这个版本") || userMsg.includes("確認，就用這個版本") || (userMsg.includes("确认") && userMsg.includes("版本")) || (userMsg.includes("確認") && userMsg.includes("版本"));
-    const isRealArtifactTest = (userMsg.includes("我想继续改当前工具") || userMsg.includes("我想繼續改當前工具")) && (userMsg.includes("报价确认") || userMsg.includes("報價確認"));
-    const isFreezeTest = userMsg.includes("冻结这版") || userMsg.includes("凍結這版") || userMsg.includes("以后按这个版本") || userMsg.includes("以後按這個版本") || userMsg.includes("冻结") || userMsg.includes("凍結");
+    console.log(`[API /api/record] classification: ${classification} | artifact_status: ${artifactGuard.status}`);
 
-    // === 1. 输出 STATE.md ===
-    let newStateContent = '';
-    if (isFreezeTest) {
-      newStateContent = `# STATE.md\n- Phase: INTAKE\n- Current Task: Todo artifact wording refinement\n- Current Focus: artifact finalized and frozen\n- Last User Input: "${userMsg}"\n- Message Count: 1\n- Timestamp: ${new Date().toISOString()}\n`;
-    } else if (isTestB) {
-      newStateContent = `# STATE.md\n- Phase: INTAKE\n- Current Task: Todo artifact wording refinement\n- Current Focus: artifact finalized and accepted\n- Last User Input: "${userMsg}"\n- Message Count: 1\n- Timestamp: ${new Date().toISOString()}\n`;
-    } else if (isTestA) {
-      newStateContent = `# STATE.md\n- Phase: INTAKE\n- Current Task: Todo artifact wording refinement\n- Current Focus: evaluating candidate rewrite\n- Last User Input: "${userMsg}"\n- Message Count: 1\n- Timestamp: ${new Date().toISOString()}\n`;
-    } else if (isRealArtifactTest) {
-      newStateContent = `# STATE.md\n- Phase: INTAKE\n- Current Task: Todo artifact wording refinement\n- Current Focus: make extracted todo items more actionable and human-readable\n- Last User Input: "${userMsg}"\n- Message Count: 1\n- Timestamp: ${new Date().toISOString()}\n`;
-    } else {
-      newStateContent = `# STATE.md\n- Phase: INTAKE\n- Last User Input: "${userMsg}"\n- Message Count: 1\n- Timestamp: ${new Date().toISOString()}\n`;
-    }
+    // === 1. STATE.md ===
+    const stateFocusMap = {
+      'raw_material_with_legacy_artifact': 'assistant proposed candidate artifact; awaiting user confirmation',
+      'user_candidate_requires_judgment':  'evaluating user-provided candidate artifact; awaiting user decision',
+      'explicit_acceptance':               'artifact accepted and finalized',
+      'explicit_rejection':                'artifact rejected; reverted to proposed status',
+      'explicit_freeze':                   'artifact frozen as final standard',
+      'no_artifact_input':                 'no artifact workflow active',
+    };
+    const stateFocus = stateFocusMap[classification] || 'no artifact workflow active';
+    const newStateContent =
+      `# STATE.md\n` +
+      `- Phase: INTAKE\n` +
+      `- Classification: ${classification}\n` +
+      `- Current Focus: ${stateFocus}\n` +
+      `- Last User Input: "${userMsg.substring(0, 100).replace(/\n/g, ' ')}"\n` +
+      `- Timestamp: ${new Date().toISOString()}\n`;
     writeKernelFile('memory/STATE.md', newStateContent);
 
-    // === 2. 输出 HLAMT/EVIDENCE.md ===
-    let newEvidenceContent = '';
-    if (isFreezeTest) {
-      newEvidenceContent = `# EVIDENCE.md\n\n## Transcript Evidence\nTask Output:\n- user explicitly froze this artifact version\n- todo sentence version frozen as final standard\nCapability Evidence:\n- user finalized process standard by freezing candidate version\n- Date: ${new Date().toISOString()}\n`;
-    } else if (isTestB) {
-      newEvidenceContent = `# EVIDENCE.md\n\n## Transcript Evidence\nTask Output:\n- user explicitly confirmed and accepted the candidate rewrite\n- todo sentence acceptance finalized\nCapability Evidence:\n- user accepted actionable task sentence expression\n- todo quality loop completed successfully\n- Date: ${new Date().toISOString()}\n`;
-    } else if (isTestA) {
-      newEvidenceContent = `# EVIDENCE.md\n\n## Transcript Evidence\nTask Output:\n- assistant proposed a rewritten todo sentence\n- user is evaluating a candidate rewrite...\nCapability Evidence:\n- user identified that extracted todos are not human-readable enough\n- user is refining artifact quality from keyword-like tasks toward actionable task sentences\n- Date: ${new Date().toISOString()}\n`;
-    } else if (isRealArtifactTest) {
-      newEvidenceContent = `# EVIDENCE.md\n\n## Transcript Evidence\nTask Output:\n- assistant proposed a rewritten todo sentence\nCapability Evidence:\n- user identified that extracted todos are not human-readable enough\n- user is refining artifact quality from keyword-like tasks toward actionable task sentences\n- Date: ${new Date().toISOString()}\n`;
-    } else if (isTestSignal) {
-      newEvidenceContent = `# EVIDENCE.md\n\n- Business Challenge: none detected.\n- Capability Evidence: none inferred from this turn.\n`;
-    } else {
-      const businessChallenge = `"${userMsg}"`;
-      newEvidenceContent = `# EVIDENCE.md\n\n## Transcript Evidence\n- User shared business challenge: ${businessChallenge}\n- Coach response provided: "${assistantMsg.substring(0, 50).replace(/\n/g, ' ')}..."\n- Date: ${new Date().toISOString()}\n`;
-    }
+    // === 2. EVIDENCE.md（永遠空值格式，不推斷業務信息）===
+    const newEvidenceContent =
+      `# EVIDENCE.md\n\n` +
+      `- Business Challenge: none detected.\n` +
+      `- Capability Evidence: none inferred from this turn.\n`;
     writeKernelFile('hlamt/EVIDENCE.md', newEvidenceContent);
 
-    // === 3. 输出 NEXT_CONTEXT.md ===
-    let newNextContextContent = '';
-    if (isFreezeTest) {
-      newNextContextContent = `# NEXT_CONTEXT.md\n\n## Next Interaction Scope\n- Recommended Action: "No further action required for this artifact"\n- Context Focus: "Completed and Frozen"\n- Artifact Details:\nFrozen artifact standard:\n1. 请王明在周五前确认报价，并把结果同步给我。\n2. 提醒小张整理客户名单\n- Timestamp: ${new Date().toISOString()}\n`;
-    } else if (isTestB) {
-      newNextContextContent = `# NEXT_CONTEXT.md\n\n## Next Interaction Scope\n- Recommended Action: "No further action required for this artifact"\n- Context Focus: "Completed"\n- Artifact Details:\nAccepted artifact:\n1. 请王明在周五前确认报价，并把结果同步给我。\n2. 提醒小张整理客户名单\n- Timestamp: ${new Date().toISOString()}\n`;
-    } else if (isTestA) {
-      newNextContextContent = `# NEXT_CONTEXT.md\n\n## Next Interaction Scope\n- Recommended Action: "Confirm whether the candidate rewrite matches user expectations"\n- Context Focus: "Validate candidate wording with user"\n- Artifact Details:\nCurrent candidate:\n1. 请王明在周五前确认报价，并把结果同步给我。\n2. 提醒小张整理客户名单\n- Timestamp: ${new Date().toISOString()}\n`;
-    } else if (isRealArtifactTest) {
-      newNextContextContent = `# NEXT_CONTEXT.md\n\n## Next Interaction Scope\nCurrent artifact:\n1. 会议跟进\n2. 报价确认\n3. 整理客户名单\nCurrent issue:\nThe first two items may be overlapping.\nSuggested next step:\nAsk the user whether to merge item 1 and item 2 into one actionable sentence.\n- Timestamp: ${new Date().toISOString()}\n`;
-    } else if (isTestSignal) {
-      newNextContextContent = `# NEXT_CONTEXT.md\n\n## Next Interaction Scope\n- Context Focus: None\n- Recommended Action: 等待下一條真實測試輸入\n- Timestamp: ${new Date().toISOString()}\n`;
-    } else {
-      const contextFocus = "Analyze user specified business details";
-      const nextAction = (assistantMsg.includes('行动') || assistantMsg.includes('行动处方') ? 'Execute assistant proposed action' : 'Provide business details & metrics');
-      newNextContextContent = `# NEXT_CONTEXT.md\n\n## Next Interaction Scope\n- Recommended Action: "${nextAction}"\n- Context Focus: ${contextFocus}\n- Timestamp: ${new Date().toISOString()}\n`;
-    }
+    // === 3. NEXT_CONTEXT.md（保留可接續信息，不包含推薦行動詞）===
+    const nextContextBodyMap = {
+      'raw_material_with_legacy_artifact':
+        `- Current artifact: ${artifactGuard.artifact}\n` +
+        `- Current artifact status: ${artifactGuard.status}\n` +
+        `- Awaiting user input: confirm, modify, or reject the proposed candidate artifact\n` +
+        `- Do not infer unsupported workflow`,
+      'user_candidate_requires_judgment':
+        `- Current artifact: ${artifactGuard.artifact}\n` +
+        `- Current artifact status: ${artifactGuard.status}\n` +
+        `- Awaiting user input: user must confirm acceptance or rejection of the candidate version\n` +
+        `- Do not infer unsupported workflow`,
+      'explicit_acceptance':
+        `- Current artifact: ${artifactGuard.artifact}\n` +
+        `- Current artifact status: ${artifactGuard.status}\n` +
+        `- Awaiting user input: none (artifact accepted)\n` +
+        `- Do not infer unsupported workflow`,
+      'explicit_rejection':
+        `- Current artifact: ${artifactGuard.artifact}\n` +
+        `- Current artifact status: ${artifactGuard.status}\n` +
+        `- Awaiting user input: user may provide new direction or candidate version\n` +
+        `- Do not infer unsupported workflow`,
+      'explicit_freeze':
+        `- Current artifact: ${artifactGuard.artifact}\n` +
+        `- Current artifact status: ${artifactGuard.status}\n` +
+        `- Awaiting user input: none (artifact frozen)\n` +
+        `- Do not infer unsupported workflow`,
+      'no_artifact_input':
+        `- Current artifact: none\n` +
+        `- Current artifact status: none\n` +
+        `- Awaiting user input: no artifact workflow active\n` +
+        `- Do not infer unsupported workflow`,
+    };
+    const nextContextBody = nextContextBodyMap[classification] || nextContextBodyMap['no_artifact_input'];
+    const newNextContextContent =
+      `# NEXT_CONTEXT.md\n\n` +
+      `## Current Artifact Workflow\n` +
+      `${nextContextBody}\n` +
+      `- Timestamp: ${new Date().toISOString()}\n`;
     writeKernelFile('memory/NEXT_CONTEXT.md', newNextContextContent);
 
-    // === 4. 更新 ARTIFACT_STATUS.md ===
-    const artifactGuard = determineArtifactStatus(userMsg, assistantMsg);
-    const newArtifactStatus = `# ARTIFACT_STATUS.md\nArtifact: ${artifactGuard.artifact}\nStatus: ${artifactGuard.status}\nReason: ${artifactGuard.reason}\n- Update Time: ${new Date().toISOString()}\n`;
+    // === 4. ARTIFACT_STATUS.md ===
+    const newArtifactStatus =
+      `# ARTIFACT_STATUS.md\n` +
+      `Artifact: ${artifactGuard.artifact}\n` +
+      `Status: ${artifactGuard.status}\n` +
+      `Reason: ${artifactGuard.reason}\n` +
+      `- Update Time: ${new Date().toISOString()}\n`;
     writeKernelFile('memory/ARTIFACT_STATUS.md', newArtifactStatus);
 
     console.log('[API /api/record] 成功写入 STATE.md, EVIDENCE.md, NEXT_CONTEXT.md 与 ARTIFACT_STATUS.md');
@@ -578,43 +658,52 @@ function writeKernelFile(relPath, content) {
 }
 
 function generateMockReply(userText) {
-  const isTestSignal = 
-    userText.includes('NEXT_CONTEXT') || 
-    userText.includes('接续') || 
-    userText.includes('接續') || 
-    userText.includes('test') || 
-    userText.includes('测试') || 
-    userText.includes('測試') || 
+  // 系統/接續測試信號，不走 artifact 流程
+  const isTestSignal =
+    userText.includes('NEXT_CONTEXT') ||
+    userText.includes('接续') || userText.includes('接續') ||
+    userText.includes('test') ||
+    userText.includes('测试') || userText.includes('測試') ||
     userText.trim() === '';
 
-  const isRealArtifactTest = (userText.includes("我想继续改当前工具") || userText.includes("我想繼續改當前工具")) && (userText.includes("报价确认") || userText.includes("報價確認"));
-  const isTestA = userText.includes("这里先只改一个点") || userText.includes("這裡先只改一個點") || userText.includes("这句话是否符合你想要的待办表达");
-  const isTestB = userText.includes("确认，就用这个版本") || userText.includes("確認，就用這個版本") || (userText.includes("确认") && userText.includes("版本"));
-  const isFreezeTest = userText.includes("冻结这版") || userText.includes("凍結這版") || userText.includes("以后按这个版本") || userText.includes("以後按這個版本") || userText.includes("冻结") || userText.includes("凍結");
-
-  if (isRealArtifactTest || isTestA) {
-    return "已收到。您提供了一個候補改寫版本。我已記錄，請問您是否要採用這個版本？";
-  }
-
-  if (isTestB) {
-    return "已確認。您已接受改寫後的待辦事項。此交付物已正式歸檔。";
-  }
-
-  if (isFreezeTest) {
-    return "已收到凍結指令。該交付物版本已正式凍結，後續將作為最終標準執行。";
-  }
-
   if (isTestSignal) {
-    return "收到。這是系統接續測試信號，目前沒有業務內容。我會等待下一條真實業務輸入。";
+    return '收到。這是系統接續測試信號，目前沒有業務內容。我會等待下一條真實業務輸入。';
   }
 
-  // 专业的主体型智能体回复生成器 (Mock implementation only)
-  const replies = [
-    `[Mock implementation only] 收到。你刚才提到「${userText.substring(0, 20)}」。在给出判断前，我需要明确：你的团队规模目前有多少人？以及这个问题导致了多少的月营收损失？请用数字回答。`,
-    `[Mock implementation only] 这确实是个关键阻碍。但为了不做猜测，请提供具体数据：你们的获客成本（CAC）大概是多少？核心转化率是多少？`,
-    `[Mock implementation only] 明白你的处境了. 基于此，我们的初步行动建议是：本周立即暂停 ROI 最低的一个推广渠道，全力盯紧核心漏斗。你能做到吗？`
-  ];
-  return replies[Math.floor(Math.random() * replies.length)];
+  // 使用泛化分類器路由回應
+  const classification = classifyArtifactInput(userText);
+
+  switch (classification) {
+    case 'raw_material_with_legacy_artifact':
+      // Assistant 識別舊版本問題，主動提出候補，請用戶確認
+      // 真實 LLM 模式下，DeepSeek 會根據具體內容生成具體的候補版本
+      return (
+        '[Mock] 已收到。我識別了當前版本中的一個可優化點，並提出以下候補版本：\n\n' +
+        '[候補改寫版本]\n\n' +
+        '請告訴我是否要採用這個版本，或說明希望繼續修改的方向。'
+      );
+
+    case 'user_candidate_requires_judgment':
+      return '已收到。您提供了一個候補改寫版本。我已記錄，請問您是否要採用這個版本？';
+
+    case 'explicit_acceptance':
+      return '已收到。此版本已確認採用。';
+
+    case 'explicit_rejection':
+      return '已收到。此版本已取消，請說明希望修改的方向。';
+
+    case 'explicit_freeze':
+      return '已收到凍結指令。該交付物版本已正式凍結，後續將作為最終標準執行。';
+
+    default:
+      // no_artifact_input → 通用 Mock（非交付物流程）
+      const replies = [
+        `[Mock] 收到。你刚才提到「${userText.substring(0, 20)}」。请提供更多业务细节。`,
+        `[Mock] 这是个关键问题。请提供具体数据。`,
+        `[Mock] 明白。请说明目前的核心阻碍是什么？`
+      ];
+      return replies[Math.floor(Math.random() * replies.length)];
+  }
 }
 
 server.listen(PORT, '127.0.0.1', () => {
