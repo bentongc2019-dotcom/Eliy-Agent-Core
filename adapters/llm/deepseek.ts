@@ -8,10 +8,10 @@ import type { LLMRequest, LLMResponse, LLMStreamChunk } from './types.js';
 
 export class DeepSeekAdapter extends BaseLLMAdapter {
   readonly name = 'DeepSeek';
-  readonly defaultModel = 'deepseek-chat';
-  readonly supportedModels = ['deepseek-chat', 'deepseek-reasoner'];
+  readonly defaultModel = 'deepseek-v4-flash';
+  readonly supportedModels = ['deepseek-chat', 'deepseek-reasoner', 'deepseek-v4-flash'];
 
-  private activeModel: string = 'deepseek-chat';
+  private activeModel: string = 'deepseek-v4-flash';
 
   constructor(config?: { apiKey?: string; baseUrl?: string; activeModel?: string }) {
     let apiKey = config?.apiKey;

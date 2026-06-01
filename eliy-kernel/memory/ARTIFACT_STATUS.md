@@ -1,3 +1,5 @@
 # ARTIFACT_STATUS.md
-- [ ] Business Action Proposal: pending
-- Update Time: 2026-05-28T06:58:15.430Z
+Artifact: rewritten todo sentence
+Status: frozen
+Reason: user explicitly froze this artifact version
+- Update Time: 2026-06-01T14:08:19.403Z

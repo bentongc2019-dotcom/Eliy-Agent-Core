@@ -66,8 +66,19 @@ function appendMessage(role, content, isHTML = false) {
   return div;
 }
 
+function cleanStreamingTags(text) {
+  return text
+    .replace(/\*\*我的判断：\*\*/g, '')
+    .replace(/\*\*我的判斷：\*\*/g, '')
+    .replace(/\*\*小行动：\*\*/g, '')
+    .replace(/\*\*小行動：\*\*/g, '')
+    .replace(/\*\*下次复盘看：\*\*/g, '')
+    .replace(/\*\*下次複盤看：\*\*/g, '');
+}
+
 function formatText(text) {
-  return text.split('\n').map(line => {
+  const cleaned = cleanStreamingTags(text);
+  return cleaned.split('\n').map(line => {
     line = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     line = line.replace(/`(.*?)`/g, '<code style="background:rgba(91,106,191,0.2);padding:0.1rem 0.3rem;border-radius:4px;font-size:0.82rem">$1</code>');
     return `<p>${line}</p>`;
@@ -90,7 +101,7 @@ async function simulateEliyResponse(userText) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         text: userText,
-        model: 'deepseek-chat',
+        model: 'deepseek-v4-flash',
         history: [{ role: 'user', content: userText }]
       })
     });
