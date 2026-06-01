@@ -7,7 +7,7 @@ const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '../');
 
 console.log(`\n======================================================`);
-console.log(`🧪 Eliy v0.3.1-test Golden Tests 最终极致中性化微调`);
+console.log(`🧪 Eliy v0.3.1-test Golden Tests 最终复测 R1~R6`);
 console.log(`======================================================\n`);
 
 function writeKernelFile(relPath, content) {
@@ -147,7 +147,7 @@ function determineArtifactStatus(userMsg, assistantMsg) {
   }
 }
 
-// === 3. 模擬一輪極致中性化的 R 測試執行 ===
+// === 3. 模擬一輪最終中性化的 R 測試執行 ===
 function runSingleGoldenTest(testName, userMsg, assistantMockMsg = '') {
   console.log(`\n=================== 正在執行: ${testName} ===================`);
   
@@ -178,7 +178,7 @@ function runSingleGoldenTest(testName, userMsg, assistantMockMsg = '') {
   const newEvidenceContent = `# EVIDENCE.md\n\n- Business Challenge: none detected.\n- Capability Evidence: none inferred from this turn.\n`;
   writeKernelFile('hlamt/EVIDENCE.md', newEvidenceContent);
 
-  // 2.3 寫入 NEXT_CONTEXT.md (最终极致中性化，完全移除 Recommended Action，仅保留 Context Focus)
+  // 2.3 寫入 NEXT_CONTEXT.md (完全移除 Recommended Action 和任何可能暗示下一步的分析、優缺點、合併建議)
   let newNextContextContent = '';
   if (classification === 'explicit_freeze') {
     newNextContextContent = `# NEXT_CONTEXT.md\n\n## Next Interaction Scope\n- Context Focus: "Completed and Frozen"\n- Timestamp: ${new Date().toISOString()}\n`;
@@ -234,11 +234,11 @@ function generateMockReply(userText) {
   return "收到。";
 }
 
-// === 4. R1～R8 測試用例數據與執行邏輯 ===
+// === 4. 主管最新指定 R1～R6 測試用例數據與執行邏輯 ===
 const testCases = [
   {
     id: 'R1',
-    name: 'Test R1｜Legacy list artifact',
+    name: 'Test R1 | Legacy list artifact',
     input: `我想繼續改當前工具，我覺得它提取出來的待辦事項不夠像人話。
 原始輸入：
 今天會議後要跟進報價，王明那邊周五前給我確認，另外提醒小張整理客戶名單。
@@ -250,7 +250,7 @@ const testCases = [
   },
   {
     id: 'R2',
-    name: 'Test R2｜User candidate requiring judgment',
+    name: 'Test R2 | User candidate requiring judgment',
     input: `這個方向對，但“同步給我”還不夠明確。我想改成：
 請王明在周五前確認報價，並在項目群同步確認結果。
 你判斷一下，這句話是否比上一版更適合做待辦？`,
@@ -258,7 +258,7 @@ const testCases = [
   },
   {
     id: 'R3',
-    name: 'Test R3｜Legacy email artifact',
+    name: 'Test R3 | Legacy email artifact',
     input: `這封郵件寫得太官方了，想改得自然一點。
 當前版本：
 請您於本周五前反饋報價確認結果，以便我方推進後續工作。`,
@@ -266,7 +266,7 @@ const testCases = [
   },
   {
     id: 'R4',
-    name: 'Test R4｜User candidate email artifact',
+    name: 'Test R4 | User candidate email artifact',
     input: `我想改成：
 麻煩你周五前幫我確認一下報價，有結果後直接在群裡同步。
 你判斷一下這樣是不是更自然？`,
@@ -274,29 +274,13 @@ const testCases = [
   },
   {
     id: 'R5',
-    name: 'Test R5｜Legacy note artifact',
-    input: `這段會議紀要不夠清楚。
-当当前版本：
-銷售和產品要繼續溝通價格頁問題。`,
-    mockReply: '已收到原始素材與舊版交付物。'
-  },
-  {
-    id: 'R6',
-    name: 'Test R6｜User candidate note artifact',
-    input: `我想改成：
-銷售本周五前整理價格頁 FAQ 中與銷售口徑不一致的內容，並同步給產品負責人確認。
-你看這樣是否更清楚？`,
-    mockReply: '已收到。您提供了一個候補改寫版本。我已記錄，請問您是否要採用這個版本？'
-  },
-  {
-    id: 'R7',
-    name: 'Test R7｜Explicit acceptance',
+    name: 'Test R5 | Explicit acceptance',
     input: `確認，就用這個版本。`,
     mockReply: '已確認。'
   },
   {
-    id: 'R8',
-    name: 'Test R8｜Explicit freeze',
+    id: 'R6',
+    name: 'Test R6 | Explicit freeze',
     input: `凍結這版，以後按這個版本。`,
     mockReply: '已收到凍結指令。'
   }
@@ -310,4 +294,4 @@ for (const tc of testCases) {
 
 // 寫入結果 JSON 方便我們後續直接讀取，或是展示給用戶！
 fs.writeFileSync(path.join(__dirname, 'golden_results.json'), JSON.stringify(results, null, 2), 'utf-8');
-console.log(`\n🎉 [Success] 所有 R1～R8 測試均已跑完，结果已存入 tests/golden_results.json！`);
+console.log(`\n🎉 [Success] 所有 R1～R6 測試均已跑完，结果已存入 tests/golden_results.json！`);
