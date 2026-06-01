@@ -202,7 +202,8 @@ function detectCandidateIntroMarkers(msg) {
     msg.includes('可以改成') ||
     msg.includes('我写成这样') || msg.includes('我寫成這樣') ||
     /候选版本[：:]/.test(msg) || /候選版本[：:]/.test(msg) ||
-    /这个版本[：:]/.test(msg) || /這個版本[：:]/.test(msg)
+    /这个版本[：:]/.test(msg) || /這個版本[：:]/.test(msg) ||
+    msg.includes('你看這樣') || msg.includes('你看这样')
   );
 }
 
@@ -278,6 +279,11 @@ function classifyArtifactInput(userMsg) {
 
   // 7. 僅有候選引入詞，也視為候選確認類
   if (detectCandidateIntroMarkers(msg)) {
+    return 'user_candidate_requires_judgment';
+  }
+
+  // 8. 僅有判斷請求（用戶直接貼出新版本並問是否更好，無明確引入詞）
+  if (detectJudgmentRequestMarkers(msg)) {
     return 'user_candidate_requires_judgment';
   }
 
