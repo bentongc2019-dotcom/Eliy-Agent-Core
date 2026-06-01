@@ -7,7 +7,7 @@ const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '../');
 
 console.log(`\n======================================================`);
-console.log(`🧪 Eliy v0.3.1-test Golden Tests 极致中性化复核验证`);
+console.log(`🧪 Eliy v0.3.1-test Golden Tests 最终极致中性化微调`);
 console.log(`======================================================\n`);
 
 function writeKernelFile(relPath, content) {
@@ -158,15 +158,8 @@ function runSingleGoldenTest(testName, userMsg, assistantMockMsg = '') {
 
   // 2. 模擬 /api/record
   const classification = classifyArtifactInput(userMsg);
-  const isTestSignal = classification === 'no_artifact_input' && (
-    userMsg.includes('NEXT_CONTEXT') || 
-    userMsg.includes('接续') || 
-    userMsg.includes('接續') || 
-    userMsg.includes('test') || 
-    userMsg.trim() === ''
-  );
 
-  // 2.1 寫入 STATE.md (微調為中性)
+  // 2.1 寫入 STATE.md (极致简练中性)
   let newStateContent = '';
   if (classification === 'explicit_freeze') {
     newStateContent = `# STATE.md\n- Phase: INTAKE\n- Current Task: Todo artifact wording refinement\n- Current Focus: artifact finalized and frozen\n- Last User Input: "${userMsg.replace(/\n/g, ' ')}"\n- Message Count: 1\n- Timestamp: ${new Date().toISOString()}\n`;
@@ -181,37 +174,22 @@ function runSingleGoldenTest(testName, userMsg, assistantMockMsg = '') {
   }
   writeKernelFile('memory/STATE.md', newStateContent);
 
-  // 2.2 寫入 EVIDENCE.md (極致中性，禁止任何心理化或主動分析)
-  let newEvidenceContent = '';
-  if (classification === 'explicit_freeze') {
-    newEvidenceContent = `# EVIDENCE.md\n\n## Transcript Evidence\nTask Output:\n- user explicitly froze this artifact version\nCapability Evidence:\n- user finalized process standard by freezing candidate version\n- Date: ${new Date().toISOString()}\n`;
-  } else if (classification === 'explicit_acceptance') {
-    newEvidenceContent = `# EVIDENCE.md\n\n## Transcript Evidence\nTask Output:\n- user explicitly confirmed and accepted the candidate rewrite\nCapability Evidence:\n- user accepted actionable expression and completed quality loop successfully\n- Date: ${new Date().toISOString()}\n`;
-  } else if (classification === 'user_candidate_requires_judgment') {
-    newEvidenceContent = `# EVIDENCE.md\n\n## Transcript Evidence\nTask Output:\n- user is evaluating a candidate rewrite...\nCapability Evidence:\n- user is actively refining artifact quality and validating candidate wording\n- Date: ${new Date().toISOString()}\n`;
-  } else if (classification === 'raw_material_with_legacy_artifact') {
-    newEvidenceContent = `# EVIDENCE.md\n\n## Transcript Evidence\nTask Output:\n- user provided raw material with legacy version of artifact\nCapability Evidence:\n- user initiated wording refinement by sharing legacy version\n- Date: ${new Date().toISOString()}\n`;
-  } else if (isTestSignal) {
-    newEvidenceContent = `# EVIDENCE.md\n\n- Business Challenge: none detected.\n- Capability Evidence: none inferred from this turn.\n`;
-  } else {
-    newEvidenceContent = `# EVIDENCE.md\n\n## Transcript Evidence\n- User shared business challenge: "${userMsg.replace(/\n/g, ' ')}"\n- Coach response provided\n- Date: ${new Date().toISOString()}\n`;
-  }
+  // 2.2 寫入 EVIDENCE.md (完全统一为主管指定的空值格式)
+  const newEvidenceContent = `# EVIDENCE.md\n\n- Business Challenge: none detected.\n- Capability Evidence: none inferred from this turn.\n`;
   writeKernelFile('hlamt/EVIDENCE.md', newEvidenceContent);
 
-  // 2.3 寫入 NEXT_CONTEXT.md (極致中性，禁止任何主動分析、優缺點、合併建議或行動處方)
+  // 2.3 寫入 NEXT_CONTEXT.md (最终极致中性化，完全移除 Recommended Action，仅保留 Context Focus)
   let newNextContextContent = '';
   if (classification === 'explicit_freeze') {
-    newNextContextContent = `# NEXT_CONTEXT.md\n\n## Next Interaction Scope\n- Recommended Action: "No further action required for this artifact"\n- Context Focus: "Completed and Frozen"\n- Timestamp: ${new Date().toISOString()}\n`;
+    newNextContextContent = `# NEXT_CONTEXT.md\n\n## Next Interaction Scope\n- Context Focus: "Completed and Frozen"\n- Timestamp: ${new Date().toISOString()}\n`;
   } else if (classification === 'explicit_acceptance') {
-    newNextContextContent = `# NEXT_CONTEXT.md\n\n## Next Interaction Scope\n- Recommended Action: "No further action required for this artifact"\n- Context Focus: "Completed"\n- Timestamp: ${new Date().toISOString()}\n`;
+    newNextContextContent = `# NEXT_CONTEXT.md\n\n## Next Interaction Scope\n- Context Focus: "Completed"\n- Timestamp: ${new Date().toISOString()}\n`;
   } else if (classification === 'user_candidate_requires_judgment') {
-    newNextContextContent = `# NEXT_CONTEXT.md\n\n## Next Interaction Scope\n- Recommended Action: "Confirm whether the candidate rewrite matches user expectations"\n- Context Focus: "Validate candidate wording with user"\n- Timestamp: ${new Date().toISOString()}\n`;
+    newNextContextContent = `# NEXT_CONTEXT.md\n\n## Next Interaction Scope\n- Context Focus: "Validate candidate wording"\n- Timestamp: ${new Date().toISOString()}\n`;
   } else if (classification === 'raw_material_with_legacy_artifact') {
-    newNextContextContent = `# NEXT_CONTEXT.md\n\n## Next Interaction Scope\n- Recommended Action: "Evaluate the candidate rewrite and provide feedback"\n- Context Focus: "Wording refinement"\n- Timestamp: ${new Date().toISOString()}\n`;
-  } else if (isTestSignal) {
-    newNextContextContent = `# NEXT_CONTEXT.md\n\n## Next Interaction Scope\n- Context Focus: None\n- Recommended Action: 等待下一條真實測試輸入\n- Timestamp: ${new Date().toISOString()}\n`;
+    newNextContextContent = `# NEXT_CONTEXT.md\n\n## Next Interaction Scope\n- Context Focus: "Wording refinement"\n- Timestamp: ${new Date().toISOString()}\n`;
   } else {
-    newNextContextContent = `# NEXT_CONTEXT.md\n\n## Next Interaction Scope\n- Recommended Action: "Provide business details & metrics"\n- Context Focus: Analyze user specified business details\n- Timestamp: ${new Date().toISOString()}\n`;
+    newNextContextContent = `# NEXT_CONTEXT.md\n\n## Next Interaction Scope\n- Context Focus: "None"\n- Timestamp: ${new Date().toISOString()}\n`;
   }
   writeKernelFile('memory/NEXT_CONTEXT.md', newNextContextContent);
 
@@ -242,18 +220,18 @@ function runSingleGoldenTest(testName, userMsg, assistantMockMsg = '') {
 function generateMockReply(userText) {
   const classification = classifyArtifactInput(userText);
   if (classification === 'raw_material_with_legacy_artifact') {
-    return "已收到原始素材與舊版交付物。我已記錄，將為您生成候補改寫版本以供評估。";
+    return "已收到原始素材與舊版交付物。";
   }
   if (classification === 'user_candidate_requires_judgment') {
     return "已收到。您提供了一個候補改寫版本。我已記錄，請問您是否要採用這個版本？";
   }
   if (classification === 'explicit_acceptance') {
-    return "已確認。您已接受改寫後的版本。此交付物已正式歸檔。";
+    return "已確認。";
   }
   if (classification === 'explicit_freeze') {
-    return "已收到凍結指令。該交付物版本已正式凍結，後續將作為最終標準執行。";
+    return "已收到凍結指令。";
   }
-  return "收到。這是系統接續測試信號，目前沒有業務內容。我會等待下一條真實業務輸入。";
+  return "收到。";
 }
 
 // === 4. R1～R8 測試用例數據與執行邏輯 ===
@@ -268,7 +246,7 @@ const testCases = [
 1. 會議跟進
 2. 報價確認
 3. 整理客戶名單`,
-    mockReply: '已收到原始素材與舊版交付物列表。我已記錄，將為您生成候補改寫版本以供評估。'
+    mockReply: '已收到原始素材與舊版交付物。'
   },
   {
     id: 'R2',
@@ -284,7 +262,7 @@ const testCases = [
     input: `這封郵件寫得太官方了，想改得自然一點。
 當前版本：
 請您於本周五前反饋報價確認結果，以便我方推進後續工作。`,
-    mockReply: '已收到原始素材與舊版郵件交付物。我已記錄，將為您生成候補改寫版本以供評估。'
+    mockReply: '已收到原始素材與舊版交付物。'
   },
   {
     id: 'R4',
@@ -298,9 +276,9 @@ const testCases = [
     id: 'R5',
     name: 'Test R5｜Legacy note artifact',
     input: `這段會議紀要不夠清楚。
-當前版本：
-銷售和產品要继续溝通價格頁問題。`,
-    mockReply: '已收到原始素材與舊版會議紀要交付物。我已記錄，將為您生成候補改寫版本以供評估。'
+当当前版本：
+銷售和產品要繼續溝通價格頁問題。`,
+    mockReply: '已收到原始素材與舊版交付物。'
   },
   {
     id: 'R6',
@@ -314,13 +292,13 @@ const testCases = [
     id: 'R7',
     name: 'Test R7｜Explicit acceptance',
     input: `確認，就用這個版本。`,
-    mockReply: '已確認。您已接受改寫後的版本。此交付物已正式歸檔。'
+    mockReply: '已確認。'
   },
   {
     id: 'R8',
     name: 'Test R8｜Explicit freeze',
     input: `凍結這版，以後按這個版本。`,
-    mockReply: '已收到凍結指令。該交付物版本已正式凍結，後續將作為最終標準執行。'
+    mockReply: '已收到凍結指令。'
   }
 ];
 
@@ -332,4 +310,4 @@ for (const tc of testCases) {
 
 // 寫入結果 JSON 方便我們後續直接讀取，或是展示給用戶！
 fs.writeFileSync(path.join(__dirname, 'golden_results.json'), JSON.stringify(results, null, 2), 'utf-8');
-console.log(`\n🎉 [Success] 所有 R1～R8 測試均已跑完，結果已存入 tests/golden_results.json！`);
+console.log(`\n🎉 [Success] 所有 R1～R8 測試均已跑完，结果已存入 tests/golden_results.json！`);
