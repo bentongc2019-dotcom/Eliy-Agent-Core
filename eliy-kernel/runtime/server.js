@@ -169,7 +169,51 @@ async function handleChat(req, res) {
   }
 }
 
-// === Deterministic Guard: determineArtifactStatus ===
+// === 4.5 Artifact Governance Classifier and Guard ===
+function classifyArtifactInput(userMsg) {
+  const msg = userMsg || '';
+  
+  // 1. 系統/接續測試信號，不屬於任何交付物治理輸入
+  const isTestSignal = 
+    msg.includes('NEXT_CONTEXT') || 
+    msg.includes('接续') || 
+    msg.includes('接續') || 
+    msg.includes('test') || 
+    msg.includes('测试') || 
+    msg.includes('測試') || 
+    msg.trim() === '';
+  if (isTestSignal) {
+    return 'no_artifact_input';
+  }
+
+  // 2. 凍結指令 (explicit_freeze)
+  if (msg.includes('冻结') || msg.includes('凍結') || msg.includes('以后按这个') || msg.includes('以後按這個')) {
+    return 'explicit_freeze';
+  }
+  
+  // 3. 明確確認/接受 (explicit_acceptance)
+  if (msg.includes('确认，就用') || msg.includes('確認，就用') || msg.includes('我接受') || msg.includes('接受這個') || msg.includes('接受这个') || msg.startsWith('確認') || msg.startsWith('确认') || msg.trim() === '接受' || msg.trim() === '接受。') {
+    return 'explicit_acceptance';
+  }
+  
+  // 4. 明確拒絕 (explicit_rejection)
+  if (msg.includes('拒绝') || msg.includes('拒絕') || msg.includes('不对') || msg.includes('不對') || msg.includes('重新改') || msg.includes('重新修改')) {
+    return 'explicit_rejection';
+  }
+  
+  // 5. 用戶提供候補並要求判斷 (user_candidate_requires_judgment)
+  if (msg.includes('是否') || msg.includes('判斷') || msg.includes('判断') || msg.includes('改一個點') || msg.includes('改一个点') || msg.includes('候補') || msg.includes('候选') || msg.includes('你看這樣')) {
+    return 'user_candidate_requires_judgment';
+  }
+  
+  // 6. 帶有歷史/舊交付物的原始素材輸入 (raw_material_with_legacy_artifact)
+  if (msg.includes('原始輸入') || msg.includes('原始输入') || msg.includes('當前版本') || msg.includes('当前版本') || msg.includes('當前工具') || msg.includes('当前工具') || msg.includes('提取出') || msg.includes('提取出來') || msg.includes('紀要不夠清楚') || msg.includes('纪要不够清楚')) {
+    return 'raw_material_with_legacy_artifact';
+  }
+  
+  return 'no_artifact_input';
+}
+
 function determineArtifactStatus(userMsg, assistantMsg) {
   const isTestSignal = 
     userMsg.includes('NEXT_CONTEXT') || 
@@ -180,11 +224,6 @@ function determineArtifactStatus(userMsg, assistantMsg) {
     userMsg.includes('測試') || 
     userMsg.trim() === '';
 
-  const isTestA = userMsg.includes("这里先只改一个点") || userMsg.includes("這裡先只改一個點") || userMsg.includes("这句话是否符合你想要的待办表达") || userMsg.includes("這句話是否符合你想要的待辦表達");
-  const isTestB = userMsg.includes("确认，就用这个版本") || userMsg.includes("確認，就用這個版本") || (userMsg.includes("确认") && userMsg.includes("版本")) || (userMsg.includes("確認") && userMsg.includes("版本"));
-  const isRealArtifactTest = (userMsg.includes("我想继续改当前工具") || userMsg.includes("我想繼續改當前工具")) && (userMsg.includes("报价确认") || userMsg.includes("報價確認"));
-  const isFreezeTest = userMsg.includes("冻结这版") || userMsg.includes("凍結這版") || userMsg.includes("以后按这个版本") || userMsg.includes("以後按這個版本") || userMsg.includes("冻结") || userMsg.includes("凍結");
-
   if (isTestSignal) {
     return {
       artifact: 'none',
@@ -193,52 +232,60 @@ function determineArtifactStatus(userMsg, assistantMsg) {
     };
   }
 
-  if (isFreezeTest) {
-    return {
-      artifact: 'rewritten todo sentence',
-      status: 'frozen',
-      reason: 'user explicitly froze this artifact version'
-    };
-  }
+  const classification = classifyArtifactInput(userMsg);
 
-  if (isTestB) {
-    return {
-      artifact: 'rewritten todo sentence',
-      status: 'accepted',
-      reason: 'user explicitly accepted this artifact version'
-    };
+  switch (classification) {
+    case 'explicit_freeze':
+      return {
+        artifact: 'rewritten todo sentence',
+        status: 'frozen',
+        reason: 'user explicitly froze this artifact version'
+      };
+      
+    case 'explicit_acceptance':
+      return {
+        artifact: 'rewritten todo sentence',
+        status: 'accepted',
+        reason: 'user explicitly accepted this artifact version'
+      };
+      
+    case 'explicit_rejection':
+      return {
+        artifact: 'rewritten todo sentence',
+        status: 'proposed', // 拒絕後退回 proposed 讓用戶重試
+        reason: 'user explicitly rejected the candidate version; reverted to proposed status'
+      };
+      
+    case 'user_candidate_requires_judgment':
+      return {
+        artifact: 'rewritten todo sentence',
+        status: 'pending_user_confirmation',
+        reason: 'user provided a candidate artifact and requested judgment; no explicit final acceptance found'
+      };
+      
+    case 'raw_material_with_legacy_artifact':
+      return {
+        artifact: 'rewritten todo sentence',
+        status: 'proposed',
+        reason: 'assistant proposed an artifact; user has not accepted it'
+      };
+      
+    case 'no_artifact_input':
+    default:
+      const hasArtifact = (assistantMsg.includes('行动') || assistantMsg.includes('处方') || assistantMsg.includes('proposal') || assistantMsg.includes('建議'));
+      if (hasArtifact) {
+        return {
+          artifact: 'action proposal',
+          status: 'proposed',
+          reason: 'assistant proposed a business action plan'
+        };
+      }
+      return {
+        artifact: 'none',
+        status: 'none',
+        reason: 'no artifact proposed in transcript'
+      };
   }
-
-  if (isTestA) {
-    return {
-      artifact: 'rewritten todo sentence',
-      status: 'pending_user_confirmation',
-      reason: 'user provided a candidate artifact and requested judgment; no explicit final acceptance found'
-    };
-  }
-
-  if (isRealArtifactTest) {
-    return {
-      artifact: 'rewritten todo sentence',
-      status: 'proposed',
-      reason: 'assistant proposed an artifact; user has not accepted it'
-    };
-  }
-
-  const hasArtifact = (assistantMsg.includes('行动') || assistantMsg.includes('处方') || assistantMsg.includes('proposal'));
-  if (hasArtifact) {
-    return {
-      artifact: 'action proposal',
-      status: 'proposed',
-      reason: 'assistant proposed a business action plan'
-    };
-  }
-
-  return {
-    artifact: 'none',
-    status: 'none',
-    reason: 'no artifact proposed in transcript'
-  };
 }
 
 // === 5. /api/record 处理逻辑 ===
@@ -296,7 +343,7 @@ async function handleRecord(req, res) {
     } else if (isRealArtifactTest) {
       newEvidenceContent = `# EVIDENCE.md\n\n## Transcript Evidence\nTask Output:\n- assistant proposed a rewritten todo sentence\nCapability Evidence:\n- user identified that extracted todos are not human-readable enough\n- user is refining artifact quality from keyword-like tasks toward actionable task sentences\n- Date: ${new Date().toISOString()}\n`;
     } else if (isTestSignal) {
-      newEvidenceContent = `# EVIDENCE.md\n\n## Transcript Evidence\nBusiness Challenge: none detected.\nCapability Evidence: none inferred from this turn.\n- Date: ${new Date().toISOString()}\n`;
+      newEvidenceContent = `# EVIDENCE.md\n\n- Business Challenge: none detected.\n- Capability Evidence: none inferred from this turn.\n`;
     } else {
       const businessChallenge = `"${userMsg}"`;
       newEvidenceContent = `# EVIDENCE.md\n\n## Transcript Evidence\n- User shared business challenge: ${businessChallenge}\n- Coach response provided: "${assistantMsg.substring(0, 50).replace(/\n/g, ' ')}..."\n- Date: ${new Date().toISOString()}\n`;
