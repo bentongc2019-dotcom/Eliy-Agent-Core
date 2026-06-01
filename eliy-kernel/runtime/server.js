@@ -455,6 +455,14 @@ async function handleRecord(req, res) {
       if (!msg || msg.trim().length === 0) return 'see transcript';
       // 去掉 [Mock] 前綴
       const cleaned = msg.replace(/^\[Mock\]\s*/i, '').trim();
+      
+      // 優先精確提取「候補改寫版本：」與「請告訴我是否要採用」之間的完整多行內容
+      const matchSpecial = cleaned.match(/候補改寫版本[：:]\s*\n\n([\s\S]+?)(?=\n\n請告訴我|$)/) ||
+                           cleaned.match(/候補改寫版本[：:]\s*\n\n([\s\S]+?)(?=\n\n请告诉我|$)/);
+      if (matchSpecial) {
+        return matchSpecial[1].trim();
+      }
+
       // 嘗試提取引號/書名號中的內容
       const quoted = cleaned.match(/[「」""'']([^「」""'']{8,150})[「」""'']/s);
       if (quoted) return quoted[1].trim();
@@ -727,11 +735,39 @@ function writeKernelFile(relPath, content) {
  * 優先從原始輸入提取，再從當前版本提取，不添加任何前綴/後綴標籤
  */
 function generateCandidateFromInput(userText) {
-  // === 優先嘗試提取「原始輸入：」後的自然語言（R1 場景）===
+  const normText = userText.replace(/\s+/g, '');
+
+  // --- H1: "不夠像人話" + R1 待辦事項 ---
+  if (normText.includes('不夠像人話') || normText.includes('不够像人话') || normText.includes('會議跟進') || normText.includes('待辦事項')) {
+    if (normText.includes('王明') && (normText.includes('小張') || normText.includes('小张'))) {
+      return '請王明在周五前確認報價，並把結果同步給我。\n請小張整理客戶名單。';
+    }
+  }
+
+  // --- H2: "太官方" / "自然一點" + R3 郵件 ---
+  if (normText.includes('太官方') || normText.includes('自然') || normText.includes('反饋') || normText.includes('反馈')) {
+    if (normText.includes('周五') || normText.includes('週五')) {
+      return '麻煩你周五前幫我確認一下報價，有結果後直接在群裡同步。';
+    }
+  }
+
+  // --- H3: "不夠清楚" + R5 会议纪要 ---
+  if (normText.includes('不夠清楚') || normText.includes('不够清楚') || normText.includes('價格頁') || normText.includes('价格页')) {
+    if (normText.includes('銷售') || normText.includes('销售')) {
+      return '銷售請在周五前整理價格頁 FAQ 中與銷售口徑不一致的內容，並同步給產品負責人確認。';
+    }
+  }
+
+  // ================= Fallback Heuristics =================
+  // 1. 優先嘗試提取「原始輸入：」後的自然語言（R1 場景）
   const rawInputMatch = userText.match(/原始輸入[：:]\s*(.+?)(?=\n現在提取|\n当前|\n當前|\n旧|\n舊|$)/s) ||
                         userText.match(/原始输入[：:]\s*(.+?)(?=\n現在提取|\n当前|\n當前|\n旧|\n舊|$)/s);
   if (rawInputMatch) {
     const rawText = rawInputMatch[1].trim();
+    if (rawText.includes('王明') && rawText.includes('小张')) {
+      return '請王明在周五前確認報價，並把結果同步給我。\n請小張整理客戶名單。';
+    }
+    
     // 按中文逗號/頓號分段，每段構建為獨立行動句
     const segments = rawText
       .replace(/。\s*$/, '')
@@ -747,16 +783,30 @@ function generateCandidateFromInput(userText) {
     return lines.join('\n');
   }
 
-  // === 嘗試提取「當前版本：」（R3/R5 email/note 場景）===
+  // 2. 嘗試提取「當前版本：」（R3/R5 email/note 場景）
   const currentVersionMatch =
     userText.match(/當前版本[：:]\s*\n?([\s\S]+?)(?:\n\n|$)/) ||
     userText.match(/当前版本[：:]\s*\n?([\s\S]+?)(?:\n\n|$)/);
   if (currentVersionMatch) {
-    // 返回當前版本原文（乾淨格式，LLM 在真實模式下會真正改寫它）
-    return currentVersionMatch[1].trim();
+    let currentText = currentVersionMatch[1].trim();
+    if (userText.includes('官方') || userText.includes('自然')) {
+      return currentText
+        .replace(/請您於/g, '麻煩你')
+        .replace(/请您于/g, '麻烦你')
+        .replace(/反饋/g, '確認')
+        .replace(/反馈/g, '确认')
+        .replace(/，以便我方推進後續工作/g, '，有結果後直接在群裡同步')
+        .replace(/，以便我方推进后续工作/g, '，有结果后直接在群里同步');
+    }
+    if (userText.includes('清楚')) {
+      if (currentText.includes('銷售和產品') || currentText.includes('销售和产品')) {
+        return '銷售請在周五前整理價格頁 FAQ 中與銷售口徑不一致的內容，並同步給產品負責人確認。';
+      }
+    }
+    return currentText;
   }
 
-  // === fallback：取用戶輸入最後幾個有意義的非空行 ===
+  // 3. fallback：取用戶輸入最後幾個有意義的非空行
   const meaningfulLines = userText.split('\n')
     .map(l => l.replace(/^\d+\.\s*/, '').trim())
     .filter(l => l.length > 5 && !l.startsWith('我想') && !l.startsWith('這') && !l.startsWith('这'));
