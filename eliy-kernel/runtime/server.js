@@ -403,37 +403,96 @@ async function handleRecord(req, res) {
       `- Timestamp: ${new Date().toISOString()}\n`;
     writeKernelFile('memory/STATE.md', newStateContent);
 
-    // === 2. EVIDENCE.md（永遠空值格式，不推斷業務信息）===
-    const newEvidenceContent =
-      `# EVIDENCE.md\n\n` +
-      `- Business Challenge: none detected.\n` +
-      `- Capability Evidence: none inferred from this turn.\n`;
+    // === 2. EVIDENCE.md（根據 classification 產生有效證據記錄）===
+    let newEvidenceContent = '';
+    if (classification === 'raw_material_with_legacy_artifact') {
+      newEvidenceContent =
+        `# EVIDENCE.md\n\n` +
+        `Task Output:\n` +
+        `- assistant proposed a candidate artifact based on user-provided legacy content\n\n` +
+        `Capability Evidence:\n` +
+        `- only transcript-supported evidence recorded\n\n` +
+        `Missing Evidence:\n` +
+        `- user has not accepted the artifact as final\n`;
+    } else if (classification === 'user_candidate_requires_judgment') {
+      newEvidenceContent =
+        `# EVIDENCE.md\n\n` +
+        `Task Output:\n` +
+        `- user provided a candidate artifact version and requested judgment\n\n` +
+        `Capability Evidence:\n` +
+        `- only transcript-supported evidence recorded\n\n` +
+        `Missing Evidence:\n` +
+        `- user has not confirmed final acceptance\n`;
+    } else if (classification === 'explicit_acceptance') {
+      newEvidenceContent =
+        `# EVIDENCE.md\n\n` +
+        `Task Output:\n` +
+        `- user explicitly accepted the proposed artifact version\n\n` +
+        `Capability Evidence:\n` +
+        `- only transcript-supported evidence recorded\n\n` +
+        `Missing Evidence:\n` +
+        `- none\n`;
+    } else if (classification === 'explicit_freeze') {
+      newEvidenceContent =
+        `# EVIDENCE.md\n\n` +
+        `Task Output:\n` +
+        `- user explicitly froze this artifact version as final standard\n\n` +
+        `Capability Evidence:\n` +
+        `- only transcript-supported evidence recorded\n\n` +
+        `Missing Evidence:\n` +
+        `- none\n`;
+    } else {
+      newEvidenceContent =
+        `# EVIDENCE.md\n\n` +
+        `- Business Challenge: none detected.\n` +
+        `- Capability Evidence: none inferred from this turn.\n`;
+    }
     writeKernelFile('hlamt/EVIDENCE.md', newEvidenceContent);
 
-    // === 3. NEXT_CONTEXT.md（保留可接續信息，不包含推薦行動詞）===
+    // === 3. NEXT_CONTEXT.md（current artifact 使用 assistant 實際回應文本）===
+    // 從 assistantMsg 中提取實際候選文本（取最有意義的部分）
+    function extractCandidateText(msg) {
+      if (!msg || msg.trim().length === 0) return 'see transcript';
+      // 去掉 [Mock] 前綴
+      const cleaned = msg.replace(/^\[Mock\]\s*/i, '').trim();
+      // 嘗試提取引號/書名號中的內容
+      const quoted = cleaned.match(/[「」""'']([^「」""'']{8,150})[「」""'']/s);
+      if (quoted) return quoted[1].trim();
+      // 嘗試找到候補/改寫句（冒號後的首句）
+      const afterColon = cleaned.match(/[：:]\s*\n?([^\n]{10,200})/);
+      if (afterColon) return afterColon[1].trim();
+      // 取最長的非空行（最可能是實際候補）
+      const lines = cleaned.split('\n').map(l => l.trim()).filter(l => l.length > 8);
+      if (lines.length > 0) return lines.reduce((a, b) => a.length > b.length ? a : b).substring(0, 200);
+      return cleaned.substring(0, 200);
+    }
+    const candidateText = (classification === 'raw_material_with_legacy_artifact' || classification === 'user_candidate_requires_judgment')
+      ? extractCandidateText(assistantMsg)
+      : artifactGuard.artifact;
+
     const nextContextBodyMap = {
       'raw_material_with_legacy_artifact':
-        `- Current artifact: ${artifactGuard.artifact}\n` +
+        `- Current artifact: ${candidateText}\n` +
         `- Current artifact status: ${artifactGuard.status}\n` +
         `- Awaiting user input: confirm, modify, or reject the proposed candidate artifact\n` +
         `- Do not infer unsupported workflow`,
       'user_candidate_requires_judgment':
-        `- Current artifact: ${artifactGuard.artifact}\n` +
+        `- Current artifact: ${candidateText}\n` +
         `- Current artifact status: ${artifactGuard.status}\n` +
         `- Awaiting user input: user must confirm acceptance or rejection of the candidate version\n` +
         `- Do not infer unsupported workflow`,
       'explicit_acceptance':
-        `- Current artifact: ${artifactGuard.artifact}\n` +
+        `- Current artifact: ${candidateText}\n` +
         `- Current artifact status: ${artifactGuard.status}\n` +
         `- Awaiting user input: none (artifact accepted)\n` +
         `- Do not infer unsupported workflow`,
       'explicit_rejection':
-        `- Current artifact: ${artifactGuard.artifact}\n` +
+        `- Current artifact: ${candidateText}\n` +
         `- Current artifact status: ${artifactGuard.status}\n` +
         `- Awaiting user input: user may provide new direction or candidate version\n` +
         `- Do not infer unsupported workflow`,
       'explicit_freeze':
-        `- Current artifact: ${artifactGuard.artifact}\n` +
+        `- Current artifact: ${candidateText}\n` +
         `- Current artifact status: ${artifactGuard.status}\n` +
         `- Awaiting user input: none (artifact frozen)\n` +
         `- Do not infer unsupported workflow`,
@@ -663,6 +722,43 @@ function writeKernelFile(relPath, content) {
   fs.writeFileSync(filePath, content, 'utf-8');
 }
 
+/**
+ * 從用戶輸入中提取舊版本內容並生成候選改寫句（Mock 模式下替代 LLM）
+ * 僅做簡單的結構提取，不做任何業務分析推斷
+ */
+function generateCandidateFromInput(userText) {
+  // 嘗試提取「當前版本：」之後的文本
+  let legacyContent = '';
+
+  const patterns = [
+    /當前版本[：:]\s*\n?([\s\S]+?)(?:\n\n|$)/,
+    /当前版本[：:]\s*\n?([\s\S]+?)(?:\n\n|$)/,
+    /現在提取出的待辦[：:]\s*\n?([\s\S]+?)(?:\n\n|$)/,
+    /现在提取出的待办[：:]\s*\n?([\s\S]+?)(?:\n\n|$)/,
+    /原始輸入[：:]\s*\n?([\s\S]+?)(?:\n\n|$)/,
+    /原始输入[：:]\s*\n?([\s\S]+?)(?:\n\n|$)/,
+  ];
+
+  for (const pat of patterns) {
+    const m = userText.match(pat);
+    if (m) { legacyContent = m[1].trim(); break; }
+  }
+
+  if (!legacyContent) {
+    // 取最後幾行作為候補素材
+    legacyContent = userText.split('\n').filter(l => l.trim()).slice(-2).join(' ');
+  }
+
+  // 去掉編號前綴，取前 150 字
+  const cleaned = legacyContent
+    .replace(/^\d+\.\s*/gm, '')
+    .replace(/\n/g, ' ')
+    .trim()
+    .substring(0, 150);
+
+  return `[Mock 候補] ${cleaned}（已在可讀性和明確性上進行優化）`;
+}
+
 function generateMockReply(userText) {
   // 系統/接續測試信號，不走 artifact 流程
   const isTestSignal =
@@ -680,14 +776,13 @@ function generateMockReply(userText) {
   const classification = classifyArtifactInput(userText);
 
   switch (classification) {
-    case 'raw_material_with_legacy_artifact':
-      // Assistant 識別舊版本問題，主動提出候補，請用戶確認
-      // 真實 LLM 模式下，DeepSeek 會根據具體內容生成具體的候補版本
+    case 'raw_material_with_legacy_artifact': {
+      // 根據用戶輸入中的舊版本生成具體候選句，不使用佔位符
+      const candidate = generateCandidateFromInput(userText);
       return (
-        '[Mock] 已收到。我識別了當前版本中的一個可優化點，並提出以下候補版本：\n\n' +
-        '[候補改寫版本]\n\n' +
-        '請告訴我是否要採用這個版本，或說明希望繼續修改的方向。'
+        `已收到。我識別了當前版本中的一個可優化點，以下是候補改寫版本：\n\n${candidate}\n\n請告訴我是否要採用這個版本，或說明希望繼續修改的方向。`
       );
+    }
 
     case 'user_candidate_requires_judgment':
       return '已收到。您提供了一個候補改寫版本。我已記錄，請問您是否要採用這個版本？';
