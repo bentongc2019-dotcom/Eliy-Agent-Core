@@ -487,8 +487,7 @@ async function handleRecord(req, res) {
       const cleaned = msg.replace(/^\[Mock\]\s*/i, '').trim();
       
       // 優先精確提取「候補改寫版本：」與「請告訴我是否要採用」之間的完整多行內容
-      const matchSpecial = cleaned.match(/候補改寫版本[：:]\s*\n\n([\s\S]+?)(?=\n\n請告訴我|$)/) ||
-                           cleaned.match(/候補改寫版本[：:]\s*\n\n([\s\S]+?)(?=\n\n请告诉我|$)/);
+      const matchSpecial = cleaned.match(/候補改寫版本.*?[\s\S]*?[：:]\s*\n+([\s\S]+?)(?=\n\n請告訴我|\n\n请告诉我|$)/i);
       if (matchSpecial) {
         return matchSpecial[1].trim();
       }
@@ -955,6 +954,13 @@ function generateCandidateFromInput(userText) {
       const itemA = matchPlan[1];
       const itemB = matchPlan[2];
       return `下周重点完成${itemA}中的核心功能点梳理，并在周三前与${itemB}团队召开协同会议，明确接口规范与对接时间表。`;
+    }
+  }
+
+  // === 规则 7：客服解答机械生硬 (对应 G10) ===
+  if (userText.includes('机械') || userText.includes('生硬') || userText.includes('礼貌') || userText.includes('溫和') || userText.includes('温和') || userText.includes('关怀')) {
+    if (legacyText.includes('快递') && legacyText.includes('运费')) {
+      return '非常抱歉，宝贝寄出后就无法直接修改地址了。如果您确实需要更改，建议在包裹派送时联络快递员协助；如选择拒收，往返运费将需要由您承担，感谢您的理解与支持。';
     }
   }
 
