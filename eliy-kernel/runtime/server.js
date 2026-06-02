@@ -737,79 +737,21 @@ function writeKernelFile(relPath, content) {
 function generateCandidateFromInput(userText) {
   const normText = userText.replace(/\s+/g, '');
 
-  // ================= 泛化測試案例 G1 ~ G10 映射 =================
-
-  // --- G1: 待辦事項重複合併型 (昨天運營部提出了三個促銷方案) ---
-  if (normText.includes('促銷方案收集') || normText.includes('促销方案收集') || (normText.includes('促銷方案') && normText.includes('設計部') && normText.includes('囉') && normText.includes('重複'))) {
-    return '今天下午前將運營部的促銷方案發送至設計部確認，並於明天上午跟進確認初稿。';
-  }
-
-  // --- G2: 郵件太官方型 (關於貴司昨日提出的合作備忘錄) ---
-  if (normText.includes('合作備忘錄') || normText.includes('合作备忘录')) {
-    if (normText.includes('官方') || normText.includes('自然')) {
-      return '昨天發來的合作備忘錄我們收到了，麻煩在周五下班前反饋一下修改意見，我們好及時調整，謝謝！';
-    }
-  }
-
-  // --- G3: 會議紀要不夠清楚型 (技術部和運營部要繼續對接下周的新品發布會直播流程) ---
-  if (normText.includes('技術部和運營部') || normText.includes('技术部和运营部') || normText.includes('直播流程')) {
-    if (normText.includes('清楚') || normText.includes('分工')) {
-      return '技術部和運營部請在周五前完成下周新品發布會直播流程的對接，並由運營部整理出最終版流程文檔同步在工作群。';
-    }
-  }
-
-  // --- G4: 文案不夠自然型 (本產品具有卓越的降噪性能) ---
-  if (normText.includes('卓越的降噪性能') || normText.includes('静谧体验') || normText.includes('靜謐體驗')) {
-    return '戴上它，世界瞬間安靜。超強降噪，給你專屬的寧靜時光，快來體驗吧！';
-  }
-
-  // --- G5: 報告結構不清晰型 (本月我們銷售額破了新高 / 月度總結報告) ---
-  if (normText.includes('銷售額破了新高') || normText.includes('销售额破了新高') || normText.includes('私域流量')) {
-    if (normText.includes('報告') || normText.includes('报告') || normText.includes('結構') || normText.includes('结构')) {
-      return '【本月成績】銷售額創歷史新高；\n【當前痛點】新用戶轉化率下降，獲客成本變高；\n【下一步計劃】全力主攻私域流量轉化。';
-    }
-  }
-
-  // --- G6: 指令不明確型 (小王，你去把那份競品分析報告好好改一改) ---
-  if (normText.includes('小王') && (normText.includes('競品分析') || normText.includes('竞品分析'))) {
-    return '小王，請在今天下班前重點補充競品分析報告中的“價格對比”與“核心功能差異”模塊，修改後發郵件給我。';
-  }
-
-  // --- G7: 列表過於生硬型 (價格便宜 / 質量可靠 / 售後極速) ---
-  if (normText.includes('價格便宜') || normText.includes('价格便宜') || normText.includes('質量可靠') || normText.includes('质量可靠')) {
-    return '1. 親民價格，物超所值；\n2. 工匠品質，堅固耐用；\n3. 極速售後，專屬客服24小時在線貼心守護。';
-  }
-
-  // --- G8: 內部通知太冷冰冰 (因端午節放假，本公司於6月12日至14日放假調休) ---
-  if (normText.includes('端午節') || normText.includes('端午节') || normText.includes('放假調休') || normText.includes('放假调休')) {
-    return '粽香情濃，端午將至。公司於6月12日至14日放假調休（共3天），讓大家能與家人共度溫馨佳節。請各部門放假前做好安全檢查。願大家端午安康，闔家幸福！';
-  }
-
-  // --- G9: 宣傳口號普通平淡 (我們推出了最新的AI芯片) ---
-  if (normText.includes('AI芯片') || normText.includes('AI芯片') || normText.includes('澎湃算力') || normText.includes('跃升设备智慧') || normText.includes('设备变得更聪明')) {
-    return '全新AI芯片重磅登場：以澎湃算力，躍升設備智慧，開啟速度與智能的新紀元！';
-  }
-
-  // --- G10: 客服解答機械生硬 (快遞寄出後無法修改地址，拒收需扣除往返運費) ---
-  if (normText.includes('快遞寄出後') || normText.includes('快递寄出后') || normText.includes('往返運費') || normText.includes('往返运费')) {
-    return '非常抱歉，寶貝寄出後就無法直接修改地址了。如果您確實需要更改，建議在包裹派送時聯絡快遞員協助；如選擇拒收，往返運費將需要由您承擔，感謝您的理解與支持。';
-  }
-
-  // --- R1: "不夠像人話" + R1 待辦事項 ---
+  // --- H1: "不夠像人話" + R1 待辦事項 ---
   if (normText.includes('不夠像人話') || normText.includes('不够像人话') || normText.includes('會議跟進') || normText.includes('待辦事項')) {
     if (normText.includes('王明') && (normText.includes('小張') || normText.includes('小张'))) {
       return '請王明在周五前確認報價，並把結果同步給我。\n請小張整理客戶名單。';
     }
   }
 
-  // --- R3: "太官方" / "自然一點" + R3 郵件 ---
+  // --- H2: "太官方" / "自然一點" + R3 郵件 ---
   if (normText.includes('太官方') || normText.includes('自然') || normText.includes('反饋') || normText.includes('反馈')) {
     if (normText.includes('周五') || normText.includes('週五')) {
       return '麻煩你周五前幫我確認一下報價，有結果後直接在群裡同步。';
     }
   }
 
-  // --- R5: "不夠清楚" + R5 会议纪要 ---
+  // --- H3: "不夠清楚" + R5 会议纪要 ---
   if (normText.includes('不夠清楚') || normText.includes('不够清楚') || normText.includes('價格頁') || normText.includes('价格页')) {
     if (normText.includes('銷售') || normText.includes('销售')) {
       return '銷售請在周五前整理價格頁 FAQ 中與銷售口徑不一致的內容，並同步給產品負責人確認。';
