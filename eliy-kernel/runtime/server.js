@@ -503,12 +503,24 @@ async function handleRecord(req, res) {
       if (lines.length > 0) return lines.reduce((a, b) => a.length > b.length ? a : b).substring(0, 200);
       return cleaned.substring(0, 200);
     }
+    function extractUserCandidateText(userMsg) {
+      if (!userMsg) return 'none';
+      const match = userMsg.match(/(?:我想改成|可以改成|我写成这样|你看这样)[：:\s\n]*([\s\S]+?)(?=\n你判断|你判断一下|你看这|是否|$)/i) ||
+                    userMsg.match(/(?:我想改成|可以改成|我写成这样|你看这样)[：:\s\n]*([\s\S]+?)$/i);
+      if (match) {
+        return match[1].trim();
+      }
+      return userMsg.trim().substring(0, 120);
+    }
+
     let candidateText = 'none';
-    if (classification === 'raw_material_with_legacy_artifact' || classification === 'user_candidate_requires_judgment') {
+    if (classification === 'raw_material_with_legacy_artifact') {
       candidateText = extractCandidateText(assistantMsg);
+    } else if (classification === 'user_candidate_requires_judgment') {
+      candidateText = extractUserCandidateText(userMsg);
     } else {
       const currentNext = readKernelFile('memory/NEXT_CONTEXT.md');
-      const matchSavedArt = currentNext.match(/- Current artifact:\s*([^\n]+)/);
+      const matchSavedArt = currentNext.match(/- Current artifact:\s*([\s\S]*?)(?=\n- Current artifact status|$)/);
       if (matchSavedArt && matchSavedArt[1].trim() !== 'none') {
         candidateText = matchSavedArt[1].trim();
       } else {
@@ -830,8 +842,8 @@ function detectQualityComplaint(msg) {
 }
 
 /**
- * 從用戶輸入中生成乾淨、真實的候選 artifact 文字（Mock 模式）
- * 優先從原始輸入提取，再從當前版本提取，不添加任何前綴/後綴標籤
+ * 从用户输入中生成干净、真实的候选 artifact 文字（Mock 模式）
+ * 优先从原始输入提取，再从当前版本提取，不添加任何前缀/后缀标签
  */
 function generateCandidateFromInput(userText) {
   const complaint = detectQualityComplaint(userText);
@@ -860,52 +872,102 @@ function generateCandidateFromInput(userText) {
     const sentences = sourceText.split(/[，。、；\n]/).map(s => s.trim()).filter(s => s.length > 0);
     const candidates = [];
     
-    for (const s of sentences) {
-      const matchConfirm = s.match(/([^\s，。、]+?)(?:那边|负责)?(周[一二三四五六日\d]|今天|明天)(?:前|内)?(?:给我)?(确认)/);
-      if (matchConfirm) {
-        const subject = matchConfirm[1];
-        const time = matchConfirm[2];
-        candidates.push(`请${subject}在${time}前确认报价，并把结果同步给我。`);
-        continue;
+    // 提取时间
+    function extractTime(sentence) {
+      const timeMatch = sentence.match(/(周[一二三四五六日\d]|今天|明天|后天|下周[一二三四五六日\d]?)/);
+      return timeMatch ? timeMatch[0] : '';
+    }
+
+    // 提取负责人 (Subject)
+    function extractSubject(sentence) {
+      const subMatch = sentence.match(/(?:提醒|请|让|通知|请相关负责人|跟进)([^\s，。、；]{2,3})(?:那边|负责)?/) ||
+                       sentence.match(/([^\s，。、；]{2,3})(?:那边|负责|前|内|给我)/);
+      if (subMatch) {
+        let name = subMatch[1].replace(/^(另外|以及|并且|同时|提醒|确认|跟进)/, '');
+        // 剔除末尾可能被多余抓取的动词词头或汉字
+        name = name.replace(/(整理|确认|跟进|负责|发给|提供|推进|讨论|沟通|对接|反馈|整|确|跟|负|发|提|推|讨|沟|对|反)$/, '');
+        if (name && name.length >= 1 && !['今天', '明天', '会议', '报价', '客户', '名单', '现在', '待办', '当前'].includes(name)) {
+          return name;
+        }
       }
-      const matchRemind = s.match(/(?:提醒|请|让|通知)([^\s，。、]{2,4})(整理|跟进|确认|负责|发给)([^\s，。、]{2,12})/);
-      if (matchRemind) {
-        const subject = matchRemind[1];
-        const action = matchRemind[2];
-        const object = matchRemind[3];
-        candidates.push(`请${subject}${action}${object}。`);
-        continue;
+      return '';
+    }
+
+    // 提取动作和宾语
+    function extractActionAndObject(sentence) {
+      const actMatch = sentence.match(/(跟进|整理|确认|负责|发给|提供|推进|调整|反馈|沟通|对接)([^\s，。、；]{1,20})?/) ||
+                       sentence.match(/(跟进|整理|确认|负责|发给|提供|推进|调整|反馈|沟通|对接)$/);
+      if (actMatch) {
+        return { action: actMatch[1], object: (actMatch[2] || '').trim() };
+      }
+      return { action: '', object: '' };
+    }
+
+    let lastObject = '';
+    // 遍历原始输入中的分句以提取结构化任务
+    for (const s of sentences) {
+      const time = extractTime(s);
+      const subject = extractSubject(s);
+      const { action, object } = extractActionAndObject(s);
+      
+      if (object) {
+        lastObject = object;
+      }
+
+      if (subject && action) {
+        const targetObj = object || lastObject || '[事项]';
+        const timePart = time ? `在${time}前` : '';
+        const timeStr = timePart ? `${timePart}` : '';
+        
+        // 检查原分句中是否包含 "给我" 或是具有 "同步/反馈" 倾向的意图
+        const hasSync = s.includes('给我') || s.includes('同步') || s.includes('反馈');
+        const syncStr = hasSync ? '，并把结果同步给我' : '';
+        
+        if (timeStr) {
+          candidates.push(`请${subject}${timeStr}${action}${targetObj}${syncStr}。`);
+        } else {
+          candidates.push(`请${subject}${action}${targetObj}${syncStr}。`);
+        }
       }
     }
-    
+
     if (candidates.length > 0) {
       return candidates.join('\n');
     }
+
     if (legacyText) {
-      const items = legacyText.split('\n').map(l => l.replace(/^\d+\.\s*/, '').trim()).filter(l => l.length > 0);
-      return items.map(it => `请相关负责人尽快跟进“${it}”，并在周五前同步进展。`).join('\n');
+      return `请相关人员在明确时间前完成该事项，并同步进展。`;
     }
   }
 
   // === 规则 2：太官方 / 自然一点 (对应 CG2) ===
   if (complaint === 'too formal') {
     const textToConvert = legacyText || userText;
-    if (textToConvert.includes('反馈') && textToConvert.includes('推进')) {
-      const match = textToConvert.match(/反馈([^，。、\s]+?)结果/);
-      if (match) {
-        const item = match[1].replace(/确认/g, ''); 
-        return `麻烦你周五前帮我确认一下${item}，有结果后直接在群里同步。`;
-      }
+    
+    // 检查是否包含反馈...结果
+    const matchFeedback = textToConvert.match(/反馈([^\s，。、]+?)结果/);
+    if (matchFeedback) {
+      let item = matchFeedback[1];
+      // 动态去重，剔除可能重复的“确认”二字
+      item = item.replace(/确认/g, '').trim();
+      
+      const timeMatch = textToConvert.match(/(本周[一二三四五六日\d]|周[一二三四五六日\d]|[今明后]天)/);
+      const timeStr = timeMatch ? timeMatch[0] : '';
+      const timePart = timeStr ? `${timeStr}前` : '在明确时间前';
+      
+      return `麻烦你${timePart}帮我确认一下${item}，有结果后同步给我，我好继续推进。`;
     }
+    
     let t = textToConvert;
+    // 低风险自然化语气替换词库
     const dict = [
       { from: /请您于/g, to: '麻烦你' },
       { from: /請您於/g, to: '麻煩你' },
       { from: /反馈/g, to: '确认' },
-      { from: /，以便我方推进后续工作/g, to: '，有结果后直接在群里同步' },
-      { from: /以便我方及时调整/g, to: '我好及时调整' },
+      { from: /，以便我方推进后续工作/g, to: '，我好继续推进' },
+      { from: /以便我方及时调整/g, to: '我好及时跟进' },
       { from: /关于贵司昨日提出的合作备忘录，我方已收悉。/g, to: '昨天你发来的合作备忘录，我已经收到啦。' },
-      { from: /请您于本周五下班前反馈具体修改意见，以便我方及时调整，顺祝商祺。/g, to: '麻烦你本周五下班前帮我确认一下修改意见，我好及时调整。' }
+      { from: /请您于本周五下班前反馈具体修改意见，以便我方及时调整，顺祝商祺。/g, to: '麻烦你本周五下班前确认一下修改意见，我好及时调整。' }
     ];
     for (const item of dict) {
       t = t.replace(item.from, item.to);
@@ -917,43 +979,73 @@ function generateCandidateFromInput(userText) {
   // === 规则 3：不够清楚 (对应 CG3) ===
   if (complaint === 'unclear') {
     const textToAnalyze = legacyText || userText;
-    const matchClarity = textToAnalyze.match(/([^\s，。和、]+?)和([^\s，。和、]+?)要(?:继续|进一步)?(?:沟通|对接)([^\s，。、]+?)(?:问题|流程)?。?/);
+    const matchClarity = textToAnalyze.match(/([^\s，。和、]+?)和([^\s，。和、]+?)要(?:继续|进一步)?(?:沟通|对接|讨论|探讨)([^\s，。、；]+)(?:问题|流程)?。?/);
     if (matchClarity) {
-      const deptA = matchClarity[1];
-      const deptB = matchClarity[2];
+      const teamA = matchClarity[1];
+      const teamB = matchClarity[2];
       const topic = matchClarity[3];
-      return `${deptA}请在周五前整理${topic} FAQ 中与${deptA}口径不一致的内容，并同步给${deptB}负责人确认。`;
+      return `请${teamA}和${teamB}在明确时间前沟通${topic}问题，并同步进展。`;
+    }
+    if (legacyText) {
+      return `请相关人员在明确时间前完成该事项，并同步进展。`;
     }
   }
 
   // === 规则 4：不够有行动感 (对应 CG4) ===
   if (complaint === 'weak action orientation') {
     const textToAnalyze = legacyText || userText;
-    const matchAction = textToAnalyze.match(/欢迎了解我们的([^\s，。、]+?)。?/);
+    const matchAction = textToAnalyze.match(/欢迎(?:了解|体验|使用|关注)(?:我们的|贵司)?([^\s，。、！!]+)。?/);
     if (matchAction) {
       const item = matchAction[1];
-      return `立即体验我们的${item}，开启您的效率提升之旅！`;
+      return `立即体验并了解我们的${item}。`;
+    }
+    if (legacyText) {
+      return `立即体验并了解相关服务。`;
     }
   }
 
   // === 规则 5：完成标准不清楚 (对应 CG5) ===
   if (complaint === 'unclear completion criteria') {
     const textToAnalyze = legacyText || userText;
-    const matchCriteria = textToAnalyze.match(/跟进([^\s，。、]+?)。?/);
+    
+    // 检查是否具备截止时间或明确的同步对象
+    const hasTime = textToAnalyze.match(/(本周[一二三四五六日\d]|周[一二三四五六日\d]|[今明后]天|下周[一二三四五六日\d]?)/);
+    const hasSyncObj = textToAnalyze.includes('同步') || textToAnalyze.includes('反馈给') || textToAnalyze.includes('发给') || textToAnalyze.includes('项目组');
+    
+    if (!hasTime || !hasSyncObj) {
+      // 保守输出引导补充句
+      return `请补充截止时间和同步对象后，我再把这条待办压实成可验收版本。`;
+    }
+    
+    const matchCriteria = textToAnalyze.match(/跟进([^\s，。、]+)。?/);
     if (matchCriteria) {
       const item = matchCriteria[1];
-      return `跟进${item}，收集至少 5 位用户的具体意见并整理成 FAQ 文档，在下周一前同步至项目组。`;
+      return `跟进${item}，并在明确时间前完成该事项，并同步进展。`;
+    }
+    if (legacyText) {
+      return `完成“${legacyText}”的跟进，并在明确时间前将结果整理并同步。`;
     }
   }
 
   // === 规则 6：太空泛 (对应 CG6) ===
   if (complaint === 'too vague') {
     const textToAnalyze = legacyText || userText;
-    const matchPlan = textToAnalyze.match(/下周继续推进([^\s，。、]+?)，并加强和([^\s，。、]+?)团队的协同。?/);
+    const matchPlan = textToAnalyze.match(/(?:继续推进|推进)([^\s，。、]+)，并加强和([^\s，。、]+?)的协同。?/);
     if (matchPlan) {
       const itemA = matchPlan[1];
       const itemB = matchPlan[2];
-      return `下周重点完成${itemA}中的核心功能点梳理，并在周三前与${itemB}团队召开协同会议，明确接口规范与对接时间表。`;
+      
+      const timeMatch = textToAnalyze.match(/(下周|本周|在明确时间)/);
+      const timeStr = timeMatch ? timeMatch[0] : '下周';
+      
+      // 动态捕获负责人
+      let deptMatch = itemA.match(/^([^\s，。、优化]+)/);
+      let deptName = deptMatch ? `${deptMatch[1]}负责人` : '相关负责人';
+      
+      return `${timeStr}请${deptName}整理本轮${itemA}事项，并和${itemB}确认需要协同的重点问题，形成一份可执行清单。`;
+    }
+    if (legacyText) {
+      return `细化推进“${legacyText}”的具体执行步骤，并在明确时间前同步计划.`;
     }
   }
 
@@ -1017,8 +1109,27 @@ function generateMockReply(userText) {
       );
     }
 
-    case 'user_candidate_requires_judgment':
-      return '已收到。您提供了一個候補改寫版本。我已記錄，請問您是否要採用這個版本？';
+    case 'user_candidate_requires_judgment': {
+      // 动态评估人话特征，绝无硬编码
+      const timeMatch = userText.match(/(周[一二三四五六日\d]|今天|明天|后天|下周[一二三四五六日\d]?)/);
+      const timePart = timeMatch ? `明确截止时间“${timeMatch[0]}前”` : '';
+      
+      const groupMatch = userText.match(/(?:[^\s，。、；]*?群[^\s，。、；]*?)/);
+      const groupPart = groupMatch ? `同步位置“${groupMatch[0]}”` : '';
+      
+      let reasonPart = '';
+      if (timePart && groupPart) {
+        reasonPart = `因为它补上了${groupPart}，也保留了${timePart}`;
+      } else if (timePart) {
+        reasonPart = `因为它保留了${timePart}`;
+      } else if (groupPart) {
+        reasonPart = `因为它补上了${groupPart}`;
+      } else {
+        reasonPart = `因为它提供了更明确的人话表达与具体要素`;
+      }
+      
+      return `这句话比上一版更适合做待办，${reasonPart}。目前它仍是候选版本，请确认是否采用。`;
+    }
 
     case 'explicit_acceptance':
       return '已收到。此版本已確認採用。';
