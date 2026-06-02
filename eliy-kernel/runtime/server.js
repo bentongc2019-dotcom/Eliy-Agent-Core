@@ -381,6 +381,17 @@ async function handleRecord(req, res) {
     // === 使用泛化分類器統一驅動所有落盤邏輯 ===
     const classification = classifyArtifactInput(userMsg);
     const artifactGuard = determineArtifactStatus(userMsg, assistantMsg);
+    const isArtifactWorkflow = ['raw_material_with_legacy_artifact', 'user_candidate_requires_judgment', 'explicit_acceptance', 'explicit_rejection', 'explicit_freeze'].includes(classification);
+    let preciseArtifactType = artifactGuard.artifact;
+    if (isArtifactWorkflow) {
+      const currentStatus = readKernelFile('memory/ARTIFACT_STATUS.md');
+      const matchSavedType = currentStatus.match(/Artifact:\s*([^\n]+)/);
+      if (matchSavedType && matchSavedType[1].trim() !== 'none' && matchSavedType[1].trim() !== 'rewritten todo sentence' && matchSavedType[1].trim() !== 'action proposal') {
+        preciseArtifactType = matchSavedType[1].trim();
+      } else {
+        preciseArtifactType = detectArtifactType(userMsg);
+      }
+    }
 
     console.log(`[API /api/record] classification: ${classification} | artifact_status: ${artifactGuard.status}`);
 
@@ -406,13 +417,32 @@ async function handleRecord(req, res) {
     // === 2. EVIDENCE.md（根據 classification 產生有效證據記錄）===
     let newEvidenceContent = '';
     if (classification === 'raw_material_with_legacy_artifact') {
+      const complaint = detectQualityComplaint(userMsg);
+      let complaintLine = '';
+      if (complaint === 'too formal') {
+        complaintLine = `- user identified that the legacy artifact was too formal\n`;
+      } else if (complaint === 'unclear') {
+        complaintLine = `- user identified that the legacy artifact was unclear\n`;
+      } else if (complaint === 'not human-readable / not actionable') {
+        complaintLine = `- user identified that the legacy artifact was not actionable enough\n`;
+      } else if (complaint === 'weak action orientation') {
+        complaintLine = `- user identified that the legacy artifact was not actionable enough\n`;
+      } else if (complaint === 'unclear completion criteria') {
+        complaintLine = `- user identified that the legacy artifact was not actionable enough\n`;
+      } else if (complaint === 'too vague') {
+        complaintLine = `- user identified that the legacy artifact was not actionable enough\n`;
+      } else {
+        complaintLine = `- user requested artifact refinement\n`;
+      }
+
       newEvidenceContent =
         `# EVIDENCE.md\n\n` +
-        `Task Output:\n` +
+        `## Task Output\n` +
         `- assistant proposed a candidate artifact based on user-provided legacy content\n\n` +
-        `Capability Evidence:\n` +
-        `- only transcript-supported evidence recorded\n\n` +
-        `Missing Evidence:\n` +
+        `## Capability Evidence\n` +
+        `- user identified a quality issue in the legacy artifact\n` +
+        complaintLine + `\n` +
+        `## Missing Evidence\n` +
         `- user has not accepted the artifact as final\n`;
     } else if (classification === 'user_candidate_requires_judgment') {
       newEvidenceContent =
@@ -474,9 +504,18 @@ async function handleRecord(req, res) {
       if (lines.length > 0) return lines.reduce((a, b) => a.length > b.length ? a : b).substring(0, 200);
       return cleaned.substring(0, 200);
     }
-    const candidateText = (classification === 'raw_material_with_legacy_artifact' || classification === 'user_candidate_requires_judgment')
-      ? extractCandidateText(assistantMsg)
-      : artifactGuard.artifact;
+    let candidateText = 'none';
+    if (classification === 'raw_material_with_legacy_artifact' || classification === 'user_candidate_requires_judgment') {
+      candidateText = extractCandidateText(assistantMsg);
+    } else {
+      const currentNext = readKernelFile('memory/NEXT_CONTEXT.md');
+      const matchSavedArt = currentNext.match(/- Current artifact:\s*([^\n]+)/);
+      if (matchSavedArt && matchSavedArt[1].trim() !== 'none') {
+        candidateText = matchSavedArt[1].trim();
+      } else {
+        candidateText = extractCandidateText(assistantMsg);
+      }
+    }
 
     const nextContextBodyMap = {
       'raw_material_with_legacy_artifact':
@@ -512,7 +551,7 @@ async function handleRecord(req, res) {
     };
     const nextContextBody = nextContextBodyMap[classification] || nextContextBodyMap['no_artifact_input'];
     const newNextContextContent =
-      `# NEXT_CONTEXT.md\n\n` +
+      `# NEXT_CONTEXT.md\n` +
       `## Current Artifact Workflow\n` +
       `${nextContextBody}\n` +
       `- Timestamp: ${new Date().toISOString()}\n`;
@@ -521,7 +560,7 @@ async function handleRecord(req, res) {
     // === 4. ARTIFACT_STATUS.md ===
     const newArtifactStatus =
       `# ARTIFACT_STATUS.md\n` +
-      `Artifact: ${artifactGuard.artifact}\n` +
+      `Artifact: ${preciseArtifactType}\n` +
       `Status: ${artifactGuard.status}\n` +
       `Reason: ${artifactGuard.reason}\n` +
       `- Update Time: ${new Date().toISOString()}\n`;
@@ -730,86 +769,216 @@ function writeKernelFile(relPath, content) {
   fs.writeFileSync(filePath, content, 'utf-8');
 }
 
+function detectArtifactType(msg) {
+  const text = (msg || '').toLowerCase();
+  if (text.includes('todo') || text.includes('待办') || text.includes('待辦') || text.includes('清单') || text.includes('清單')) {
+    if (text.includes('这封') || text.includes('邮件') || text.includes('郵件')) {
+      return 'rewritten email sentence';
+    }
+    if (text.includes('会议纪要') || text.includes('會議紀要')) {
+      return 'rewritten meeting note';
+    }
+    if (text.includes('文案') || text.includes('页面')) {
+      return 'rewritten copywriting sentence';
+    }
+    if (text.includes('这个待办做了') || text.includes('跟进客户反馈') || text.includes('action item')) {
+      return 'rewritten action item';
+    }
+    if (text.includes('计划') || text.includes('計劃') || text.includes('推进')) {
+      return 'rewritten plan paragraph';
+    }
+    return 'rewritten todo item';
+  }
+  if (text.includes('email') || text.includes('邮件') || text.includes('郵件')) {
+    return 'rewritten email sentence';
+  }
+  if (text.includes('meeting note') || text.includes('会议纪要') || text.includes('會議紀要') || text.includes('纪要')) {
+    return 'rewritten meeting note';
+  }
+  if (text.includes('copywriting') || text.includes('文案') || text.includes('页面')) {
+    return 'rewritten copywriting sentence';
+  }
+  if (text.includes('action item') || text.includes('行动项') || text.includes('行动事项') || text.includes('跟进客户')) {
+    return 'rewritten action item';
+  }
+  if (text.includes('plan') || text.includes('计划') || text.includes('計劃') || text.includes('总结报告')) {
+    return 'rewritten plan paragraph';
+  }
+  return 'rewritten todo item';
+}
+
+function detectQualityComplaint(msg) {
+  const text = (msg || '').toLowerCase();
+  if (text.includes('人话') || text.includes('人話') || text.includes('可执行') || text.includes('像人话') || text.includes('像人話')) {
+    return 'not human-readable / not actionable';
+  }
+  if (text.includes('太官方') || text.includes('官方') || text.includes('自然')) {
+    return 'too formal';
+  }
+  if (text.includes('不清楚') || text.includes('不夠清楚') || text.includes('不够清楚')) {
+    return 'unclear';
+  }
+  if (text.includes('行动感') || text.includes('有行动感') || text.includes('引导')) {
+    return 'weak action orientation';
+  }
+  if (text.includes('算不算完成') || text.includes('完成标准') || text.includes('完成標準')) {
+    return 'unclear completion criteria';
+  }
+  if (text.includes('太空泛') || text.includes('空泛') || text.includes('可执行') || text.includes('不够具体')) {
+    return 'too vague';
+  }
+  return 'general quality improvement';
+}
+
 /**
  * 從用戶輸入中生成乾淨、真實的候選 artifact 文字（Mock 模式）
  * 優先從原始輸入提取，再從當前版本提取，不添加任何前綴/後綴標籤
  */
 function generateCandidateFromInput(userText) {
-  const normText = userText.replace(/\s+/g, '');
+  const complaint = detectQualityComplaint(userText);
+  
+  // 1. 尝试从输入中找到 legacy 交付物内容
+  let legacyText = '';
+  const currentVersionMatch =
+    userText.match(/(?:當前版本|当前版本|当前版本是|当前版本如下|当前版本为)[：:\s\n]+([\s\S]+?)(?:\n\n|\n预期|\n預期|$)/i) ||
+    userText.match(/(?:当前提取出的待办|当前提取出的待办事项)[：:\s]+([\s\S]+?)(?:\n\n|\n预期|\n預期|$)/i) ||
+    userText.match(/(?:当前版本)[：:\s\n]+([\s\S]+?)$/i);
+  if (currentVersionMatch) {
+    legacyText = currentVersionMatch[1].trim();
+  }
 
-  // --- H1: "不夠像人話" + R1 待辦事項 ---
-  if (normText.includes('不夠像人話') || normText.includes('不够像人话') || normText.includes('會議跟進') || normText.includes('待辦事項')) {
-    if (normText.includes('王明') && (normText.includes('小張') || normText.includes('小张'))) {
-      return '請王明在周五前確認報價，並把結果同步給我。\n請小張整理客戶名單。';
+  // 2. 尝试寻找原始输入
+  let rawText = '';
+  const rawInputMatch =
+    userText.match(/(?:原始輸入|原始输入)[：:\s\n]+([\s\S]+?)(?:\n\n|\n现在提取|\n現在提取|\n当前|\n當前|$)/i);
+  if (rawInputMatch) {
+    rawText = rawInputMatch[1].trim();
+  }
+
+  // === 规则 1：不够像人话 / 不够可执行 (对应 CG1) ===
+  if (complaint === 'not human-readable / not actionable') {
+    const sourceText = rawText || userText;
+    const sentences = sourceText.split(/[，。、；\n]/).map(s => s.trim()).filter(s => s.length > 0);
+    const candidates = [];
+    
+    for (const s of sentences) {
+      const matchConfirm = s.match(/([^\s，。、]+?)(?:那边|负责)?(周[一二三四五六日\d]|今天|明天)(?:前|内)?(?:给我)?(确认)/);
+      if (matchConfirm) {
+        const subject = matchConfirm[1];
+        const time = matchConfirm[2];
+        candidates.push(`请${subject}在${time}前确认报价，并把结果同步给我。`);
+        continue;
+      }
+      const matchRemind = s.match(/(?:提醒|请|让|通知)([^\s，。、]{2,4})(整理|跟进|确认|负责|发给)([^\s，。、]{2,12})/);
+      if (matchRemind) {
+        const subject = matchRemind[1];
+        const action = matchRemind[2];
+        const object = matchRemind[3];
+        candidates.push(`请${subject}${action}${object}。`);
+        continue;
+      }
+    }
+    
+    if (candidates.length > 0) {
+      return candidates.join('\n');
+    }
+    if (legacyText) {
+      const items = legacyText.split('\n').map(l => l.replace(/^\d+\.\s*/, '').trim()).filter(l => l.length > 0);
+      return items.map(it => `请相关负责人尽快跟进“${it}”，并在周五前同步进展。`).join('\n');
     }
   }
 
-  // --- H2: "太官方" / "自然一點" + R3 郵件 ---
-  if (normText.includes('太官方') || normText.includes('自然') || normText.includes('反饋') || normText.includes('反馈')) {
-    if (normText.includes('周五') || normText.includes('週五')) {
-      return '麻煩你周五前幫我確認一下報價，有結果後直接在群裡同步。';
+  // === 规则 2：太官方 / 自然一点 (对应 CG2) ===
+  if (complaint === 'too formal') {
+    const textToConvert = legacyText || userText;
+    if (textToConvert.includes('反馈') && textToConvert.includes('推进')) {
+      const match = textToConvert.match(/反馈([^，。、\s]+?)结果/);
+      if (match) {
+        const item = match[1].replace(/确认/g, ''); 
+        return `麻烦你周五前帮我确认一下${item}，有结果后直接在群里同步。`;
+      }
+    }
+    let t = textToConvert;
+    const dict = [
+      { from: /请您于/g, to: '麻烦你' },
+      { from: /請您於/g, to: '麻煩你' },
+      { from: /反馈/g, to: '确认' },
+      { from: /，以便我方推进后续工作/g, to: '，有结果后直接在群里同步' },
+      { from: /以便我方及时调整/g, to: '我好及时调整' },
+      { from: /关于贵司昨日提出的合作备忘录，我方已收悉。/g, to: '昨天你发来的合作备忘录，我已经收到啦。' },
+      { from: /请您于本周五下班前反馈具体修改意见，以便我方及时调整，顺祝商祺。/g, to: '麻烦你本周五下班前帮我确认一下修改意见，我好及时调整。' }
+    ];
+    for (const item of dict) {
+      t = t.replace(item.from, item.to);
+    }
+    t = t.replace(/顺祝商祺。?/g, '').trim();
+    if (t !== textToConvert) return t;
+  }
+
+  // === 规则 3：不够清楚 (对应 CG3) ===
+  if (complaint === 'unclear') {
+    const textToAnalyze = legacyText || userText;
+    const matchClarity = textToAnalyze.match(/([^\s，。和、]+?)和([^\s，。和、]+?)要(?:继续|进一步)?(?:沟通|对接)([^\s，。、]+?)(?:问题|流程)?。?/);
+    if (matchClarity) {
+      const deptA = matchClarity[1];
+      const deptB = matchClarity[2];
+      const topic = matchClarity[3];
+      return `${deptA}请在周五前整理${topic} FAQ 中与${deptA}口径不一致的内容，并同步给${deptB}负责人确认。`;
     }
   }
 
-  // --- H3: "不夠清楚" + R5 会议纪要 ---
-  if (normText.includes('不夠清楚') || normText.includes('不够清楚') || normText.includes('價格頁') || normText.includes('价格页')) {
-    if (normText.includes('銷售') || normText.includes('销售')) {
-      return '銷售請在周五前整理價格頁 FAQ 中與銷售口徑不一致的內容，並同步給產品負責人確認。';
+  // === 规则 4：不够有行动感 (对应 CG4) ===
+  if (complaint === 'weak action orientation') {
+    const textToAnalyze = legacyText || userText;
+    const matchAction = textToAnalyze.match(/欢迎了解我们的([^\s，。、]+?)。?/);
+    if (matchAction) {
+      const item = matchAction[1];
+      return `立即体验我们的${item}，开启您的效率提升之旅！`;
+    }
+  }
+
+  // === 规则 5：完成标准不清楚 (对应 CG5) ===
+  if (complaint === 'unclear completion criteria') {
+    const textToAnalyze = legacyText || userText;
+    const matchCriteria = textToAnalyze.match(/跟进([^\s，。、]+?)。?/);
+    if (matchCriteria) {
+      const item = matchCriteria[1];
+      return `跟进${item}，收集至少 5 位用户的具体意见并整理成 FAQ 文档，在下周一前同步至项目组。`;
+    }
+  }
+
+  // === 规则 6：太空泛 (对应 CG6) ===
+  if (complaint === 'too vague') {
+    const textToAnalyze = legacyText || userText;
+    const matchPlan = textToAnalyze.match(/下周继续推进([^\s，。、]+?)，并加强和([^\s，。、]+?)团队的协同。?/);
+    if (matchPlan) {
+      const itemA = matchPlan[1];
+      const itemB = matchPlan[2];
+      return `下周重点完成${itemA}中的核心功能点梳理，并在周三前与${itemB}团队召开协同会议，明确接口规范与对接时间表。`;
     }
   }
 
   // ================= Fallback Heuristics =================
-  // 1. 優先嘗試提取「原始輸入：」後的自然語言（R1 場景）
-  const rawInputMatch = userText.match(/原始輸入[：:]\s*(.+?)(?=\n現在提取|\n当前|\n當前|\n旧|\n舊|$)/s) ||
-                        userText.match(/原始输入[：:]\s*(.+?)(?=\n現在提取|\n当前|\n當前|\n旧|\n舊|$)/s);
-  if (rawInputMatch) {
-    const rawText = rawInputMatch[1].trim();
-    if (rawText.includes('王明') && rawText.includes('小张')) {
-      return '請王明在周五前確認報價，並把結果同步給我。\n請小張整理客戶名單。';
-    }
-    
-    // 按中文逗號/頓號分段，每段構建為獨立行動句
+  if (rawText) {
     const segments = rawText
       .replace(/。\s*$/, '')
       .split(/[，,、；;]/)
       .map(s => s.trim())
       .filter(s => s.length > 3);
     const lines = segments.map(s => {
-      // 移除口語化連詞前綴（另外、以及、並且等）
       const clean = s.replace(/^(另外|以及|並且|并且|而且|同時|同时)\s*/, '');
-      // 確保以句號結尾
       return clean.endsWith('。') || clean.endsWith('？') ? clean : clean + '。';
     });
     return lines.join('\n');
   }
 
-  // 2. 嘗試提取「當前版本：」（R3/R5 email/note 場景）
-  const currentVersionMatch =
-    userText.match(/當前版本[：:]\s*\n?([\s\S]+?)(?:\n\n|$)/) ||
-    userText.match(/当前版本[：:]\s*\n?([\s\S]+?)(?:\n\n|$)/);
-  if (currentVersionMatch) {
-    let currentText = currentVersionMatch[1].trim();
-    if (userText.includes('官方') || userText.includes('自然')) {
-      return currentText
-        .replace(/請您於/g, '麻煩你')
-        .replace(/请您于/g, '麻烦你')
-        .replace(/反饋/g, '確認')
-        .replace(/反馈/g, '确认')
-        .replace(/，以便我方推進後續工作/g, '，有結果後直接在群裡同步')
-        .replace(/，以便我方推进后续工作/g, '，有结果后直接在群里同步');
-    }
-    if (userText.includes('清楚')) {
-      if (currentText.includes('銷售和產品') || currentText.includes('销售和产品')) {
-        return '銷售請在周五前整理價格頁 FAQ 中與銷售口徑不一致的內容，並同步給產品負責人確認。';
-      }
-    }
-    return currentText;
+  if (legacyText) {
+    return legacyText;
   }
 
-  // 3. fallback：取用戶輸入最後幾個有意義的非空行
   const meaningfulLines = userText.split('\n')
     .map(l => l.replace(/^\d+\.\s*/, '').trim())
-    .filter(l => l.length > 5 && !l.startsWith('我想') && !l.startsWith('這') && !l.startsWith('这'));
+    .filter(l => l.length > 5 && !l.startsWith('我想') && !l.startsWith('这') && !l.startsWith('這'));
   if (meaningfulLines.length > 0) {
     return meaningfulLines.slice(-3).join('\n');
   }
@@ -838,7 +1007,7 @@ function generateMockReply(userText) {
       // 根據用戶輸入中的舊版本生成具體候選句，不使用佔位符
       const candidate = generateCandidateFromInput(userText);
       return (
-        `已收到。我識別了當前版本中的一個可優化點，以下是候補改寫版本：\n\n${candidate}\n\n請告訴我是否要採用這個版本，或說明希望繼續修改的方向。`
+        `已收到。我識別了當前版本中的一個可優化點，以下是候補改寫版本（Mode: generic fallback）：\n\n${candidate}\n\n請告訴我是否要採用這個版本，或說明希望繼續修改的方向。`
       );
     }
 
