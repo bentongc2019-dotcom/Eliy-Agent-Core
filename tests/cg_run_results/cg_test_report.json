@@ -10,10 +10,10 @@
     "mode": "generic fallback",
     "files": {
       "latest-transcript.md": "# Latest Transcript - Eliy v0.3.1-test\n\n**User**: 我想继续改当前工具，我觉得它提取出来的待办事项不够像人话。\n原始输入：今天会议后要跟进报价，王明那边周五前给我确认，另外提醒小张整理客户名单。\n现在提取出的待办：\n1. 会议跟进\n2. 报价确认\n3. 整理客户名单\n\n**Assistant**: 已收到。我識別了當前版本中的一個可優化點，以下是候補改寫版本（Mode: generic fallback）：\n\n请王明在周五前确认报价，并把结果同步给我。\n请小张整理客户名单。\n\n請告訴我是否要採用這個版本，或說明希望繼續修改的方向。\n",
-      "STATE.md": "# STATE.md\n- Phase: INTAKE\n- Classification: raw_material_with_legacy_artifact\n- Current Focus: assistant proposed candidate artifact; awaiting user confirmation\n- Last User Input: \"我想继续改当前工具，我觉得它提取出来的待办事项不够像人话。 原始输入：今天会议后要跟进报价，王明那边周五前给我确认，另外提醒小张整理客户名单。 现在提取出的待办： 1. 会议跟进 2. 报价确认 3.\"\n- Timestamp: 2026-06-04T01:38:37.476Z\n",
+      "STATE.md": "# STATE.md\n- Phase: INTAKE\n- Classification: raw_material_with_legacy_artifact\n- Current Focus: assistant proposed candidate artifact; awaiting user confirmation\n- Last User Input: \"我想继续改当前工具，我觉得它提取出来的待办事项不够像人话。 原始输入：今天会议后要跟进报价，王明那边周五前给我确认，另外提醒小张整理客户名单。 现在提取出的待办： 1. 会议跟进 2. 报价确认 3.\"\n- Timestamp: 2026-06-04T01:41:07.131Z\n",
       "EVIDENCE.md": "# EVIDENCE.md\n\n## Task Output\n- assistant proposed a candidate artifact based on user-provided legacy content\n\n## Capability Evidence\n- user identified a quality issue in the legacy artifact\n- user identified that the legacy artifact was not actionable enough\n\n## Missing Evidence\n- user has not accepted the artifact as final\n",
-      "NEXT_CONTEXT.md": "# NEXT_CONTEXT.md\n## Current Artifact Workflow\n- Current artifact: 请王明在周五前确认报价，并把结果同步给我。\n请小张整理客户名单。\n- Current artifact status: proposed\n- Awaiting user input: confirm, modify, or reject the proposed candidate artifact\n- Do not infer unsupported workflow\n- Timestamp: 2026-06-04T01:38:37.477Z\n",
-      "ARTIFACT_STATUS.md": "# ARTIFACT_STATUS.md\nArtifact: rewritten todo item\nStatus: proposed\nReason: assistant proposed an artifact; user has not accepted it\n- Update Time: 2026-06-04T01:38:37.477Z\n"
+      "NEXT_CONTEXT.md": "# NEXT_CONTEXT.md\n## Current Artifact Workflow\n- Current artifact: 请王明在周五前确认报价，并把结果同步给我。\n请小张整理客户名单。\n- Current artifact status: proposed\n- Awaiting user input: confirm, modify, or reject the proposed candidate artifact\n- Do not infer unsupported workflow\n- Timestamp: 2026-06-04T01:41:07.132Z\n",
+      "ARTIFACT_STATUS.md": "# ARTIFACT_STATUS.md\nArtifact: rewritten todo item\nStatus: proposed\nReason: assistant proposed an artifact; user has not accepted it\n- Update Time: 2026-06-04T01:41:07.132Z\n"
     }
   },
   "CG2": {
@@ -27,10 +27,10 @@
     "mode": "generic fallback",
     "files": {
       "latest-transcript.md": "# Latest Transcript - Eliy v0.3.1-test\n\n**User**: 这封邮件写得太官方了，想改得自然一点。\n当前版本：\n请您于本周五前反馈报价确认结果，以便我方推进后续工作。\n\n**Assistant**: 已收到。我識別了當前版本中的一個可優化點，以下是候補改寫版本（Mode: generic fallback）：\n\n麻烦你本周五前帮我确认一下报价，有结果后同步给我，我好继续推进。\n\n請告訴我是否要採用這個版本，或說明希望繼續修改的方向。\n",
-      "STATE.md": "# STATE.md\n- Phase: INTAKE\n- Classification: raw_material_with_legacy_artifact\n- Current Focus: assistant proposed candidate artifact; awaiting user confirmation\n- Last User Input: \"这封邮件写得太官方了，想改得自然一点。 当前版本： 请您于本周五前反馈报价确认结果，以便我方推进后续工作。\"\n- Timestamp: 2026-06-04T01:38:37.479Z\n",
+      "STATE.md": "# STATE.md\n- Phase: INTAKE\n- Classification: raw_material_with_legacy_artifact\n- Current Focus: assistant proposed candidate artifact; awaiting user confirmation\n- Last User Input: \"这封邮件写得太官方了，想改得自然一点。 当前版本： 请您于本周五前反馈报价确认结果，以便我方推进后续工作。\"\n- Timestamp: 2026-06-04T01:41:07.134Z\n",
       "EVIDENCE.md": "# EVIDENCE.md\n\n## Task Output\n- assistant proposed a candidate artifact based on user-provided legacy content\n\n## Capability Evidence\n- user identified a quality issue in the legacy artifact\n- user identified that the legacy artifact was too formal\n\n## Missing Evidence\n- user has not accepted the artifact as final\n",
-      "NEXT_CONTEXT.md": "# NEXT_CONTEXT.md\n## Current Artifact Workflow\n- Current artifact: 麻烦你本周五前帮我确认一下报价，有结果后同步给我，我好继续推进。\n- Current artifact status: proposed\n- Awaiting user input: confirm, modify, or reject the proposed candidate artifact\n- Do not infer unsupported workflow\n- Timestamp: 2026-06-04T01:38:37.479Z\n",
-      "ARTIFACT_STATUS.md": "# ARTIFACT_STATUS.md\nArtifact: rewritten email sentence\nStatus: proposed\nReason: assistant proposed an artifact; user has not accepted it\n- Update Time: 2026-06-04T01:38:37.480Z\n"
+      "NEXT_CONTEXT.md": "# NEXT_CONTEXT.md\n## Current Artifact Workflow\n- Current artifact: 麻烦你本周五前帮我确认一下报价，有结果后同步给我，我好继续推进。\n- Current artifact status: proposed\n- Awaiting user input: confirm, modify, or reject the proposed candidate artifact\n- Do not infer unsupported workflow\n- Timestamp: 2026-06-04T01:41:07.135Z\n",
+      "ARTIFACT_STATUS.md": "# ARTIFACT_STATUS.md\nArtifact: rewritten email sentence\nStatus: proposed\nReason: assistant proposed an artifact; user has not accepted it\n- Update Time: 2026-06-04T01:41:07.135Z\n"
     }
   },
   "CG3": {
@@ -39,15 +39,15 @@
     "classificationResult": "raw_material_with_legacy_artifact",
     "artifactType": "rewritten meeting note",
     "qualityComplaintDetected": "unclear",
-    "frontendResponse": "已收到。我識別了當前版本中的一個可優化點，以下是候補改寫版本（Mode: generic fallback）：\n\n请销售和产品在明确时间前沟通价格页问题问题，并同步进展。\n\n請告訴我是否要採用這個版本，或說明希望繼續修改的方向。",
-    "candidateArtifact": "请销售和产品在明确时间前沟通价格页问题问题，并同步进展。",
+    "frontendResponse": "已收到。我識別了當前版本中的一個可優化點，以下是候補改寫版本（Mode: generic fallback）：\n\n请销售和产品在明确时间前沟通价格页问题，并同步进展。\n\n請告訴我是否要採用這個版本，或說明希望繼續修改的方向。",
+    "candidateArtifact": "请销售和产品在明确时间前沟通价格页问题，并同步进展。",
     "mode": "generic fallback",
     "files": {
-      "latest-transcript.md": "# Latest Transcript - Eliy v0.3.1-test\n\n**User**: 这段会议纪要不够清楚。\n当前版本：\n销售和产品要继续沟通价格页问题。\n\n**Assistant**: 已收到。我識別了當前版本中的一個可優化點，以下是候補改寫版本（Mode: generic fallback）：\n\n请销售和产品在明确时间前沟通价格页问题问题，并同步进展。\n\n請告訴我是否要採用這個版本，或說明希望繼續修改的方向。\n",
-      "STATE.md": "# STATE.md\n- Phase: INTAKE\n- Classification: raw_material_with_legacy_artifact\n- Current Focus: assistant proposed candidate artifact; awaiting user confirmation\n- Last User Input: \"这段会议纪要不够清楚。 当前版本： 销售和产品要继续沟通价格页问题。\"\n- Timestamp: 2026-06-04T01:38:37.482Z\n",
+      "latest-transcript.md": "# Latest Transcript - Eliy v0.3.1-test\n\n**User**: 这段会议纪要不够清楚。\n当前版本：\n销售和产品要继续沟通价格页问题。\n\n**Assistant**: 已收到。我識別了當前版本中的一個可優化點，以下是候補改寫版本（Mode: generic fallback）：\n\n请销售和产品在明确时间前沟通价格页问题，并同步进展。\n\n請告訴我是否要採用這個版本，或說明希望繼續修改的方向。\n",
+      "STATE.md": "# STATE.md\n- Phase: INTAKE\n- Classification: raw_material_with_legacy_artifact\n- Current Focus: assistant proposed candidate artifact; awaiting user confirmation\n- Last User Input: \"这段会议纪要不够清楚。 当前版本： 销售和产品要继续沟通价格页问题。\"\n- Timestamp: 2026-06-04T01:41:07.137Z\n",
       "EVIDENCE.md": "# EVIDENCE.md\n\n## Task Output\n- assistant proposed a candidate artifact based on user-provided legacy content\n\n## Capability Evidence\n- user identified a quality issue in the legacy artifact\n- user identified that the legacy artifact was unclear\n\n## Missing Evidence\n- user has not accepted the artifact as final\n",
-      "NEXT_CONTEXT.md": "# NEXT_CONTEXT.md\n## Current Artifact Workflow\n- Current artifact: 请销售和产品在明确时间前沟通价格页问题问题，并同步进展。\n- Current artifact status: proposed\n- Awaiting user input: confirm, modify, or reject the proposed candidate artifact\n- Do not infer unsupported workflow\n- Timestamp: 2026-06-04T01:38:37.482Z\n",
-      "ARTIFACT_STATUS.md": "# ARTIFACT_STATUS.md\nArtifact: rewritten meeting note\nStatus: proposed\nReason: assistant proposed an artifact; user has not accepted it\n- Update Time: 2026-06-04T01:38:37.482Z\n"
+      "NEXT_CONTEXT.md": "# NEXT_CONTEXT.md\n## Current Artifact Workflow\n- Current artifact: 请销售和产品在明确时间前沟通价格页问题，并同步进展。\n- Current artifact status: proposed\n- Awaiting user input: confirm, modify, or reject the proposed candidate artifact\n- Do not infer unsupported workflow\n- Timestamp: 2026-06-04T01:41:07.137Z\n",
+      "ARTIFACT_STATUS.md": "# ARTIFACT_STATUS.md\nArtifact: rewritten meeting note\nStatus: proposed\nReason: assistant proposed an artifact; user has not accepted it\n- Update Time: 2026-06-04T01:41:07.137Z\n"
     }
   },
   "CG4": {
@@ -61,10 +61,10 @@
     "mode": "generic fallback",
     "files": {
       "latest-transcript.md": "# Latest Transcript - Eliy v0.3.1-test\n\n**User**: 这句页面文案不够有行动感。\n当前版本：\n欢迎了解我们的服务。\n\n**Assistant**: 已收到。我識別了當前版本中的一個可優化點，以下是候補改寫版本（Mode: generic fallback）：\n\n立即体验并了解我们的服务。\n\n請告訴我是否要採用這個版本，或說明希望繼續修改的方向。\n",
-      "STATE.md": "# STATE.md\n- Phase: INTAKE\n- Classification: raw_material_with_legacy_artifact\n- Current Focus: assistant proposed candidate artifact; awaiting user confirmation\n- Last User Input: \"这句页面文案不够有行动感。 当前版本： 欢迎了解我们的服务。\"\n- Timestamp: 2026-06-04T01:38:37.484Z\n",
+      "STATE.md": "# STATE.md\n- Phase: INTAKE\n- Classification: raw_material_with_legacy_artifact\n- Current Focus: assistant proposed candidate artifact; awaiting user confirmation\n- Last User Input: \"这句页面文案不够有行动感。 当前版本： 欢迎了解我们的服务。\"\n- Timestamp: 2026-06-04T01:41:07.139Z\n",
       "EVIDENCE.md": "# EVIDENCE.md\n\n## Task Output\n- assistant proposed a candidate artifact based on user-provided legacy content\n\n## Capability Evidence\n- user identified a quality issue in the legacy artifact\n- user identified that the legacy artifact was not actionable enough\n\n## Missing Evidence\n- user has not accepted the artifact as final\n",
-      "NEXT_CONTEXT.md": "# NEXT_CONTEXT.md\n## Current Artifact Workflow\n- Current artifact: 立即体验并了解我们的服务。\n- Current artifact status: proposed\n- Awaiting user input: confirm, modify, or reject the proposed candidate artifact\n- Do not infer unsupported workflow\n- Timestamp: 2026-06-04T01:38:37.484Z\n",
-      "ARTIFACT_STATUS.md": "# ARTIFACT_STATUS.md\nArtifact: rewritten copywriting sentence\nStatus: proposed\nReason: assistant proposed an artifact; user has not accepted it\n- Update Time: 2026-06-04T01:38:37.484Z\n"
+      "NEXT_CONTEXT.md": "# NEXT_CONTEXT.md\n## Current Artifact Workflow\n- Current artifact: 立即体验并了解我们的服务。\n- Current artifact status: proposed\n- Awaiting user input: confirm, modify, or reject the proposed candidate artifact\n- Do not infer unsupported workflow\n- Timestamp: 2026-06-04T01:41:07.139Z\n",
+      "ARTIFACT_STATUS.md": "# ARTIFACT_STATUS.md\nArtifact: rewritten copywriting sentence\nStatus: proposed\nReason: assistant proposed an artifact; user has not accepted it\n- Update Time: 2026-06-04T01:41:07.139Z\n"
     }
   },
   "CG5": {
@@ -78,10 +78,10 @@
     "mode": "generic fallback",
     "files": {
       "latest-transcript.md": "# Latest Transcript - Eliy v0.3.1-test\n\n**User**: 这个待办做了也不知道算不算完成。\n当前版本：\n跟进客户反馈。\n\n**Assistant**: 已收到。我識別了當前版本中的一個可優化點，以下是候補改寫版本（Mode: generic fallback）：\n\n候选版本：\n请在明确截止时间前整理客户反馈中的主要问题，并同步给指定负责人。\n待补充：\n请补充具体截止时间和同步对象。\n\n請告訴我是否要採用這個版本，或說明希望繼續修改的方向。\n",
-      "STATE.md": "# STATE.md\n- Phase: INTAKE\n- Classification: raw_material_with_legacy_artifact\n- Current Focus: assistant proposed candidate artifact; awaiting user confirmation\n- Last User Input: \"这个待办做了也不知道算不算完成。 当前版本： 跟进客户反馈。\"\n- Timestamp: 2026-06-04T01:38:37.486Z\n",
+      "STATE.md": "# STATE.md\n- Phase: INTAKE\n- Classification: raw_material_with_legacy_artifact\n- Current Focus: assistant proposed candidate artifact; awaiting user confirmation\n- Last User Input: \"这个待办做了也不知道算不算完成。 当前版本： 跟进客户反馈。\"\n- Timestamp: 2026-06-04T01:41:07.141Z\n",
       "EVIDENCE.md": "# EVIDENCE.md\n\n## Task Output\n- assistant proposed a candidate artifact based on user-provided legacy content\n\n## Capability Evidence\n- user identified a quality issue in the legacy artifact\n- user identified that the legacy artifact was not actionable enough\n\n## Missing Evidence\n- user has not accepted the artifact as final\n",
-      "NEXT_CONTEXT.md": "# NEXT_CONTEXT.md\n## Current Artifact Workflow\n- Current artifact: 候选版本：\n请在明确截止时间前整理客户反馈中的主要问题，并同步给指定负责人。\n待补充：\n请补充具体截止时间和同步对象。\n- Current artifact status: proposed\n- Awaiting user input: confirm, modify, or reject the proposed candidate artifact\n- Do not infer unsupported workflow\n- Timestamp: 2026-06-04T01:38:37.486Z\n",
-      "ARTIFACT_STATUS.md": "# ARTIFACT_STATUS.md\nArtifact: rewritten action item\nStatus: proposed\nReason: assistant proposed an artifact; user has not accepted it\n- Update Time: 2026-06-04T01:38:37.486Z\n"
+      "NEXT_CONTEXT.md": "# NEXT_CONTEXT.md\n## Current Artifact Workflow\n- Current artifact: 候选版本：\n请在明确截止时间前整理客户反馈中的主要问题，并同步给指定负责人。\n待补充：\n请补充具体截止时间和同步对象。\n- Current artifact status: proposed\n- Awaiting user input: confirm, modify, or reject the proposed candidate artifact\n- Do not infer unsupported workflow\n- Timestamp: 2026-06-04T01:41:07.141Z\n",
+      "ARTIFACT_STATUS.md": "# ARTIFACT_STATUS.md\nArtifact: rewritten action item\nStatus: proposed\nReason: assistant proposed an artifact; user has not accepted it\n- Update Time: 2026-06-04T01:41:07.141Z\n"
     }
   },
   "CG6": {
@@ -95,10 +95,10 @@
     "mode": "generic fallback",
     "files": {
       "latest-transcript.md": "# Latest Transcript - Eliy v0.3.1-test\n\n**User**: 这段计划太空泛了，想改得更可执行。\n当前版本：\n下周继续推进产品优化，并加强和销售团队的协同。\n\n**Assistant**: 已收到。我識別了當前版本中的一個可優化點，以下是候補改寫版本（Mode: generic fallback）：\n\n下周请产品负责人整理本轮产品优化事项，并和销售团队确认需要协同的重点问题，形成一份可执行清单。\n\n請告訴我是否要採用這個版本，或說明希望繼續修改的方向。\n",
-      "STATE.md": "# STATE.md\n- Phase: INTAKE\n- Classification: raw_material_with_legacy_artifact\n- Current Focus: assistant proposed candidate artifact; awaiting user confirmation\n- Last User Input: \"这段计划太空泛了，想改得更可执行。 当前版本： 下周继续推进产品优化，并加强和销售团队的协同。\"\n- Timestamp: 2026-06-04T01:38:37.488Z\n",
+      "STATE.md": "# STATE.md\n- Phase: INTAKE\n- Classification: raw_material_with_legacy_artifact\n- Current Focus: assistant proposed candidate artifact; awaiting user confirmation\n- Last User Input: \"这段计划太空泛了，想改得更可执行。 当前版本： 下周继续推进产品优化，并加强和销售团队的协同。\"\n- Timestamp: 2026-06-04T01:41:07.143Z\n",
       "EVIDENCE.md": "# EVIDENCE.md\n\n## Task Output\n- assistant proposed a candidate artifact based on user-provided legacy content\n\n## Capability Evidence\n- user identified a quality issue in the legacy artifact\n- user identified that the legacy artifact was not actionable enough\n\n## Missing Evidence\n- user has not accepted the artifact as final\n",
-      "NEXT_CONTEXT.md": "# NEXT_CONTEXT.md\n## Current Artifact Workflow\n- Current artifact: 下周请产品负责人整理本轮产品优化事项，并和销售团队确认需要协同的重点问题，形成一份可执行清单。\n- Current artifact status: proposed\n- Awaiting user input: confirm, modify, or reject the proposed candidate artifact\n- Do not infer unsupported workflow\n- Timestamp: 2026-06-04T01:38:37.489Z\n",
-      "ARTIFACT_STATUS.md": "# ARTIFACT_STATUS.md\nArtifact: rewritten plan paragraph\nStatus: proposed\nReason: assistant proposed an artifact; user has not accepted it\n- Update Time: 2026-06-04T01:38:37.489Z\n"
+      "NEXT_CONTEXT.md": "# NEXT_CONTEXT.md\n## Current Artifact Workflow\n- Current artifact: 下周请产品负责人整理本轮产品优化事项，并和销售团队确认需要协同的重点问题，形成一份可执行清单。\n- Current artifact status: proposed\n- Awaiting user input: confirm, modify, or reject the proposed candidate artifact\n- Do not infer unsupported workflow\n- Timestamp: 2026-06-04T01:41:07.143Z\n",
+      "ARTIFACT_STATUS.md": "# ARTIFACT_STATUS.md\nArtifact: rewritten plan paragraph\nStatus: proposed\nReason: assistant proposed an artifact; user has not accepted it\n- Update Time: 2026-06-04T01:41:07.143Z\n"
     }
   },
   "CG7": {
@@ -112,10 +112,10 @@
     "mode": "generic fallback",
     "files": {
       "latest-transcript.md": "# Latest Transcript - Eliy v0.3.1-test\n\n**User**: 我想改成：\n请王明在周五前确认报价，并在项目群同步确认结果。\n你判断一下，这句话是否比上一版更适合做待办？\n\n**Assistant**: 这句话比上一版更适合做待办，因为它补上了同步位置“并在项目群”，也保留了明确截止时间“周五前”。目前它仍是候选版本，请确认是否采用。\n",
-      "STATE.md": "# STATE.md\n- Phase: INTAKE\n- Classification: user_candidate_requires_judgment\n- Current Focus: evaluating user-provided candidate artifact; awaiting user decision\n- Last User Input: \"我想改成： 请王明在周五前确认报价，并在项目群同步确认结果。 你判断一下，这句话是否比上一版更适合做待办？\"\n- Timestamp: 2026-06-04T01:38:37.491Z\n",
+      "STATE.md": "# STATE.md\n- Phase: INTAKE\n- Classification: user_candidate_requires_judgment\n- Current Focus: evaluating user-provided candidate artifact; awaiting user decision\n- Last User Input: \"我想改成： 请王明在周五前确认报价，并在项目群同步确认结果。 你判断一下，这句话是否比上一版更适合做待办？\"\n- Timestamp: 2026-06-04T01:41:07.145Z\n",
       "EVIDENCE.md": "# EVIDENCE.md\n\nTask Output:\n- user provided a candidate artifact version and requested judgment\n\nCapability Evidence:\n- only transcript-supported evidence recorded\n\nMissing Evidence:\n- user has not confirmed final acceptance\n",
-      "NEXT_CONTEXT.md": "# NEXT_CONTEXT.md\n## Current Artifact Workflow\n- Current artifact: 请王明在周五前确认报价，并在项目群同步确认结果。\n- Current artifact status: pending_user_confirmation\n- Awaiting user input: user must confirm acceptance or rejection of the candidate version\n- Do not infer unsupported workflow\n- Timestamp: 2026-06-04T01:38:37.491Z\n",
-      "ARTIFACT_STATUS.md": "# ARTIFACT_STATUS.md\nArtifact: rewritten todo item\nStatus: pending_user_confirmation\nReason: user provided a candidate artifact and requested judgment; no explicit final acceptance found\n- Update Time: 2026-06-04T01:38:37.491Z\n"
+      "NEXT_CONTEXT.md": "# NEXT_CONTEXT.md\n## Current Artifact Workflow\n- Current artifact: 请王明在周五前确认报价，并在项目群同步确认结果。\n- Current artifact status: pending_user_confirmation\n- Awaiting user input: user must confirm acceptance or rejection of the candidate version\n- Do not infer unsupported workflow\n- Timestamp: 2026-06-04T01:41:07.145Z\n",
+      "ARTIFACT_STATUS.md": "# ARTIFACT_STATUS.md\nArtifact: rewritten todo item\nStatus: pending_user_confirmation\nReason: user provided a candidate artifact and requested judgment; no explicit final acceptance found\n- Update Time: 2026-06-04T01:41:07.145Z\n"
     }
   },
   "CG8": {
@@ -129,10 +129,10 @@
     "mode": "generic fallback",
     "files": {
       "latest-transcript.md": "# Latest Transcript - Eliy v0.3.1-test\n\n**User**: 确认，就用这个版本。\n\n**Assistant**: 已收到。此版本已確認採用。\n",
-      "STATE.md": "# STATE.md\n- Phase: INTAKE\n- Classification: explicit_acceptance\n- Current Focus: artifact accepted and finalized\n- Last User Input: \"确认，就用这个版本。\"\n- Timestamp: 2026-06-04T01:38:37.493Z\n",
+      "STATE.md": "# STATE.md\n- Phase: INTAKE\n- Classification: explicit_acceptance\n- Current Focus: artifact accepted and finalized\n- Last User Input: \"确认，就用这个版本。\"\n- Timestamp: 2026-06-04T01:41:07.147Z\n",
       "EVIDENCE.md": "# EVIDENCE.md\n\nTask Output:\n- user explicitly accepted the proposed artifact version\n\nCapability Evidence:\n- only transcript-supported evidence recorded\n\nMissing Evidence:\n- none\n",
-      "NEXT_CONTEXT.md": "# NEXT_CONTEXT.md\n## Current Artifact Workflow\n- Current artifact: 请王明在周五前确认报价，并在项目群同步确认结果。\n- Current artifact status: accepted\n- Awaiting user input: none (artifact accepted)\n- Do not infer unsupported workflow\n- Timestamp: 2026-06-04T01:38:37.493Z\n",
-      "ARTIFACT_STATUS.md": "# ARTIFACT_STATUS.md\nArtifact: rewritten todo item\nStatus: accepted\nReason: user explicitly accepted this artifact version\n- Update Time: 2026-06-04T01:38:37.493Z\n"
+      "NEXT_CONTEXT.md": "# NEXT_CONTEXT.md\n## Current Artifact Workflow\n- Current artifact: 请王明在周五前确认报价，并在项目群同步确认结果。\n- Current artifact status: accepted\n- Awaiting user input: none (artifact accepted)\n- Do not infer unsupported workflow\n- Timestamp: 2026-06-04T01:41:07.147Z\n",
+      "ARTIFACT_STATUS.md": "# ARTIFACT_STATUS.md\nArtifact: rewritten todo item\nStatus: accepted\nReason: user explicitly accepted this artifact version\n- Update Time: 2026-06-04T01:41:07.147Z\n"
     }
   }
 }

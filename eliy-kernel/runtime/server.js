@@ -984,7 +984,8 @@ function generateCandidateFromInput(userText) {
       const teamA = matchClarity[1];
       const teamB = matchClarity[2];
       const topic = matchClarity[3];
-      return `请${teamA}和${teamB}在明确时间前沟通${topic}问题，并同步进展。`;
+      const suffix = (topic.endsWith('问题') || topic.endsWith('流程')) ? '' : '问题';
+      return `请${teamA}和${teamB}在明确时间前沟通${topic}${suffix}，并同步进展。`;
     }
     if (legacyText) {
       return `请相关人员在明确时间前完成该事项，并同步进展。`;
