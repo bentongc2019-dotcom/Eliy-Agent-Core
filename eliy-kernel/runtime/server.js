@@ -96,6 +96,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 // === 4. /api/chat 处理逻辑 ===
+// === 4. /api/chat 处理逻辑 ===
 async function handleChat(req, res) {
   try {
     const body = await parseJsonBody(req);
@@ -103,6 +104,9 @@ async function handleChat(req, res) {
     const model = process.env.DEEPSEEK_MODEL || body.model || 'deepseek-v4-flash';
 
     console.log(`[API /api/chat] 收到消息: "${userText}" | 模型: ${model}`);
+
+    const mode = process.env.CANDIDATE_GENERATION_MODE || 'generic_fallback';
+    console.log(`[API /api/chat] 当前候选生成模式 CANDIDATE_GENERATION_MODE: ${mode}`);
 
     // 读取所有的 HAC、HLAMT 和当前 State / Context 文件以构建交互上下文
     const flashGuardRules = readKernelFile('runtime/ELIY_V0.3.1_FLASH_RUNTIME_GUARD_RULES.md');
@@ -113,47 +117,78 @@ async function handleChat(req, res) {
     const nextContextFile = readKernelFile('memory/NEXT_CONTEXT.md');
 
     let reply = '';
-    const apiKey = process.env.DEEPSEEK_API_KEY;
 
-    if (apiKey && apiKey !== 'your_deepseek_api_key_here') {
-      console.log('[API /api/chat] 检测到 DEEPSEEK_API_KEY，发起真实 LLM 调用...');
-      try {
-        const messages = [
-          {
-            role: 'system',
-            content: `${flashGuardRules}\n\n${hacAgentRules}\n\n${frontendRules}\n\n${hlamtFile}\n\n当前状态:\n${stateFile}\n\n当前上下文:\n${nextContextFile}`
-          },
-          ...(body.history || [{ role: 'user', content: userText }])
-        ];
+    if (mode === 'real_llm') {
+      const apiKey = process.env.DEEPSEEK_API_KEY;
+      if (!apiKey || apiKey === 'your_deepseek_api_key_here') {
+        reply = `Real LLM call failed.\nReason: DEEPSEEK_API_KEY is not configured.\nFallback not used in this test.`;
+        console.error('[API /api/chat] 真实 LLM 调用失败：未配置 API Key，且根据测试约束不使用 fallback');
+      } else {
+        console.log('[API /api/chat] 模式为 real_llm，发起真实 LLM 调用...');
+        try {
+          const promptInstruction = 
+            `[MANDATORY SYSTEM INSTRUCTION FOR CANDIDATE ARTIFACT GENERATION]\n` +
+            `You must operate in "real LLM" candidate generation mode.\n` +
+            `Your response MUST strictly adhere to the following structure and guidelines:\n` +
+            `1. Identify and address the quality issue specified by the user.\n` +
+            `2. Generate a clean and actionable candidate version based on the legacy content.\n` +
+            `3. Do NOT repeat the input verbatim or do simple line breaks.\n` +
+            `4. Do NOT add any time references (like "明确时间前", "周五前", "下周") unless explicitly provided in the user's legacy version.\n` +
+            `5. Do NOT finalize/accept the version yourself. Let the user confirm.\n` +
+            `6. Do NOT include methodologies, roadmaps, or diagnosis.\n` +
+            `7. Explicitly append the exact mode/model block at the very end of your response.\n\n` +
+            `REQUIRED RESPONSE STRUCTURE:\n` +
+            `识别到的问题：\n` +
+            `<one specific issue>\n` +
+            `候选版本：\n` +
+            `<candidate artifact>\n` +
+            `请确认是否采用，或说明希望继续修改的方向。\n\n` +
+            `Mode: real LLM\n` +
+            `Model: DeepSeek V4 Flash`;
 
-        const response = await fetch(`${process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'}/v1/chat/completions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`
-          },
-          body: JSON.stringify({
-            model: model,
-            messages: messages,
-            temperature: 0.7,
-            max_tokens: 1024
-          })
-        });
+          const messages = [
+            {
+              role: 'system',
+              content: `${flashGuardRules}\n\n${hacAgentRules}\n\n${frontendRules}\n\n${hlamtFile}\n\n当前状态:\n${stateFile}\n\n当前上下文:\n${nextContextFile}\n\n${promptInstruction}`
+            },
+            ...(body.history || [{ role: 'user', content: userText }])
+          ];
 
-        if (response.ok) {
-          const data = await response.json();
-          reply = data.choices[0]?.message?.content || '';
-        } else {
-          const errText = await response.text();
-          throw new Error(`LLM 接口返回错误: ${response.status} - ${errText}`);
+          const response = await fetch(`${process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'}/v1/chat/completions`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+              model: model,
+              messages: messages,
+              temperature: 0.7,
+              max_tokens: 1024
+            })
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            reply = data.choices[0]?.message?.content || '';
+          } else {
+            const errText = await response.text();
+            throw new Error(`LLM 接口返回错误: ${response.status} - ${errText}`);
+          }
+        } catch (err) {
+          reply = `Real LLM call failed.\nReason: ${err.message}\nFallback not used in this test.`;
+          console.error('[API /api/chat] 真实 LLM 调用失败，不使用 fallback:', err.message);
         }
-      } catch (err) {
-        console.error('[API /api/chat] 真实 LLM 调用失败，降级使用 Mock:', err.message);
-        reply = generateMockReply(userText);
       }
     } else {
-      console.log('[API /api/chat] 未配置 API Key，直接使用极简 Mock 响应');
+      console.log('[API /api/chat] 模式为 generic_fallback，直接走对照 Mock 响应...');
       reply = generateMockReply(userText);
+      // 统一替换或在末尾追加 Mode: generic fallback baseline 以满足测试要求
+      if (reply.includes('Mode: generic fallback')) {
+        reply = reply.replace('Mode: generic fallback', 'Mode: generic fallback baseline');
+      } else {
+        reply += '\n\nMode: generic fallback baseline';
+      }
     }
 
     // 写入本轮 user input + assistant response 到 transcripts/latest-transcript.md
@@ -486,6 +521,12 @@ async function handleRecord(req, res) {
       // 去掉 [Mock] 前綴
       const cleaned = msg.replace(/^\[Mock\]\s*/i, '').trim();
       
+      // 優先精確提取「候选版本：」与「请确认是否采用」之间的内容
+      const matchRealLLM = cleaned.match(/(?:候选版本|候補版本|候选版本为|候補版本為)[：:\s\n]+([\s\S]+?)(?=\n请确认是否采用|\n請確認是否採用|\n\n请确认|\n\n請確認|$)/i);
+      if (matchRealLLM) {
+        return matchRealLLM[1].trim();
+      }
+
       // 優先精確提取「候補改寫版本：」與「請告訴我是否要採用」之間的完整多行內容
       const matchSpecial = cleaned.match(/候補改寫版本.*?[\s\S]*?[：:]\s*\n+([\s\S]+?)(?=\n\n請告訴我|\n\n请告诉我|$)/i);
       if (matchSpecial) {
