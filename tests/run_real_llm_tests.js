@@ -33,8 +33,10 @@ function cleanUpFiles() {
   }
 }
 
+const PORT = process.env.PORT || '3001';
+
 async function runRealLLMTests() {
-  console.log('>>> 正在启动 Real LLM 强制测试 (向 http://localhost:3001 发送请求)...');
+  console.log(`>>> 正在启动 Real LLM 强制测试 (向 http://localhost:${PORT} 发送请求)...`);
   cleanUpFiles();
 
   const testCases = [
@@ -98,16 +100,16 @@ async function runRealLLMTests() {
       
       const startTime = Date.now();
 
-      // 1. 调用 POST http://localhost:3001/api/chat
+      // 1. 调用 POST http://localhost:PORT/api/chat
       let chatRes;
       try {
-        chatRes = await fetch('http://localhost:3001/api/chat', {
+        chatRes = await fetch(`http://localhost:${PORT}/api/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ text: tc.text })
         });
       } catch (err) {
-        console.error(`[FAIL] 连接 http://localhost:3001 失败: ${err.message}`);
+        console.error(`[FAIL] 连接 http://localhost:${PORT} 失败: ${err.message}`);
         process.exit(1);
       }
 
@@ -128,10 +130,10 @@ async function runRealLLMTests() {
         process.exit(1);
       }
 
-      // 2. 调用 POST http://localhost:3001/api/record
+      // 2. 调用 POST http://localhost:PORT/api/record
       let recordRes;
       try {
-        recordRes = await fetch('http://localhost:3001/api/record', {
+        recordRes = await fetch(`http://localhost:${PORT}/api/record`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({})

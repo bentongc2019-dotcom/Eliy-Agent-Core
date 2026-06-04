@@ -1,9 +1,10 @@
 # EVIDENCE.md
 
-## Transcript Evidence
 Task Output:
-- user explicitly froze this artifact version
-- todo sentence version frozen as final standard
+- user provided a candidate artifact version and requested judgment
+
 Capability Evidence:
-- user finalized process standard by freezing candidate version
-- Date: 2026-06-01T14:08:19.403Z
+- only transcript-supported evidence recorded
+
+Missing Evidence:
+- user has not confirmed final acceptance

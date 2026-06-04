@@ -8,6 +8,14 @@
 2. 报价确认
 3. 整理客户名单
 
-**Assistant**: Real LLM call failed.
-Reason: fetch failed
-Fallback not used in this test.
+**Assistant**: 识别到的问题：
+当前提取的待办事项过于简略，像机器操作清单，缺乏人类书写待办时的动作、对象和语气，读起来生硬不自然。
+
+候选版本：
+1. 会后跟进报价，催王明周五前给确认。
+2. 提醒小张整理客户名单。
+
+请确认是否采用，或说明希望继续修改的方向。
+
+Mode: real LLM  
+Model: DeepSeek V4 Flash

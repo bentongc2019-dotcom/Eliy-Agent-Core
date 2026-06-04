@@ -1,0 +1,55 @@
+{
+  "testTime": "2026-06-04T03:12:35.631Z",
+  "mode": "real_llm",
+  "modelName": "deepseek-v4-flash",
+  "cases": {
+    "RLCG3": {
+      "id": "RLCG3",
+      "name": "RLCG3｜Legacy meeting note artifact｜不够清楚",
+      "classification": "raw_material_with_legacy_artifact",
+      "status": "proposed",
+      "latencyMs": 5951,
+      "reply": "识别到的问题：当前版本未明确沟通的具体负责人、沟通目标及后续行动，导致可执行性不足。\n\n候选版本：销售部与产品部需明确价格页问题的具体沟通目标和各自分工。\n\n请确认是否采用，或说明希望继续修改的方向。\n\nMode: real LLM\nModel: DeepSeek V4 Flash",
+      "candidateArtifact": "销售部与产品部需明确价格页问题的具体沟通目标和各自分工。",
+      "files": {
+        "latestTranscript": "# Latest Transcript - Eliy v0.3.1-test\n\n**User**: 这段会议纪要不够清楚。\n当前版本：\n销售和产品要继续沟通价格页问题。\n\n**Assistant**: 识别到的问题：当前版本未明确沟通的具体负责人、沟通目标及后续行动，导致可执行性不足。\n\n候选版本：销售部与产品部需明确价格页问题的具体沟通目标和各自分工。\n\n请确认是否采用，或说明希望继续修改的方向。\n\nMode: real LLM\nModel: DeepSeek V4 Flash\n",
+        "state": "# STATE.md\n- Phase: INTAKE\n- Classification: raw_material_with_legacy_artifact\n- Current Focus: assistant proposed candidate artifact; awaiting user confirmation\n- Last User Input: \"这段会议纪要不够清楚。 当前版本： 销售和产品要继续沟通价格页问题。\"\n- Timestamp: 2026-06-04T03:12:41.591Z\n",
+        "evidence": "# EVIDENCE.md\n\n## Task Output\n- assistant proposed a candidate artifact based on user-provided legacy content\n\n## Capability Evidence\n- user identified a quality issue in the legacy artifact\n- user identified that the legacy artifact was unclear\n\n## Missing Evidence\n- user has not accepted the artifact as final\n",
+        "nextContext": "# NEXT_CONTEXT.md\n## Current Artifact Workflow\n- Current artifact: 销售部与产品部需明确价格页问题的具体沟通目标和各自分工。\n- Current artifact status: proposed\n- Awaiting user input: confirm, modify, or reject the proposed candidate artifact\n- Do not infer unsupported workflow\n- Timestamp: 2026-06-04T03:12:41.592Z\n",
+        "artifactStatus": "# ARTIFACT_STATUS.md\nArtifact: rewritten meeting note\nStatus: proposed\nReason: assistant proposed an artifact; user has not accepted it\n- Update Time: 2026-06-04T03:12:41.592Z\n"
+      }
+    },
+    "RLCG6": {
+      "id": "RLCG6",
+      "name": "RLCG6｜Legacy short plan paragraph｜太空泛",
+      "classification": "raw_material_with_legacy_artifact",
+      "status": "proposed",
+      "latencyMs": 7143,
+      "reply": "识别到的问题：\n当前版本仅陈述了方向性目标（“推进产品优化”、“加强协同”），缺乏具体可衡量的行动步骤和明确的交付结果，难以后续追踪执行情况。\n\n候选版本：\n下周将产品优化拆解为具体任务列表（如修复Bug、调整功能优先级），并安排一次与销售团队的同步会议，明确协同需求与对接窗口。\n\n请确认是否采用，或说明希望继续修改的方向。\n\nMode: real LLM\nModel: DeepSeek V4 Flash",
+      "candidateArtifact": "下周将产品优化拆解为具体任务列表（如修复Bug、调整功能优先级），并安排一次与销售团队的同步会议，明确协同需求与对接窗口。",
+      "files": {
+        "latestTranscript": "# Latest Transcript - Eliy v0.3.1-test\n\n**User**: 这段计划太空泛了，想改得更可执行。\n当前版本：\n下周继续推进产品优化，并加强和销售团队的协同。\n\n**Assistant**: 识别到的问题：\n当前版本仅陈述了方向性目标（“推进产品优化”、“加强协同”），缺乏具体可衡量的行动步骤和明确的交付结果，难以后续追踪执行情况。\n\n候选版本：\n下周将产品优化拆解为具体任务列表（如修复Bug、调整功能优先级），并安排一次与销售团队的同步会议，明确协同需求与对接窗口。\n\n请确认是否采用，或说明希望继续修改的方向。\n\nMode: real LLM\nModel: DeepSeek V4 Flash\n",
+        "state": "# STATE.md\n- Phase: INTAKE\n- Classification: raw_material_with_legacy_artifact\n- Current Focus: assistant proposed candidate artifact; awaiting user confirmation\n- Last User Input: \"这段计划太空泛了，想改得更可执行。 当前版本： 下周继续推进产品优化，并加强和销售团队的协同。\"\n- Timestamp: 2026-06-04T03:12:48.743Z\n",
+        "evidence": "# EVIDENCE.md\n\n## Task Output\n- assistant proposed a candidate artifact based on user-provided legacy content\n\n## Capability Evidence\n- user identified a quality issue in the legacy artifact\n- user identified that the legacy artifact was not actionable enough\n\n## Missing Evidence\n- user has not accepted the artifact as final\n",
+        "nextContext": "# NEXT_CONTEXT.md\n## Current Artifact Workflow\n- Current artifact: 下周将产品优化拆解为具体任务列表（如修复Bug、调整功能优先级），并安排一次与销售团队的同步会议，明确协同需求与对接窗口。\n- Current artifact status: proposed\n- Awaiting user input: confirm, modify, or reject the proposed candidate artifact\n- Do not infer unsupported workflow\n- Timestamp: 2026-06-04T03:12:48.745Z\n",
+        "artifactStatus": "# ARTIFACT_STATUS.md\nArtifact: rewritten plan paragraph\nStatus: proposed\nReason: assistant proposed an artifact; user has not accepted it\n- Update Time: 2026-06-04T03:12:48.745Z\n"
+      }
+    },
+    "RLCG7": {
+      "id": "RLCG7",
+      "name": "RLCG7｜User candidate requiring judgment",
+      "classification": "user_candidate_requires_judgment",
+      "status": "pending_user_confirmation",
+      "latencyMs": 8538,
+      "reply": "具体评价：\n由于我没有看到上一版本的具体内容，无法进行直接比较。但就当前这个候选版本而言，它明确了责任人（王明）、截止时间（周五前）、具体行动（确认报价）以及后续同步要求（在项目群同步结果），具备清晰的执行要素和可跟踪性，非常适合作为待办事项。\n\n请确认是否采用作为最终版本。\n\nMode: real LLM\nModel: DeepSeek V4 Flash",
+      "candidateArtifact": "请王明在周五前确认报价，并在项目群同步确认结果。",
+      "files": {
+        "latestTranscript": "# Latest Transcript - Eliy v0.3.1-test\n\n**User**: 我想改成：\n请王明在周五前确认报价，并在项目群同步确认结果。\n你判断一下，这句话是否比上一版更适合做待办？\n\n**Assistant**: 具体评价：\n由于我没有看到上一版本的具体内容，无法进行直接比较。但就当前这个候选版本而言，它明确了责任人（王明）、截止时间（周五前）、具体行动（确认报价）以及后续同步要求（在项目群同步结果），具备清晰的执行要素和可跟踪性，非常适合作为待办事项。\n\n请确认是否采用作为最终版本。\n\nMode: real LLM\nModel: DeepSeek V4 Flash\n",
+        "state": "# STATE.md\n- Phase: INTAKE\n- Classification: user_candidate_requires_judgment\n- Current Focus: evaluating user-provided candidate artifact; awaiting user decision\n- Last User Input: \"我想改成： 请王明在周五前确认报价，并在项目群同步确认结果。 你判断一下，这句话是否比上一版更适合做待办？\"\n- Timestamp: 2026-06-04T03:12:57.293Z\n",
+        "evidence": "# EVIDENCE.md\n\nTask Output:\n- user provided a candidate artifact version and requested judgment\n\nCapability Evidence:\n- only transcript-supported evidence recorded\n\nMissing Evidence:\n- user has not confirmed final acceptance\n",
+        "nextContext": "# NEXT_CONTEXT.md\n## Current Artifact Workflow\n- Current artifact: 请王明在周五前确认报价，并在项目群同步确认结果。\n- Current artifact status: pending_user_confirmation\n- Awaiting user input: user must confirm acceptance or rejection of the candidate version\n- Do not infer unsupported workflow\n- Timestamp: 2026-06-04T03:12:57.294Z\n",
+        "artifactStatus": "# ARTIFACT_STATUS.md\nArtifact: rewritten todo item\nStatus: pending_user_confirmation\nReason: user provided a candidate artifact and requested judgment; no explicit final acceptance found\n- Update Time: 2026-06-04T03:12:57.295Z\n"
+      }
+    }
+  }
+}

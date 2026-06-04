@@ -30,7 +30,7 @@ function loadEnv() {
 }
 loadEnv();
 
-const PORT = 3001;
+const PORT = parseInt(process.env.PORT, 10) || 3001;
 
 // === 2. Mime Type 映射 ===
 const MIME_TYPES = {
@@ -128,23 +128,33 @@ async function handleChat(req, res) {
         try {
           const promptInstruction = 
             `[MANDATORY SYSTEM INSTRUCTION FOR CANDIDATE ARTIFACT GENERATION]\n` +
-            `You must operate in "real LLM" candidate generation mode.\n` +
-            `Your response MUST strictly adhere to the following structure and guidelines:\n` +
-            `1. Identify and address the quality issue specified by the user.\n` +
-            `2. Generate a clean and actionable candidate version based on the legacy content.\n` +
-            `3. Do NOT repeat the input verbatim or do simple line breaks.\n` +
-            `4. Do NOT add any time references (like "明确时间前", "周五前", "下周") unless explicitly provided in the user's legacy version.\n` +
-            `5. Do NOT finalize/accept the version yourself. Let the user confirm.\n` +
-            `6. Do NOT include methodologies, roadmaps, or diagnosis.\n` +
-            `7. Explicitly append the exact mode/model block at the very end of your response.\n\n` +
-            `REQUIRED RESPONSE STRUCTURE:\n` +
-            `识别到的问题：\n` +
-            `<one specific issue>\n` +
-            `候选版本：\n` +
-            `<candidate artifact>\n` +
-            `请确认是否采用，或说明希望继续修改的方向。\n\n` +
-            `Mode: real LLM\n` +
-            `Model: DeepSeek V4 Flash`;
+            `你必须在 "real LLM" 候选版本生成模式下运行。\n` +
+            `你的回答必须严格遵守以下结构与指导原则：\n\n` +
+            `1. [针对旧交付物改写 (FOR LEGACY ARTIFACT REWRITING - RLCG1-RLCG6)]:\n` +
+            `   - 识别并指出用户指定的质量问题。\n` +
+            `   - 基于旧版本内容生成一个干净、具备可执行性的候选版本。\n` +
+            `   - 禁止直接照抄原文或只做简单的分行处理。\n` +
+            `   - 严禁擅自添加原文未提及的任何时间或截止时间描述（如“明确时间前”、“周五前”、“下周”等），除非原文中明确提供。\n` +
+            `   - 必须完全且仅仅基于用户提供的事实内容进行改写。严禁编造任何未提供的关键事实，严禁补充或捏造原文未提及的人名（如“王明”、“李华”等）、具体业务细节或方法（如“A/B测试”、“整理客户名单”等）。只改写不添加任何外部假设或虚构细节。\n` +
+            `   - 候选版本必须保持与原文同等的规模和体量（只改写，不扩展）。严禁将候选句扩展成包含多个步骤的行动计划、完整执行计划或路线图 (roadmap)。保持为简短的单句或同等长度表达。\n` +
+            `   - 必须严格遵守以下回复格式结构（不可多字少字，只输出这三项）：\n` +
+            `     识别到的问题：\n` +
+            `     <具体问题>\n` +
+            `     候选版本：\n` +
+            `     <仅包含改写后的单句或同等规模候选内容>\n` +
+            `     请确认是否采用，或说明希望继续修改的方向。\n\n` +
+            `2. [针对用户候选版本研判 (FOR USER CANDIDATE JUDGMENT - RLCG7)]:\n` +
+            `   - 对用户提出的候选版本进行评估。你必须给出具体的评价（具体解释好在哪里、是否适合作为待办事项、以及相比前一版在清晰度/责任人/可执行度等方面改进了什么），再等用户确认。\n` +
+            `   - 必须严格遵守以下回复格式结构：\n` +
+            `     具体评价：\n` +
+            `     <对用户候选句的具体评价，必须包含好在哪里以及是否适合作为待办的评估>\n` +
+            `     请确认是否采用作为最终版本。\n\n` +
+            `3. [通用规则 (GENERAL RULES)]:\n` +
+            `   - 禁止自己直接同意或冻结该版本。状态必须保持等待用户确认。\n` +
+            `   - 严禁包含商业诊断、方法论、路线图或诊断信息。\n` +
+            `   - 必须在你的回答最末尾单独另起一行，以纯文本形式追加以下模式和模型块（注意换行）：\n` +
+            `     Mode: real LLM\n` +
+            `     Model: DeepSeek V4 Flash`;
 
           const messages = [
             {

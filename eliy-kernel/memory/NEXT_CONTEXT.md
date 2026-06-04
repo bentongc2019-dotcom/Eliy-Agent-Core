@@ -1,10 +1,7 @@
 # NEXT_CONTEXT.md
-
-## Next Interaction Scope
-- Recommended Action: "No further action required for this artifact"
-- Context Focus: "Completed and Frozen"
-- Artifact Details:
-Frozen artifact standard:
-1. 请王明在周五前确认报价，并把结果同步给我。
-2. 提醒小张整理客户名单
-- Timestamp: 2026-06-01T14:08:19.403Z
+## Current Artifact Workflow
+- Current artifact: 请王明在周五前确认报价，并在项目群同步确认结果。
+- Current artifact status: pending_user_confirmation
+- Awaiting user input: user must confirm acceptance or rejection of the candidate version
+- Do not infer unsupported workflow
+- Timestamp: 2026-06-04T03:12:57.294Z

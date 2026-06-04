@@ -4,6 +4,15 @@
 当前版本：
 跟进客户反馈。
 
-**Assistant**: Real LLM call failed.
-Reason: fetch failed
-Fallback not used in this test.
+**Assistant**: 识别到的问题：
+当前待办“跟进客户反馈”没有明确的完成标准，导致执行后不确定是否算完成。缺少具体目标、可验证的终点和记录要求。
+
+候选版本：
+**待办**：确认客户对 [具体问题] 的反馈结果。  
+**完成标志**：客户明确表态问题已解决，或记录客户提出的新诉求并更新到系统。  
+**动作**：联系客户 → 记录反馈 → 更新状态。
+
+请确认是否采用，或说明希望继续修改的方向。
+
+Mode: real LLM
+Model: DeepSeek V4 Flash
