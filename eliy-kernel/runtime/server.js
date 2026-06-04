@@ -187,6 +187,8 @@ async function handleChat(req, res) {
             ...(body.history || [{ role: 'user', content: userText }])
           ];
 
+          const temperature = classification === 'user_candidate_requires_judgment' ? 0.2 : 0.7;
+
           const response = await fetch(`${process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'}/v1/chat/completions`, {
             method: 'POST',
             headers: {
@@ -196,7 +198,7 @@ async function handleChat(req, res) {
             body: JSON.stringify({
               model: model,
               messages: messages,
-              temperature: 0.7,
+              temperature: temperature,
               max_tokens: 1024
             })
           });
