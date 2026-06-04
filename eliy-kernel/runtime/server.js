@@ -189,31 +189,52 @@ async function handleChat(req, res) {
 
           const temperature = classification === 'user_candidate_requires_judgment' ? 0.2 : 0.7;
 
-          const response = await fetch(`${process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'}/v1/chat/completions`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`
-            },
-            body: JSON.stringify({
-              model: model,
-              messages: messages,
-              temperature: temperature,
-              max_tokens: 1024
-            })
-          });
+          let textReply = '';
+          let attempts = 0;
+          const maxAttempts = 3;
 
-          if (response.ok) {
-            const data = await response.json();
-            const textReply = data.choices[0]?.message?.content || '';
-            if (!textReply.trim()) {
-              throw new Error("DeepSeek API returned an empty completion content.");
+          while (attempts < maxAttempts) {
+            attempts++;
+            try {
+              const response = await fetch(`${process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'}/v1/chat/completions`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                  model: model,
+                  messages: messages,
+                  temperature: temperature,
+                  max_tokens: 1024
+                })
+              });
+
+              if (response.ok) {
+                const data = await response.json();
+                const possibleReply = data.choices[0]?.message?.content || '';
+                if (possibleReply.trim()) {
+                  textReply = possibleReply;
+                  break;
+                }
+                console.warn(`[API /api/chat] 第 ${attempts} 次调用返回空响应，准备重试...`);
+              } else {
+                const errText = await response.text();
+                console.warn(`[API /api/chat] 第 ${attempts} 次调用接口错误 (${response.status}): ${errText}，准备重试...`);
+              }
+            } catch (err) {
+              console.warn(`[API /api/chat] 第 ${attempts} 次调用异常: ${err.message}，准备重试...`);
             }
-            reply = textReply;
-          } else {
-            const errText = await response.text();
-            throw new Error(`LLM 接口返回错误: ${response.status} - ${errText}`);
+
+            if (attempts < maxAttempts) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
           }
+
+          if (!textReply.trim()) {
+            throw new Error("DeepSeek API returned empty or failed after 3 attempts.");
+          }
+          reply = textReply;
         } catch (err) {
           reply = `Real LLM call failed.\nReason: ${err.message}\nFallback not used in this test.`;
           console.error('[API /api/chat] 真实 LLM 调用失败，不使用 fallback:', err.message);
@@ -559,6 +580,12 @@ async function handleRecord(req, res) {
       if (!msg || msg.trim().length === 0) return 'see transcript';
       // 去掉 [Mock] 前綴
       const cleaned = msg.replace(/^\[Mock\]\s*/i, '').trim();
+
+      // 優先精確提取成對的 --- 包裹的候選版本
+      const matchDashes = cleaned.match(/---\s*\n+([\s\S]+?)\n+---/);
+      if (matchDashes) {
+        return matchDashes[1].trim();
+      }
       
       // 優先精確提取「候选版本：」与「请确认是否采用」之间的内容
       const matchRealLLM = cleaned.match(/(?:候选版本|候補版本|候选版本为|候補版本為)[：:\s\n]+([\s\S]+?)(?=\n请确认是否采用|\n請確認是否採用|\n\n请确认|\n\n請確認|$)/i);
