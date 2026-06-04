@@ -985,11 +985,11 @@ function generateCandidateFromInput(userText) {
       const connector = matchClarity[2];
       const teamB = matchClarity[3];
       const topic = matchClarity[4];
-      const suffix = (topic.endsWith('问题') || topic.endsWith('流程')) ? '' : '问题';
-      return `请${teamA}${connector}${teamB}在明确时间前沟通${topic}${suffix}，并同步进展。`;
+      const cleanTopic = topic.replace(/(问题|流程)$/, '');
+      return `请${teamA}${connector}${teamB}就${cleanTopic}相关问题进行对接，明确具体问题细节与后续跟进方案。`;
     }
     if (legacyText) {
-      return `请相关人员在明确时间前完成该事项，并同步进展。`;
+      return `请相关人员就该事项的细节进行对接，并明确后续的具体执行方案。`;
     }
   }
 
