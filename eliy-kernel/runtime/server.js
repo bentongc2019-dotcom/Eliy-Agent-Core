@@ -135,7 +135,7 @@ async function handleChat(req, res) {
             `   - 基于旧版本内容生成一个干净、具备可执行性的候选版本。\n` +
             `   - 禁止直接照抄原文或只做简单的分行处理。\n` +
             `   - 严禁擅自添加原文未提及的任何时间或截止时间描述（如“明确时间前”、“周五前”、“下周”等），除非原文中明确提供。\n` +
-            `   - 必须完全且仅仅基于用户提供的事实内容进行改写。严禁编造任何未提供的关键事实，严禁补充或捏造原文未提及的人名（如“王明”、“李华”等）、具体业务细节或方法（如“A/B测试”、“整理客户名单”等）。只改写不添加任何外部假设或虚构细节。\n` +
+            `   - 必须完全且仅仅基于用户提供的事实内容进行改写。严禁编造任何未提供的关键事实，严禁补充或捏造原文未提及的人名（如“王明”、“李华”等）、具体业务细节或方法（如“A/B测试”、“整理客户名单”等）。只改写不添加 any 外部假设或虚构细节。\n` +
             `   - 候选版本必须保持与原文同等的规模和体量（只改写，不扩展）。严禁将候选句扩展成包含多个步骤的行动计划、完整执行计划或路线图 (roadmap)。保持为简短的单句或同等长度表达。\n` +
             `   - 必须严格遵守以下回复格式结构（不可多字少字，只输出这三项）：\n` +
             `     识别到的问题：\n` +
@@ -143,23 +143,34 @@ async function handleChat(req, res) {
             `     候选版本：\n` +
             `     <仅包含改写后的单句或同等规模候选内容>\n` +
             `     请确认是否采用，或说明希望继续修改的方向。\n\n` +
-            `2. [针对用户候选版本研判 (FOR USER CANDIDATE JUDGMENT - RLCG7)]:\n` +
-            `   - 对用户提出的候选版本进行评估。你必须给出具体的评价（具体解释好在哪里、是否适合作为待办事项、以及相比前一版在清晰度/责任人/可执行度等方面改进了什么），再等用户确认。\n` +
-            `   - 必须严格遵守以下回复格式结构：\n` +
-            `     具体评价：\n` +
-            `     <对用户候选句的具体评价，必须包含好在哪里以及是否适合作为待办的评估>\n` +
-            `     请确认是否采用作为最终版本。\n\n` +
-            `3. [通用规则 (GENERAL RULES)]:\n` +
+            `2. [通用规则 (GENERAL RULES)]:\n` +
             `   - 禁止自己直接同意或冻结该版本。状态必须保持等待用户确认。\n` +
             `   - 严禁包含商业诊断、方法论、路线图或诊断信息。\n` +
             `   - 必须在你的回答最末尾单独另起一行，以纯文本形式追加以下模式和模型块（注意换行）：\n` +
             `     Mode: real LLM\n` +
             `     Model: DeepSeek V4 Flash`;
 
+          const classification = classifyArtifactInput(userText);
+          let taskPrompt = '';
+          if (classification === 'user_candidate_requires_judgment') {
+            // 只用 RLCG7 专用 prompt，不混入 RLCG1-6 的约束
+            taskPrompt = 
+              `[MANDATORY: USER CANDIDATE JUDGMENT]\n` +
+              `用户提供了一个候选句并要求你判断。\n` +
+              `你必须严格按以下格式回复，不得偏离：\n\n` +
+              `具体评价：\n` +
+              `<用1-2句话评价这个候选句，说明它在清晰度、责任人、可执行度上好在哪里或差在哪里，以及是否适合作为待办事项>\n\n` +
+              `请确认是否采用作为最终版本。\n\n` +
+              `Mode: real LLM\n` +
+              `Model: DeepSeek V4 Flash`;
+          } else {
+            taskPrompt = promptInstruction;
+          }
+
           const messages = [
             {
               role: 'system',
-              content: `${flashGuardRules}\n\n${hacAgentRules}\n\n${frontendRules}\n\n${hlamtFile}\n\n当前状态:\n${stateFile}\n\n当前上下文:\n${nextContextFile}\n\n${promptInstruction}`
+              content: `${flashGuardRules}\n\n${hacAgentRules}\n\n${frontendRules}\n\n${hlamtFile}\n\n当前状态:\n${stateFile}\n\n当前上下文:\n${nextContextFile}\n\n${taskPrompt}`
             },
             ...(body.history || [{ role: 'user', content: userText }])
           ];
