@@ -820,6 +820,9 @@ function detectArtifactType(msg) {
 
 function detectQualityComplaint(msg) {
   const text = (msg || '').toLowerCase();
+  if (text.includes('太空泛') || text.includes('空泛') || text.includes('不够具体')) {
+    return 'too vague';
+  }
   if (text.includes('人话') || text.includes('人話') || text.includes('可执行') || text.includes('像人话') || text.includes('像人話')) {
     return 'not human-readable / not actionable';
   }
@@ -834,9 +837,6 @@ function detectQualityComplaint(msg) {
   }
   if (text.includes('算不算完成') || text.includes('完成标准') || text.includes('完成標準')) {
     return 'unclear completion criteria';
-  }
-  if (text.includes('太空泛') || text.includes('空泛') || text.includes('可执行') || text.includes('不够具体')) {
-    return 'too vague';
   }
   return 'general quality improvement';
 }
@@ -1000,7 +1000,7 @@ function generateCandidateFromInput(userText) {
       return `立即体验并了解我们的${item}。`;
     }
     if (legacyText) {
-      return `立即体验并了解相关服务。`;
+      return `立即体验并了解相关服务.`;
     }
   }
 
@@ -1013,8 +1013,8 @@ function generateCandidateFromInput(userText) {
     const hasSyncObj = textToAnalyze.includes('同步') || textToAnalyze.includes('反馈给') || textToAnalyze.includes('发给') || textToAnalyze.includes('项目组');
     
     if (!hasTime || !hasSyncObj) {
-      // 保守输出引导补充句
-      return `请补充截止时间和同步对象后，我再把这条待办压实成可验收版本。`;
+      // 保持 ARTIFACT_STATUS = proposed，输出“低风险候选 + 待补充提示”
+      return `候选版本：\n请在明确截止时间前整理客户反馈中的主要问题，并同步给指定负责人。\n待补充：\n请补充具体截止时间和同步对象。`;
     }
     
     const matchCriteria = textToAnalyze.match(/跟进([^\s，。、]+)。?/);
