@@ -979,13 +979,14 @@ function generateCandidateFromInput(userText) {
   // === 规则 3：不够清楚 (对应 CG3) ===
   if (complaint === 'unclear') {
     const textToAnalyze = legacyText || userText;
-    const matchClarity = textToAnalyze.match(/([^\s，。和、]+?)和([^\s，。和、]+?)要(?:继续|进一步)?(?:沟通|对接|讨论|探讨)([^\s，。、；]+)(?:问题|流程)?。?/);
+    const matchClarity = textToAnalyze.match(/([^\s，。和、&]+?)(\s*和\s*|\s*and\s*|\s*&\s*)([^\s，。和、&]+?)要(?:继续|进一步)?(?:沟通|对接|讨论|探讨)([^\s，。、；]+)(?:问题|流程)?。?/i);
     if (matchClarity) {
       const teamA = matchClarity[1];
-      const teamB = matchClarity[2];
-      const topic = matchClarity[3];
+      const connector = matchClarity[2];
+      const teamB = matchClarity[3];
+      const topic = matchClarity[4];
       const suffix = (topic.endsWith('问题') || topic.endsWith('流程')) ? '' : '问题';
-      return `请${teamA}和${teamB}在明确时间前沟通${topic}${suffix}，并同步进展。`;
+      return `请${teamA}${connector}${teamB}在明确时间前沟通${topic}${suffix}，并同步进展。`;
     }
     if (legacyText) {
       return `请相关人员在明确时间前完成该事项，并同步进展。`;
