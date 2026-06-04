@@ -89,6 +89,8 @@ async function runRealLLMTests() {
     cases: {}
   };
 
+  const failedCases = [];
+
   try {
     for (const tc of testCases) {
       // 除了 RLCG8 以外，其余全部冷启动清空文件
@@ -109,15 +111,19 @@ async function runRealLLMTests() {
           body: JSON.stringify({ text: tc.text })
         });
       } catch (err) {
-        console.error(`[FAIL] 连接 http://localhost:${PORT} 失败: ${err.message}`);
-        process.exit(1);
+        console.error(`[FAIL] ${tc.id} 连接 http://localhost:${PORT} 失败: ${err.message}`);
+        failedCases.push({ id: tc.id, reason: `连接 http://localhost:${PORT} 失败: ${err.message}` });
+        report.cases[tc.id] = { id: tc.id, name: tc.name, status: 'failed', error: err.message };
+        continue;
       }
 
       const latency = Date.now() - startTime;
 
       if (!chatRes.ok) {
-        console.error(`[FAIL] /api/chat 返回错误状态码: ${chatRes.status}`);
-        process.exit(1);
+        console.error(`[FAIL] ${tc.id} /api/chat 返回错误状态码: ${chatRes.status}`);
+        failedCases.push({ id: tc.id, reason: `/api/chat 返回错误状态码: ${chatRes.status}` });
+        report.cases[tc.id] = { id: tc.id, name: tc.name, status: 'failed', error: `HTTP ${chatRes.status}` };
+        continue;
       }
 
       const chatData = await chatRes.json();
@@ -127,7 +133,9 @@ async function runRealLLMTests() {
       if (reply.includes('Real LLM call failed.')) {
         console.error(`[FAIL] ${tc.id} 真实 LLM 调用失败！`);
         console.error(`原因:\n${reply}`);
-        process.exit(1);
+        failedCases.push({ id: tc.id, reason: `真实 LLM 调用失败: ${reply}` });
+        report.cases[tc.id] = { id: tc.id, name: tc.name, status: 'failed', error: reply };
+        continue;
       }
 
       // 2. 调用 POST http://localhost:PORT/api/record
@@ -139,13 +147,17 @@ async function runRealLLMTests() {
           body: JSON.stringify({})
         });
       } catch (err) {
-        console.error(`[FAIL] 连接 /api/record 失败: ${err.message}`);
-        process.exit(1);
+        console.error(`[FAIL] ${tc.id} 连接 /api/record 失败: ${err.message}`);
+        failedCases.push({ id: tc.id, reason: `连接 /api/record 失败: ${err.message}` });
+        report.cases[tc.id] = { id: tc.id, name: tc.name, status: 'failed', error: err.message };
+        continue;
       }
 
       if (!recordRes.ok) {
-        console.error(`[FAIL] /api/record 返回错误状态码: ${recordRes.status}`);
-        process.exit(1);
+        console.error(`[FAIL] ${tc.id} /api/record 返回错误状态码: ${recordRes.status}`);
+        failedCases.push({ id: tc.id, reason: `/api/record 返回错误状态码: ${recordRes.status}` });
+        report.cases[tc.id] = { id: tc.id, name: tc.name, status: 'failed', error: `HTTP ${recordRes.status}` };
+        continue;
       }
 
       // 3. 读取本轮落盘文件内容
@@ -216,7 +228,17 @@ async function runRealLLMTests() {
       fs.mkdirSync(reportDir, { recursive: true });
     }
     fs.writeFileSync(path.join(reportDir, 'rlcg_real_llm_report.json'), JSON.stringify(report, null, 2), 'utf-8');
-    console.log(`\n🎉 Real LLM 强制测试执行成功！报告已写入：tests/rlcg_run_results/real_llm/rlcg_real_llm_report.json`);
+    console.log(`\n🎉 Real LLM 强制测试执行完毕！报告已写入：tests/rlcg_run_results/real_llm/rlcg_real_llm_report.json`);
+
+    if (failedCases.length > 0) {
+      console.error(`\n❌ 测试执行中存在以下失败用例 (${failedCases.length} 个)：`);
+      for (const fc of failedCases) {
+        console.error(`  - [${fc.id}]: ${fc.reason}`);
+      }
+      process.exit(1);
+    } else {
+      console.log(`\n✅ 所有用例均成功通过！`);
+    }
 
   } catch (err) {
     console.error(`测试执行异常抛错: ${err.message}`);

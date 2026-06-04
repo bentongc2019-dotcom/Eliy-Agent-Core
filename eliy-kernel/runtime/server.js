@@ -135,8 +135,13 @@ async function handleChat(req, res) {
             `   - 基于旧版本内容生成一个干净、具备可执行性的候选版本。\n` +
             `   - 禁止直接照抄原文或只做简单的分行处理。\n` +
             `   - 严禁擅自添加原文未提及的任何时间或截止时间描述（如“明确时间前”、“周五前”、“下周”等），除非原文中明确提供。\n` +
-            `   - 必须完全且仅仅基于用户提供的事实内容进行改写。严禁编造任何未提供的关键事实，严禁补充或捏造原文未提及的人名（如“王明”、“李华”等）、具体业务细节或方法（如“A/B测试”、“整理客户名单”等）。只改写不添加 any 外部假设或虚构细节。\n` +
-            `   - 候选版本必须保持与原文同等的规模和体量（只改写，不扩展）。严禁将候选句扩展成包含多个步骤的行动计划、完整执行计划或路线图 (roadmap)。保持为简短的单句或同等长度表达。\n` +
+            `   - 必须完全且仅仅基于用户提供的事实内容进行改写。严禁编造任何未提供的关键事实，严禁补充或捏造原文未提及的人名（如“王明”、“李华”等）、具体业务细节。只改写不添加任何外部假设或虚构细节。\n` +
+            `   - 候选版本必须保持与原文同等的规模和体量（只改写，不扩展）。\n` +
+            `   - 针对不同类型抱怨的改写细节准则：\n` +
+            `     * [合并与同步要求 (如RLCG1)]：如果原始待办存在内容重叠或重复提取，必须将其合并为句意完整的单句候选，表述要自然流畅（如“请某人确认报价并同步”），严禁机械拆分为多条，且必须完整保留原文中的同步反馈动作。\n` +
+            `     * [处理“不够清楚” (如RLCG3)]：不能流于形式（如仅改写为“进行后续沟通”），必须将其细化为包含具体待处理事项、负责人和同步要求的动作，但严禁编造任何截止时间。\n` +
+            `     * [处理“完成标准不清楚” (如RLCG5)]：必须将模糊的动作细化为可验证的明确结果（如“整理主要问题并确认是否需要下一步处理，完成后同步摘要和建议”）。如果原文未提供明确的同步对象，需保守表达为“完成后等待确认同步对象”。\n` +
+            `     * [处理“太空泛计划” (如RLCG6)]：你必须保持单句表达（不超过1-2句，严禁拆分成多行步骤或执行计划）。你只需将原句中空泛的概念（如“推进产品优化”、“加强协同”）细化为对应同等规模的具体单一动作（例如将优化拆解为任务列表、安排一次销售同步会明确需求），以保证改写前后的句式体量一致。\n` +
             `   - 必须严格遵守以下回复格式结构（不可多字少字，只输出这三项）：\n` +
             `     识别到的问题：\n` +
             `     <具体问题>\n` +
@@ -153,7 +158,6 @@ async function handleChat(req, res) {
           const classification = classifyArtifactInput(userText);
           let taskPrompt = '';
           if (classification === 'user_candidate_requires_judgment') {
-            // 只用 RLCG7 专用 prompt，不混入 RLCG1-6 的约束
             taskPrompt = 
               `[MANDATORY: USER CANDIDATE JUDGMENT]\n` +
               `用户提供了一个候选句并要求你判断。\n` +
@@ -161,6 +165,14 @@ async function handleChat(req, res) {
               `具体评价：\n` +
               `<用1-2句话评价这个候选句，说明它在清晰度、责任人、可执行度上好在哪里或差在哪里，以及是否适合作为待办事项>\n\n` +
               `请确认是否采用作为最终版本。\n\n` +
+              `Mode: real LLM\n` +
+              `Model: DeepSeek V4 Flash`;
+          } else if (classification === 'explicit_acceptance') {
+            taskPrompt = 
+              `[MANDATORY: EXPLICIT ACCEPTANCE]\n` +
+              `用户已经确认采纳了这个候选版本。\n` +
+              `你必须严格且仅按以下格式回复，不得偏离，也不得加入任何如“加入任务列表”等产品功能的动作：\n\n` +
+              `当前 artifact 已标记为 accepted。请提供下一条输入，或说明是否继续调整其他内容。\n\n` +
               `Mode: real LLM\n` +
               `Model: DeepSeek V4 Flash`;
           } else {
@@ -191,7 +203,11 @@ async function handleChat(req, res) {
 
           if (response.ok) {
             const data = await response.json();
-            reply = data.choices[0]?.message?.content || '';
+            const textReply = data.choices[0]?.message?.content || '';
+            if (!textReply.trim()) {
+              throw new Error("DeepSeek API returned an empty completion content.");
+            }
+            reply = textReply;
           } else {
             const errText = await response.text();
             throw new Error(`LLM 接口返回错误: ${response.status} - ${errText}`);
