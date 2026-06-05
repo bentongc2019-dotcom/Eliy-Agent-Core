@@ -1,55 +1,220 @@
 /**
- * Eliy WebChat — 前端交互逻辑
- * 纯 JS，无框架依赖（MVP 阶段）
+ * Eliy Chat-first Client — app.js (v0.3.1-test)
+ * 纯 JS 实现的商业智能体交互与状态引擎 (轻量扁平版)
  */
 
-// === 状态 ===
+// === 全局状态 ===
 const state = {
   sessionId: null,
-  currentPhase: 'INTAKE',
+  activeModel: 'Eliy v0.3.1',
   isStreaming: false,
-  isRecording: false,
-  pendingHITL: null,
-  radarScores: { '获客能力': 0, '转化效率': 0, '交付质量': 0, '客户留存': 0, '团队能力': 0, '财务健康': 0 },
   messageCount: 0,
+  attachedFile: null,
+  isSfocusMode: false,
 };
 
-// === DOM ===
+// === DOM 元素缓存 ===
 const $ = (sel) => document.querySelector(sel);
 const msgList = $('#messageList');
 const userInput = $('#userInput');
 const sendBtn = $('#sendBtn');
-const voiceBtn = $('#voiceBtn');
-const phaseSteps = document.querySelectorAll('.phase-step');
-const hitlBar = $('#hitlBar');
-const hitlContent = $('#hitlContent');
-const reportBtn = $('#generateReport');
+const newChatBtn = $('#newChatBtn');
+const sfocusSkillBtn = $('#sfocusSkillBtn');
+const historyList = $('#historyList');
+const dropdownTrigger = $('#dropdownTrigger');
+const dropdownMenu = $('#dropdownMenu');
 const menuToggle = $('#menuToggle');
 const sidebar = $('#sidebar');
+const attachBtn = $('#attachBtn');
+const fileInput = $('#fileInput');
 
-// === 初始化 ===
+// === 初始化入口 ===
 document.addEventListener('DOMContentLoaded', () => {
+  // 1. 生成会话 ID 并读取本地用户信息进行重定向守卫
   state.sessionId = 'sess_' + Date.now();
-  drawRadar();
+  initUserContext();
+
+  // 2. 绑定页面上的交互事件监听
+  setupEventHandlers();
+
+  // 3. 开启自适应高度输入区
   setupAutoResize();
 });
 
-// === 发送消息 ===
-sendBtn.addEventListener('click', sendMessage);
-userInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-});
-
-function sendMessage() {
-  const text = userInput.value.trim();
-  if (!text || state.isStreaming) return;
-  appendMessage('user', text);
-  userInput.value = '';
-  userInput.style.height = 'auto';
-  simulateEliyResponse(text);
+// === 用户上下文与安全拦截守卫 ===
+function initUserContext() {
+  const token = localStorage.getItem('ELIY_AUTH_TOKEN');
+  const name = localStorage.getItem('ELIY_USER_NAME') || '用户';
+  
+  if (!token) {
+    window.location.replace('./login.html');
+    return;
+  }
+  
+  // 设置侧边栏底部的登录账户展示
+  $('#userNameText').textContent = name;
+  const firstChar = name.trim().charAt(0).toUpperCase();
+  $('#userAvatar').textContent = firstChar;
 }
 
-// === 消息渲染 ===
+// === 前端交互事件绑定 ===
+function setupEventHandlers() {
+  // 点击发送与回车发送逻辑
+  sendBtn.addEventListener('click', () => submitMessage());
+  userInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      submitMessage();
+    }
+  });
+
+  // 登出逻辑：清理 localStorage 凭证并返回登录页
+  $('#logoutBtn').addEventListener('click', () => {
+    localStorage.removeItem('ELIY_AUTH_TOKEN');
+    localStorage.removeItem('ELIY_USER_NAME');
+    window.location.replace('./login.html');
+  });
+
+  // 模型选择下拉菜单切换展示
+  dropdownTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dropdownMenu.classList.toggle('show');
+  });
+  
+  document.addEventListener('click', () => {
+    dropdownMenu.classList.remove('show');
+  });
+
+  const dropdownItems = document.querySelectorAll('.dropdown-item');
+  dropdownItems.forEach(item => {
+    item.addEventListener('click', (e) => {
+      if (item.classList.contains('disabled')) return;
+      dropdownItems.forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+      const text = item.textContent.split('(')[0].trim();
+      $('.model-name').textContent = text;
+      state.activeModel = text;
+      dropdownMenu.classList.remove('show');
+    });
+  });
+
+  // 新建对话逻辑
+  newChatBtn.addEventListener('click', () => startNewSession());
+
+  // 点击左侧增强技能 S'FOCUS Skill 逻辑
+  sfocusSkillBtn.addEventListener('click', () => triggerSfocusSkill());
+
+  // 响应式侧边栏折叠 toggle
+  menuToggle.addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+  });
+
+  // ＋ 按钮选择上传附件（仅服务当前对话）
+  attachBtn.addEventListener('click', () => {
+    fileInput.click();
+  });
+  
+  fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      handleFileSelected(file);
+    }
+  });
+}
+
+// === 开始新对话会话 ===
+function startNewSession() {
+  if (state.isStreaming) return;
+  state.sessionId = 'sess_' + Date.now();
+  state.messageCount = 0;
+  state.isSfocusMode = false;
+  
+  sfocusSkillBtn.classList.remove('active');
+  const activeHistory = historyList.querySelector('.history-item.active');
+  if (activeHistory) activeHistory.classList.remove('active');
+
+  // 重置消息区为初始对话词
+  msgList.innerHTML = '';
+  appendMessage('assistant', `
+    <p>新对话已开启。你好，我是 <strong>Eliy</strong>，你的商业诊断教练。</p>
+    <p>我已经准备好接收你的项目输入，请描述你当前需要解决的核心商业问题或瓶颈。</p>
+  `, true);
+}
+
+// === S'FOCUS Skill 激活与步骤引导修正 ===
+function triggerSfocusSkill() {
+  if (state.isStreaming) return;
+  
+  // 1. 提示用户进入 S'FOCUS 协作方式
+  appendMessage('user', '⚡ 启用 S’FOCUS 协作分析');
+  state.isSfocusMode = true;
+  sfocusSkillBtn.classList.add('active');
+
+  // 2. 界面展示排版优雅的步骤引导，不直接自动生成最终诊断结论
+  appendMessage('assistant', `
+    <p>已开启 <strong>S’FOCUS 协作分析模式</strong>。让我们按步骤排查你的项目要素，以锁定核心约束：</p>
+    <div style="margin: 0.6rem 0; padding-left: 0.8rem; border-left: 2px solid var(--color-eliy); color: var(--color-text-muted);">
+      <p>1. 你的<strong>业务系统</strong>是什么？（如：销售漏斗、研发交付线）</p>
+      <p>2. 你的核心<strong>目标</strong>是什么？（如：月营收翻倍、提高交付速率）</p>
+      <p>3. 当前存在哪些<strong>不良效应 (UDE)</strong>？（如：CAC 过高、流失严重）</p>
+      <p>4. 你的<strong>制约因素 (Constraint)</strong> 可能在什么位置？</p>
+      <p>5. 下一步需要优先控制什么<strong>投料 (Input)</strong>？</p>
+    </div>
+    <p>请首先告诉我们：<strong>你的业务系统和你的核心目标分别是什么？</strong></p>
+  `, true);
+}
+
+// === 附件选择与预览条展示（仅服务当前对话） ===
+function handleFileSelected(file) {
+  state.attachedFile = file;
+  
+  const oldPreview = $('.file-preview-bar');
+  if (oldPreview) oldPreview.remove();
+
+  // 构造轻量预览 DOM 插入在输入框之上
+  const previewBar = document.createElement('div');
+  previewBar.className = 'file-preview-bar';
+  previewBar.innerHTML = `
+    <span class="file-preview-icon">📎</span>
+    <span class="file-preview-name">${file.name} (${(file.size / 1024).toFixed(1)} KB)</span>
+    <button class="file-preview-remove" id="removeFileBtn">✕</button>
+  `;
+  
+  $('.chat-footer').insertBefore(previewBar, $('.input-container'));
+  
+  $('#removeFileBtn').addEventListener('click', () => {
+    previewBar.remove();
+    state.attachedFile = null;
+    fileInput.value = '';
+  });
+}
+
+// === 消息收发与处理 ===
+function submitMessage(directText = '') {
+  const text = directText || userInput.value.trim();
+  if (!text || state.isStreaming) return;
+
+  let finalMessageText = text;
+  
+  // 仅在当前对话流中附带文件名
+  if (state.attachedFile) {
+    const file = state.attachedFile;
+    finalMessageText = `[当前会话附件: ${file.name}]\n\n${text}`;
+    
+    const preview = $('.file-preview-bar');
+    if (preview) preview.remove();
+    state.attachedFile = null;
+    fileInput.value = '';
+  }
+
+  appendMessage('user', finalMessageText);
+  userInput.value = '';
+  userInput.style.height = 'auto';
+
+  simulateEliyResponse(finalMessageText);
+}
+
+// === 渲染消息气泡 ===
 function appendMessage(role, content, isHTML = false) {
   const div = document.createElement('div');
   div.className = `message ${role}`;
@@ -61,41 +226,33 @@ function appendMessage(role, content, isHTML = false) {
   msgList.appendChild(div);
   msgList.scrollTop = msgList.scrollHeight;
   state.messageCount++;
-  // silent 能力采集：消息数量达到阈值后启用报告按钮
-  if (state.messageCount >= 4) reportBtn.disabled = false;
   return div;
 }
 
-function cleanStreamingTags(text) {
-  return text
-    .replace(/\*\*我的判断：\*\*/g, '')
-    .replace(/\*\*我的判斷：\*\*/g, '')
-    .replace(/\*\*小行动：\*\*/g, '')
-    .replace(/\*\*小行動：\*\*/g, '')
-    .replace(/\*\*下次复盘看：\*\*/g, '')
-    .replace(/\*\*下次複盤看：\*\*/g, '');
-}
-
+// === 消息格式化转换 ===
 function formatText(text) {
-  const cleaned = cleanStreamingTags(text);
+  let cleaned = text
+    .replace(/Mode: real LLM\nModel: DeepSeek V4 Flash/gi, '')
+    .replace(/Mode: generic fallback baseline/gi, '')
+    .replace(/Mode: generic fallback/gi, '')
+    .replace(/^\[Mock\]\s*/i, '');
+    
   return cleaned.split('\n').map(line => {
     line = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    line = line.replace(/`(.*?)`/g, '<code style="background:rgba(91,106,191,0.2);padding:0.1rem 0.3rem;border-radius:4px;font-size:0.82rem">$1</code>');
+    line = line.replace(/`(.*?)`/g, '<code style="background:rgba(155,140,255,0.15);padding:0.1rem 0.35rem;border-radius:4px;font-size:0.85rem;color:var(--color-eliy)">$1</code>');
     return `<p>${line}</p>`;
   }).join('');
 }
 
-// === Real & Streaming 交互（替代纯前端 Mock 模拟，打通后端闭环） ===
+// === 模拟智能体响应流 ===
 async function simulateEliyResponse(userText) {
   state.isStreaming = true;
   setStatus('思考中...', false);
 
-  // 显示打字指示器
   const typingDiv = appendMessage('assistant', '<div class="typing-indicator"><span></span><span></span><span></span></div>', true);
 
   let response = '';
   try {
-    // 请求本地 API 进行智能体对话与 transcript 记录
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -109,262 +266,151 @@ async function simulateEliyResponse(userText) {
       const data = await res.json();
       response = data.reply;
     } else {
-      throw new Error('Server returned error status');
+      throw new Error('API return non-200 status');
     }
   } catch (e) {
-    console.warn('[API] 无法连接到后端 /api/chat，降级使用本地 Mock', e);
-    response = generatePhaseResponse(userText);
+    console.warn('[API] 后端离线，采用 Mock 模式', e);
+    response = `已收到。为了定位约束，我们需要再次确认你的核心业务参数。请补充 CAC 或获客转化率细节。`;
   }
 
-  // streaming 渲染
+  // 智能体消息流式渲染
   const bubble = typingDiv.querySelector('.bubble');
   bubble.innerHTML = '';
   for (let i = 0; i < response.length; i++) {
     bubble.innerHTML = formatText(response.substring(0, i + 1));
     msgList.scrollTop = msgList.scrollHeight;
-    await sleep(12 + Math.random() * 18);
+    await sleep(10 + Math.random() * 12);
   }
-
-  // 更新雷达图（silent 采集）
-  silentCollect(userText);
-  drawRadar();
-
-  // 阶段推进检查
-  checkPhaseAdvance();
 
   state.isStreaming = false;
-  setStatus('就绪', true);
+  setStatus('连接就绪', true);
 
-  // 触发后台记录模块并重新载入 NEXT_CONTEXT.md，完成闭环交互测试
+  // 触发后台记录模块同步状态
   try {
-    console.log('[Recorder] 正在触发后台记录模块...');
-    const recRes = await fetch('/api/record', { method: 'POST' });
-    if (recRes.ok) {
-      console.log('[Recorder] 后台记录处理完成！');
-      const nextCtxRes = await fetch('/eliy-kernel/memory/NEXT_CONTEXT.md');
-      if (nextCtxRes.ok) {
-        const nextCtxText = await nextCtxRes.text();
-        console.log('[Context Reload] 成功读取下一轮 NEXT_CONTEXT.md 内容:\n', nextCtxText);
-      }
-    }
+    await fetch('/api/record', { method: 'POST' });
   } catch (e) {
-    console.warn('[Recorder] 触发后台记录或重载 NEXT_CONTEXT 失败:', e);
+    console.warn('[Recorder] 后台归档失败:', e);
   }
+
+  // 不再使用 `/eliy-kernel/memory/ARTIFACT_STATUS.md`
+  // 直接从回复文本中检查并抽取渲染“成果卡”
+  detectAndRenderArtifact(typingDiv, response);
 }
 
-// === 基于投料阶段的响应生成 ===
-function generatePhaseResponse(userText) {
-  const responses = {
-    INTAKE: [
-      `收到。让我确认一下你的处境：\n\n你提到了「${userText.substring(0, 20)}...」。在我深入分析之前，需要再确认几个点：\n\n1. **你的业务目前处于什么阶段？**（MVP验证/早期增长/规模化）\n2. **团队规模**大概多少人？\n3. **这个问题已经持续多久了？**\n\n这些信息会帮助我更精准地定位瓶颈。`,
-      `好，这是个好的起点。但我需要更多具体数据才能给出有依据的判断，而不是空洞的建议。\n\n你能提供以下信息吗：\n- 月营收范围\n- 获客成本（CAC）大概是多少\n- 客户留存率\n\n**没有数据，我不会猜。**`
-    ],
-    FRAMING: [
-      `根据你提供的信息，我初步构建了这个问题框架：\n\n**表面问题**: ${userText.substring(0, 30)}...\n**可能的根因假设**（置信度: 🟡 中）：\n1. 价值链中存在瓶颈环节\n2. 资源分配未聚焦在核心约束上\n\n**推翻条件**: 如果你的转化率高于行业平均 2 倍，则假设 1 不成立。\n\n你觉得这个方向对吗？还是我漏掉了什么？`,
-    ],
-    DIAGNOSIS: [
-      `我使用 **TP-Lite 瓶颈诊断** 分析了你的情况：\n\n🔴 **核心瓶颈**: 获客到转化的漏斗效率（置信度: 🟡 65%）\n\n**依据**:\n- 你提到获客成本持续上升 → 获客渠道可能饱和\n- 团队精力分散在多个方向 → S'FOCUS 显示聚焦度不足\n\n**推翻条件**: 如果实际 LTV/CAC > 3，则瓶颈可能不在获客端。\n\n⚠️ 这个判断需要你确认。`,
-    ],
-    PRESCRIPTION: [
-      `基于诊断结果，分阶段行动建议：\n\n🔴 **P0 立即执行**:\n- 暂停所有非核心获客渠道，集中资源到 ROI 最高的 1-2 个\n\n🟡 **P1 本周启动**:\n- 量化每个渠道的真实 CAC（含隐性成本）\n\n🔵 **P2 中期**:\n- 建立转化漏斗监控仪表盘\n\n**确认等级: L3** — 需要你明确确认后才会记录为行动方案。`,
-    ],
-    FOLLOW_UP: [
-      `距离上次行动建议已过去一段时间。让我们复盘：\n\n1. P0 行动执行了吗？结果如何？\n2. 获客成本有变化吗？\n3. 有没有发现新的瓶颈？\n\n复盘不是为了追责，而是为了进化认知。`,
-    ],
-  };
+// === 直接从回复文本中检测成果卡 (无文件系统依赖) ===
+function detectAndRenderArtifact(parentDiv, text) {
+  const hasArtifact = text.includes('候选版本：') || 
+                      text.includes('候補改寫版本') || 
+                      text.includes('候选版本') || 
+                      text.includes('识别到的问题：');
+                      
+  if (!hasArtifact) return;
 
-  const pool = responses[state.currentPhase] || responses.INTAKE;
-  return pool[Math.floor(Math.random() * pool.length)];
-}
+  // 提取卡片类型名称
+  let artifactName = '改写成果';
+  if (text.toLowerCase().includes('todo') || text.includes('待办')) {
+    artifactName = '改写后的待办事项';
+  } else if (text.toLowerCase().includes('email') || text.includes('邮件')) {
+    artifactName = '优化后的邮件内容';
+  } else if (text.toLowerCase().includes('meeting') || text.includes('会议')) {
+    artifactName = '提炼后的会议纪要';
+  } else if (text.toLowerCase().includes('action') || text.includes('行动')) {
+    artifactName = '明确的下一步行动';
+  } else if (text.toLowerCase().includes('plan') || text.includes('计划')) {
+    artifactName = '细化的执行路线';
+  }
 
-// === 投料阶段管理 ===
-function setPhase(phase) {
-  state.currentPhase = phase;
-  const phases = ['INTAKE', 'FRAMING', 'DIAGNOSIS', 'PRESCRIPTION', 'FOLLOW_UP'];
-  const idx = phases.indexOf(phase);
-  phaseSteps.forEach((step, i) => {
-    step.classList.remove('active', 'done');
-    if (i < idx) step.classList.add('done');
-    if (i === idx) step.classList.add('active');
+  const candidate = extractCandidateText(text);
+
+  const cardDiv = document.createElement('div');
+  cardDiv.className = 'artifact-card';
+  
+  cardDiv.innerHTML = `
+    <div class="card-header">
+      <span class="card-title">💎 ${artifactName}</span>
+      <span class="card-status pending">等待确认</span>
+    </div>
+    <div class="card-body">
+      ${candidate.replace(/\n/g, '<br>')}
+    </div>
+    <div class="card-actions">
+      <button class="card-btn approve" id="btnApprove">采用这个版本</button>
+      <button class="card-btn modify" id="btnModify">继续修改</button>
+      <button class="card-btn freeze" id="btnFreeze">转成行动卡</button>
+    </div>
+  `;
+
+  const bubble = parentDiv.querySelector('.bubble');
+  bubble.appendChild(cardDiv);
+  msgList.scrollTop = msgList.scrollHeight;
+
+  // 绑定交互按钮响应
+  cardDiv.querySelector('#btnApprove').addEventListener('click', () => {
+    // 隐藏卡片交互按钮，展示已采用标签
+    const actions = cardDiv.querySelector('.card-actions');
+    actions.innerHTML = `<div style="font-size: 0.78rem; color: var(--color-success); font-weight: 600;">✓ 已采用这个版本</div>`;
+    cardDiv.querySelector('.card-status').className = 'card-status accepted';
+    cardDiv.querySelector('.card-status').textContent = '已采用';
+    
+    submitMessage('确认，采用这个版本。');
+  });
+
+  cardDiv.querySelector('#btnFreeze').addEventListener('click', () => {
+    // 隐藏卡片交互按钮，展示已转为行动卡标签
+    const actions = cardDiv.querySelector('.card-actions');
+    actions.innerHTML = `<div style="font-size: 0.78rem; color: var(--color-eliy); font-weight: 600;">✦ 已转为行动卡</div>`;
+    cardDiv.querySelector('.card-status').className = 'card-status converted';
+    cardDiv.querySelector('.card-status').textContent = '已转换';
+    
+    submitMessage('请基于当前成果生成一张下一步行动卡。');
+  });
+
+  cardDiv.querySelector('#btnModify').addEventListener('click', () => {
+    userInput.value = '我想继续修改：';
+    userInput.focus();
+    userInput.style.height = 'auto';
+    userInput.style.height = userInput.scrollHeight + 'px';
   });
 }
 
-function checkPhaseAdvance() {
-  // 简单规则：每 3 轮对话推进一个阶段
-  const phases = ['INTAKE', 'FRAMING', 'DIAGNOSIS', 'PRESCRIPTION', 'FOLLOW_UP'];
-  const idx = phases.indexOf(state.currentPhase);
-  if (state.messageCount > 0 && state.messageCount % 6 === 0 && idx < phases.length - 1) {
-    setPhase(phases[idx + 1]);
-    // 进入 DIAGNOSIS 时显示 HITL 确认
-    if (phases[idx + 1] === 'DIAGNOSIS') showHITL('Eliy 正在使用 TP-Lite 进行瓶颈诊断，是否确认进入深度分析？');
+// === 提取文本中的候选版内容 ===
+function extractCandidateText(fullText) {
+  const matchRealLLM = fullText.match(/(?:候选版本|候補版本|候选版本为|候補版本為)[：:\s\n]+([\s\S]+?)(?=\n请确认是否采用|\n請確認是否採用|\n\n请确认|\n\n請確認|$)/i);
+  if (matchRealLLM) {
+    return matchRealLLM[1].trim();
   }
+
+  const matchDashes = fullText.match(/---\s*\n+([\s\S]+?)\n+---/);
+  if (matchDashes) {
+    return matchDashes[1].trim();
+  }
+
+  const matchSpecial = fullText.match(/候補改寫版本.*?[\s\S]*?[：:]\s*\n+([\s\S]+?)(?=\n\n請告訴我|\n\n请告诉我|$)/i);
+  if (matchSpecial) {
+    return matchSpecial[1].trim();
+  }
+
+  return fullText
+    .replace(/已收到。我識別了當前版本中的一個可優化點，以下是候補改寫版本（Mode: generic fallback）：\n\n/i, '')
+    .replace(/\n\n請告訴我是否要採用這個版本，或說明希望繼續修改的方向。/i, '')
+    .replace(/請確認是否採用，或說明希望继续修改的方向。/i, '')
+    .replace(/请确认是否采用，或说明希望继续修改的方向。/i, '')
+    .trim();
 }
 
-// === HITL 确认 ===
-function showHITL(message) {
-  hitlBar.style.display = 'flex';
-  hitlContent.textContent = message;
-  state.pendingHITL = { id: 'j_' + Date.now(), statement: message };
-}
-
-function hitlRespond(decision) {
-  hitlBar.style.display = 'none';
-  if (decision === 'APPROVE') {
-    appendMessage('assistant', `✅ 已确认。${state.pendingHITL?.statement ?? ''}\n\n继续深度分析...`, false);
-  } else if (decision === 'REJECT') {
-    appendMessage('assistant', '已记录你的反对意见。请告诉我你的想法，我会重新评估。', false);
-  }
-  state.pendingHITL = null;
-}
-
-// === Silent 能力采集 ===
-function silentCollect(text) {
-  const len = text.length;
-  // 根据消息长度和深度微调雷达图（置信度很低，仅供参考）
-  if (len > 100) { state.radarScores['获客能力'] = Math.min(1, state.radarScores['获客能力'] + 0.05); }
-  if (text.includes('收入') || text.includes('营收') || text.includes('利润')) {
-    state.radarScores['财务健康'] = Math.min(1, state.radarScores['财务健康'] + 0.08);
-  }
-  if (text.includes('团队') || text.includes('员工') || text.includes('招聘')) {
-    state.radarScores['团队能力'] = Math.min(1, state.radarScores['团队能力'] + 0.08);
-  }
-  if (text.includes('客户') || text.includes('用户') || text.includes('留存')) {
-    state.radarScores['客户留存'] = Math.min(1, state.radarScores['客户留存'] + 0.08);
-  }
-  // 每次小幅随机提升，模拟数据积累
-  Object.keys(state.radarScores).forEach(k => {
-    state.radarScores[k] = Math.min(1, state.radarScores[k] + Math.random() * 0.03);
-  });
-}
-
-// === 雷达图渲染 ===
-function drawRadar() {
-  const canvas = document.getElementById('radarCanvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width, h = canvas.height;
-  const cx = w / 2, cy = h / 2, r = Math.min(w, h) * 0.35;
-  const labels = Object.keys(state.radarScores);
-  const values = Object.values(state.radarScores);
-  const n = labels.length;
-  const step = (Math.PI * 2) / n;
-
-  ctx.clearRect(0, 0, w, h);
-
-  // 网格
-  for (let lv = 1; lv <= 5; lv++) {
-    const lr = r * (lv / 5);
-    ctx.beginPath();
-    for (let i = 0; i <= n; i++) {
-      const a = i * step - Math.PI / 2;
-      const x = cx + lr * Math.cos(a), y = cy + lr * Math.sin(a);
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.strokeStyle = 'rgba(42,51,80,0.6)';
-    ctx.stroke();
-  }
-
-  // 轴线 + 标签
-  ctx.font = '11px Inter, sans-serif';
-  ctx.fillStyle = '#8892a8';
-  ctx.textAlign = 'center';
-  for (let i = 0; i < n; i++) {
-    const a = i * step - Math.PI / 2;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + r * Math.cos(a), cy + r * Math.sin(a));
-    ctx.strokeStyle = 'rgba(42,51,80,0.4)';
-    ctx.stroke();
-    const lx = cx + (r + 22) * Math.cos(a), ly = cy + (r + 22) * Math.sin(a);
-    ctx.fillText(labels[i], lx, ly + 4);
-  }
-
-  // 数据区域
-  ctx.beginPath();
-  for (let i = 0; i <= n; i++) {
-    const idx = i % n;
-    const a = idx * step - Math.PI / 2;
-    const v = Math.max(0, Math.min(1, values[idx]));
-    const x = cx + r * v * Math.cos(a), y = cy + r * v * Math.sin(a);
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-  }
-  ctx.closePath();
-  ctx.fillStyle = 'rgba(91,106,191,0.2)';
-  ctx.fill();
-  ctx.strokeStyle = '#5b6abf';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  // 数据点
-  for (let i = 0; i < n; i++) {
-    const a = i * step - Math.PI / 2;
-    const v = Math.max(0, Math.min(1, values[i]));
-    ctx.beginPath();
-    ctx.arc(cx + r * v * Math.cos(a), cy + r * v * Math.sin(a), 3.5, 0, Math.PI * 2);
-    ctx.fillStyle = '#5b6abf';
-    ctx.fill();
-    ctx.strokeStyle = '#e8eaf0';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-  }
-}
-
-// === 语音输入（Web Speech API） ===
-voiceBtn.addEventListener('click', toggleVoice);
-function toggleVoice() {
-  if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-    alert('浏览器不支持语音识别');
-    return;
-  }
-  if (state.isRecording) { stopRecording(); return; }
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const recognition = new SR();
-  recognition.lang = 'zh-CN';
-  recognition.interimResults = true;
-  recognition.onresult = (e) => {
-    const text = Array.from(e.results).map(r => r[0].transcript).join('');
-    userInput.value = text;
-  };
-  recognition.onend = () => stopRecording();
-  recognition.start();
-  state.isRecording = true;
-  voiceBtn.classList.add('recording');
-  voiceBtn.textContent = '⏹';
-  window._recognition = recognition;
-}
-function stopRecording() {
-  if (window._recognition) window._recognition.stop();
-  state.isRecording = false;
-  voiceBtn.classList.remove('recording');
-  voiceBtn.textContent = '🎤';
-}
-
-// === 报告生成 ===
-reportBtn.addEventListener('click', () => {
-  const modal = $('#reportModal');
-  const frame = $('#reportFrame');
-  frame.src = '../../eliy-kernel/artifacts/diagnosis_report.html';
-  modal.style.display = 'flex';
-});
-function closeReport() { $('#reportModal').style.display = 'none'; }
-
-// === 侧边栏 toggle ===
-menuToggle.addEventListener('click', () => sidebar.classList.toggle('open'));
-
-// === 输入框自动高度 ===
+// === 辅助工具函数 ===
 function setupAutoResize() {
   userInput.addEventListener('input', () => {
     userInput.style.height = 'auto';
-    userInput.style.height = Math.min(userInput.scrollHeight, 120) + 'px';
+    userInput.style.height = Math.min(userInput.scrollHeight, 140) + 'px';
   });
 }
 
-// === 状态指示 ===
 function setStatus(text, ready) {
   $('#statusText').textContent = text;
-  $('#statusDot').style.background = ready ? '#34d399' : '#fbbf24';
+  $('#statusDot').style.background = ready ? 'var(--color-success)' : 'var(--color-warning)';
 }
 
-// === 工具函数 ===
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
