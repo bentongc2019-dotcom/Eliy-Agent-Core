@@ -823,7 +823,7 @@ html, body {
   width: 14px;
   height: 14px;
   fill: #000;
-  transform: rotate(45deg) translate(-1px, 1px);
+  transform: rotate(-45deg) translate(-1px, -1px);
 }
 
 .footer-tip {
