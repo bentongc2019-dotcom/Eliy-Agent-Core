@@ -164,7 +164,7 @@ function startNewSession() {
   // 重置消息区为初始对话词
   msgList.innerHTML = '';
   appendMessage('assistant', `
-    <p>你好，我是 <strong>Eliy</strong>，你的主体型商业智能体。</p>
+    <p>你好，我是<strong>Eliy</strong>，你的主体型商业智能体。</p>
     <p>我不会给你空洞的鼓励。我会帮你看清问题、聚焦瓶颈、做出有依据的判断。</p>
     <p>先告诉我：<strong>你现在面临的最大挑战是什么？</strong></p>
   `, true);
