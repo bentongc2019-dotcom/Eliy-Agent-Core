@@ -116,6 +116,17 @@ async function handleChat(req, res) {
     const stateFile = readKernelFile('memory/STATE.md');
     const nextContextFile = readKernelFile('memory/NEXT_CONTEXT.md');
 
+    const sfocusKeywords = ["S’FOCUS", "SFOCUS", "瓶颈思维", "找瓶颈", "控制投料", "Choke the Release", "TOC learning or practice", "用 Eliy 分析一个经营系统"];
+    const isSfocusTriggered = sfocusKeywords.some(kw => userText.includes(kw)) || nextContextFile.includes("CURRENT_SKILL: sfocus");
+    let sfocusSkillContent = "";
+    if (isSfocusTriggered) {
+      try {
+        sfocusSkillContent = fs.readFileSync(path.join(ROOT_DIR, 'skills/sfocus/SKILL.md'), 'utf-8');
+      } catch (e) {
+        console.warn('Failed to load SFOCUS skill:', e.message);
+      }
+    }
+
     let reply = '';
     let cleanReply = '';
     let artifact = null;
@@ -199,7 +210,7 @@ async function handleChat(req, res) {
           const messages = [
             {
               role: 'system',
-              content: `${flashGuardRules}\n\n${hacAgentRules}\n\n${frontendRules}\n\n${hlamtFile}\n\n当前状态:\n${stateFile}\n\n当前上下文:\n${nextContextFile}\n\n${taskPrompt}`
+              content: `${flashGuardRules}\n\n${hacAgentRules}\n\n${frontendRules}\n\n${hlamtFile}\n\n当前状态:\n${stateFile}\n\n当前上下文:\n${nextContextFile}\n\n${taskPrompt}${sfocusSkillContent ? '\n\n' + sfocusSkillContent : ''}`
             },
             ...(body.history || [{ role: 'user', content: userText }])
           ];
@@ -567,6 +578,19 @@ async function handleRecord(req, res) {
     const userMsg = userMatch ? userMatch[1].trim() : '';
     const assistantMsg = assistantMatch ? assistantMatch[1].trim() : '';
 
+    const extractField = (text, fieldName) => {
+      const regex = new RegExp(`${fieldName}:\\s*(.*)`);
+      const match = text.match(regex);
+      return match ? match[1].trim() : null;
+    };
+    const currentNextContextForParse = readKernelFile('memory/NEXT_CONTEXT.md');
+    let currentSkill = extractField(assistantMsg, 'CURRENT_SKILL') || extractField(currentNextContextForParse, 'CURRENT_SKILL') || 'none';
+    let currentStep = extractField(assistantMsg, 'CURRENT_STEP') || extractField(currentNextContextForParse, 'CURRENT_STEP') || '';
+    let systemUnderDisc = extractField(assistantMsg, 'SYSTEM_UNDER_DISCUSSION') || extractField(currentNextContextForParse, 'SYSTEM_UNDER_DISCUSSION') || '';
+    let candidateBottleneck = extractField(assistantMsg, 'CANDIDATE_BOTTLENECK') || extractField(currentNextContextForParse, 'CANDIDATE_BOTTLENECK') || '';
+    let chokeSignal = extractField(assistantMsg, 'CHOKE_THE_RELEASE_SIGNAL') || extractField(currentNextContextForParse, 'CHOKE_THE_RELEASE_SIGNAL') || '';
+    let minActionCardStatus = extractField(assistantMsg, 'MIN_ACTION_CARD_STATUS') || extractField(currentNextContextForParse, 'MIN_ACTION_CARD_STATUS') || '';
+
     // === 使用泛化分類器統一驅動所有落盤邏輯 ===
     const classification = classifyArtifactInput(userMsg);
     const artifactGuard = determineArtifactStatus(userMsg, assistantMsg);
@@ -770,6 +794,14 @@ async function handleRecord(req, res) {
       `## Current Artifact Workflow\n` +
       `${nextContextBody}\n` +
       `- Client Artifact Context: ${clientArtifact ? JSON.stringify(clientArtifact) : 'none'}\n` +
+      (currentSkill === 'sfocus' ? 
+        `\n## SFOCUS Skill State\n` +
+        `CURRENT_SKILL: ${currentSkill}\n` +
+        `CURRENT_STEP: ${currentStep}\n` +
+        `SYSTEM_UNDER_DISCUSSION: ${systemUnderDisc}\n` +
+        `CANDIDATE_BOTTLENECK: ${candidateBottleneck}\n` +
+        `CHOKE_THE_RELEASE_SIGNAL: ${chokeSignal}\n` +
+        `MIN_ACTION_CARD_STATUS: ${minActionCardStatus}\n\n` : '') +
       `- Timestamp: ${new Date().toISOString()}\n`;
     writeKernelFile('memory/NEXT_CONTEXT.md', newNextContextContent);
 
