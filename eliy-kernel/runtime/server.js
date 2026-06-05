@@ -289,53 +289,55 @@ async function handleChat(req, res) {
 
       // generic_fallback 模式下的确定性 Payload 映射
       const cleanUserText = userText.trim().toLowerCase();
-      const isCardPoint = cleanUserText.includes('卡点') || cleanUserText.includes('卡住') || cleanUserText.includes('卡在哪里');
       
-      if (!isCardPoint) {
-        if (cleanUserText.includes('整理成成果卡') || cleanUserText.includes('整理成待办') || cleanUserText.includes('整理成果') || cleanUserText.includes('当前成果') || cleanUserText.includes('待办事项版本') || cleanUserText.includes('形成当前成果')) {
-          artifact = {
-            schema_version: "0.1",
-            type: "current_result_card",
-            title: "当前成果卡｜待办事项草稿",
-            status: "suggested",
-            sections: [
-              {
-                label: "已知情况",
-                content: "广告账户结构老化，点击成本上升，销售跟进转化不足。"
-              },
-              {
-                label: "当前判断",
-                content: "获客成本上升可能同时受投放端和销售转化端影响。"
-              },
-              {
-                label: "待补充信息",
-                content: "近三个月广告费用、咨询量、成交量和线索跟进数据。"
-              },
-              {
-                label: "下一步行动",
-                content: "先整理关键数据。"
-              }
-            ]
-          };
-          cleanReply = `我先根据你已提供的信息整理一个当前版本；缺失的信息放在待补充项里。\n\nMode: generic fallback baseline`;
-        } else if (cleanUserText.includes('请基于当前成果生成一张下一步行动卡') || cleanUserText.includes('转成行动卡') || cleanUserText.includes('生成行动卡')) {
-          artifact = {
-            schema_version: "0.1",
-            type: "next_action_card",
-            title: "下一步行动卡｜整理获客成本关键数据",
-            status: "suggested",
-            fields: {
-              "行动名称": "整理获客成本关键数据",
-              "行动目的": "确认获客成本上升主要来自投放端、销售转化端，还是两者共同作用。",
-              "下一步动作": "请先整理过去三个月的广告费用、咨询量、成交量 and 线索跟进数据。",
-              "负责人": "待确认",
-              "完成标准": "至少补齐广告费用、咨询量、成交量三项数据，并能按月份对比。",
-              "检查时间": "待确认",
-              "待补充信息": "线索来源、销售跟进记录、成交周期。"
+      const wantsActionCard = cleanUserText.includes('请基于当前成果生成一张下一步行动卡') || cleanUserText.includes('转成行动卡') || cleanUserText.includes('生成行动卡') || cleanUserText.includes('下一步行动卡');
+      const wantsResultCard = cleanUserText.includes('整理成成果卡') || cleanUserText.includes('整理成待办') || cleanUserText.includes('整理成果') || cleanUserText.includes('当前成果') || cleanUserText.includes('待办事项版本') || cleanUserText.includes('形成当前成果');
+      
+      if (wantsActionCard) {
+        artifact = {
+          schema_version: "0.1",
+          type: "next_action_card",
+          title: "下一步行动卡｜整理获客成本关键数据",
+          status: "suggested",
+          fields: {
+            "行动名称": "整理获客成本关键数据",
+            "行动目的": "确认获客成本上升主要来自投放端、销售转化端，还是两者共同作用。",
+            "下一步动作": "请先整理过去三个月的广告费用、咨询量、成交量和线索跟进数据。",
+            "负责人": "待确认",
+            "完成标准": "至少补齐广告费用、咨询量、成交量三项数据，并能按月份对比。",
+            "检查时间": "待确认",
+            "待补充信息": "线索来源、销售跟进记录、成交周期。"
+          }
+        };
+        cleanReply = `好的，我已基于当前成果为你生成了下一步行动卡草稿。\n\nMode: generic fallback baseline`;
+      } else if (wantsResultCard) {
+        artifact = {
+          schema_version: "0.1",
+          type: "current_result_card",
+          title: "当前成果卡｜待办事项草稿",
+          status: "suggested",
+          sections: [
+            {
+              label: "已知情况",
+              content: "广告账户结构老化，点击成本上升，销售跟进转化不足。"
+            },
+            {
+              label: "当前判断",
+              content: "获客成本上升可能同时受投放端和销售转化端影响。"
+            },
+            {
+              label: "待补充信息",
+              content: "近三个月广告费用、咨询量、成交量和线索跟进数据。"
+            },
+            {
+              label: "下一步行动",
+              content: "先整理关键数据。"
             }
-          };
-          cleanReply = `好的，我已基于当前成果为你生成了下一步行动卡草稿。\n\nMode: generic fallback baseline`;
-        }
+          ]
+        };
+        cleanReply = `我先根据你已提供的信息整理一个当前版本；缺失的信息放在待补充项里。\n\nMode: generic fallback baseline`;
+      } else {
+        artifact = null;
       }
     }
 
