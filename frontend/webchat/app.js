@@ -173,15 +173,16 @@ function startNewSession() {
 // === S'FOCUS Skill 激活与步骤引导修正 ===
 function triggerSfocusSkill() {
   if (state.isStreaming) return;
+  if (state.isSfocusMode) return;
   
   // 1. 以用户自然发言形式进入 S'FOCUS 协作
-  appendMessage('user', "用 S’FOCUS 澄清这个经营问题");
+  appendMessage('user', "用 S'FOCUS 澄清这个经营问题");
   state.isSfocusMode = true;
   sfocusSkillBtn.classList.add('active');
 
   // 2. 界面展示排版优雅的步骤引导，不直接自动生成最终诊断结论
   appendMessage('assistant', `
-    <p>我们可以用 S’FOCUS 来澄清这个经营问题。先从第一步开始：<strong>你现在要分析的系统是什么？这个系统的目标是什么？</strong></p>
+    <p>我们可以用 S'FOCUS 来澄清这个经营问题。先从第一步开始：你现在要分析的系统是什么？这个系统的目标是什么？</p>
   `, true);
 }
 
@@ -273,25 +274,31 @@ async function simulateEliyResponse(userText) {
   const typingDiv = appendMessage('assistant', '<div class="typing-indicator"><span></span><span></span><span></span></div>', true);
 
   let response = '';
-  try {
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text: userText,
-        model: 'deepseek-v4-flash',
-        history: [{ role: 'user', content: userText }]
-      })
-    });
-    if (res.ok) {
-      const data = await res.json();
-      response = data.reply;
-    } else {
-      throw new Error('API return non-200 status');
+  // 建立 Mock 测试下的“成果卡 -> 行动卡”因果契约
+  if (userText.includes('请基于当前成果生成一张下一步行动卡') || userText.includes('生成行动卡') || userText.includes('转成行动卡')) {
+    response = `好的，我已基于当前成果为你生成了下一步行动卡草稿。\n\n下一步行动卡\n行动名称：\n整理获客成本关键数据\n行动目的：\n确认获客成本上升主要来自投放端、销售转化端，还是两者共同作用。\n下一步动作：\n请先整理过去三个月的广告费用、咨询量、成交量和线索跟进数据。\n负责人：\n待确认\n完成标准：\n至少补齐广告费用、咨询量、成交量三项数据，并能按月份对比。\n检查时间：\n待确认\n待补充信息：\n线索来源、销售跟进记录、成交周期。`;
+  } else {
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: userText,
+          model: 'deepseek-v4-flash',
+          history: [{ role: 'user', content: userText }]
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        response = data.reply;
+      } else {
+        throw new Error('API return non-200 status');
+      }
+    } catch (e) {
+      console.warn('[API] 后端离线，采用 Mock 模式', e);
+      // 提示：先根据已提供的信息整理一个当前版本
+      response = `我先根据你已提供的信息整理一个当前版本；缺失的信息放在待补充项里。请描述一下你当前面临的核心误区或拗力。`;
     }
-  } catch (e) {
-    console.warn('[API] 后端离线，采用 Mock 模式', e);
-    response = `我先根据你已提供的信息整理一个当前版本；缺失的信息放在待补充项里。请描述一下你当前面临的核心误区或拗力。`;
   }
 
   // 智能体消息流式渲染
@@ -313,68 +320,136 @@ async function simulateEliyResponse(userText) {
     console.warn('[Recorder] 后台归档失败:', e);
   }
 
-  // 不再使用 `/eliy-kernel/memory/ARTIFACT_STATUS.md`
-  // 直接从回复文本中检查并抽取渲染“成果卡”
-  detectAndRenderArtifact(typingDiv, response);
+  // 直接从回复文本中检查并抽取渲染“成果卡”或“行动卡”
+  detectAndRenderArtifact(typingDiv, response, userText);
 }
 
-// === 直接从回复文本中检测成果卡 (无文件系统依赖) ===
-function detectAndRenderArtifact(parentDiv, text) {
+// === 直接从回复文本中检测成果卡/行动卡 (无文件系统依赖) ===
+function detectAndRenderArtifact(parentDiv, text, originalUserText = '') {
+  // 只匹配明确的整理/生成语义，删除泛化的“卡”匹配
+  const keywords = [
+    '整理成待办',
+    '整理成行动',
+    '整理成成果卡',
+    '待办事项版本',
+    '生成行动卡',
+    '转成行动卡',
+    '当前成果',
+    '整理成果',
+    '形成当前成果'
+  ];
+
+  const hasKeyword = keywords.some(kw => text.includes(kw) || originalUserText.includes(kw));
   const hasArtifact = text.includes('候选版本：') || 
                       text.includes('候補改寫版本') || 
                       text.includes('候选版本') || 
                       text.includes('识别到的问题：') ||
-                      // mock 内测阶段前端触发语义匹配（UI fallback only，不写入后端状态）
-                      text.includes('整理成待办') ||
-                      text.includes('整理成行动') ||
-                      text.includes('整理成成果卡') ||
-                      text.includes('待办事项版本') ||
+                      text.includes('下一步行动卡') ||
                       text.includes('行动卡') ||
-                      text.includes('当前成果');
+                      hasKeyword;
 
-  // mock 阶段：如果用户输入包含以上关键词，生成轻量前端测试成果卡
-  const isUserTriggered = !text.includes('候选版本') && !text.includes('候補改寫版本') &&
-                          (text.includes('整理成待办') ||
-                           text.includes('整理成行动') ||
-                           text.includes('整理成成果卡') ||
-                           text.includes('待办事项版本') ||
-                           text.includes('行动卡') ||
-                           text.includes('当前成果'));
+  const isUserTriggered = !text.includes('候选版本') && !text.includes('候補改寫版本') && hasKeyword;
+  
   if (!hasArtifact) return;
 
-  // 提取卡片类型名称
-  let artifactName = '改写成果';
+  // 1. 判断是否为行动卡
+  const isActionCard = text.includes('下一步行动卡') || text.includes('行动卡') || originalUserText.includes('行动卡') || originalUserText.includes('转成行动卡');
+  if (isActionCard) {
+    const cardDiv = document.createElement('div');
+    cardDiv.className = 'artifact-card action-card';
+
+    // 字段提取逻辑，匹配失败则显示为“待确认”
+    const getField = (fieldName) => {
+      const regex = new RegExp(`${fieldName}：?\\s*\\n?([^\\n]+)`, 'i');
+      const match = text.match(regex);
+      return match ? match[1].trim() : '待确认';
+    };
+
+    const actionName = getField('行动名称');
+    const actionGoal = getField('行动目的');
+    const nextStep = getField('下一步动作');
+    const owner = getField('负责人');
+    const criteria = getField('完成标准');
+    const checkTime = getField('检查时间');
+    const extraInfo = getField('待补充信息');
+
+    cardDiv.innerHTML = `
+      <div class="card-header">
+        <span class="card-title">⚡ 下一步行动卡草稿</span>
+        <span class="card-status pending">建议版本</span>
+      </div>
+      <div class="card-body">
+        <div style="line-height:1.8;font-size:0.88rem;">
+          <p><strong>行动名称：</strong>${actionName}</p>
+          <p><strong>行动目的：</strong>${actionGoal}</p>
+          <p><strong>下一步动作：</strong>${nextStep}</p>
+          <p><strong>负责人：</strong>${owner}</p>
+          <p><strong>完成标准：</strong>${criteria}</p>
+          <p><strong>检查时间：</strong>${checkTime}</p>
+          <p><strong>待补充信息：</strong>${extraInfo}</p>
+        </div>
+      </div>
+      <div class="card-actions">
+        <div style="font-size: 0.78rem; color: var(--color-text-muted); font-weight: 500;">已生成下一步行动卡</div>
+      </div>
+    `;
+
+    const bubble = parentDiv.querySelector('.bubble');
+    bubble.appendChild(cardDiv);
+    msgList.scrollTop = msgList.scrollHeight;
+    return;
+  }
+
+  // 2. 否则渲染成果卡
+  let artifactName = '当前成果卡｜待办事项草稿';
   if (text.toLowerCase().includes('todo') || text.includes('待办')) {
-    artifactName = '改写后的待办事项';
+    artifactName = '当前成果卡｜待办事项草稿';
   } else if (text.toLowerCase().includes('email') || text.includes('邮件')) {
-    artifactName = '优化后的邮件内容';
+    artifactName = '当前成果卡｜优化后的邮件内容';
   } else if (text.toLowerCase().includes('meeting') || text.includes('会议')) {
-    artifactName = '提炼后的会议纪要';
+    artifactName = '当前成果卡｜会议纪要草稿';
   } else if (text.toLowerCase().includes('action') || text.includes('行动')) {
-    artifactName = '明确的下一步行动';
+    artifactName = '当前成果卡｜下一步行动建议';
   } else if (text.toLowerCase().includes('plan') || text.includes('计划')) {
-    artifactName = '细化的执行路线';
+    artifactName = '当前成果卡｜执行路线草稿';
   }
 
   const candidate = extractCandidateText(text);
-
   const cardDiv = document.createElement('div');
   cardDiv.className = 'artifact-card';
   
-  // mock 阶段前端生成：默认当前成果卡结构
-  const displayContent = isUserTriggered
-    ? `<div style="line-height:2;font-size:0.88rem;">
-        <p><strong>1. 已知情况</strong>：根据当前对话整理</p>
-        <p><strong>2. 当前判断</strong>：待用户输入确认</p>
-        <p><strong>3. 待补充信息</strong>：业务主体、目标衡量指标</p>
-        <p><strong>4. 下一步行动</strong>：请你补充以上信息后决定</p>
-       </div>`
-    : candidate.replace(/\n/g, '<br>');
+  // 承接已有材料逻辑：检测是否包含获客、投放、销售等
+  const checkText = (originalUserText + ' ' + text).toLowerCase();
+  const hasBusinessDetails = checkText.includes('获客') || checkText.includes('广告') || 
+                             checkText.includes('投放') || checkText.includes('销售') || 
+                             checkText.includes('转化') || checkText.includes('老化') ||
+                             checkText.includes('瓶颈');
+
+  let displayContent = '';
+  if (isUserTriggered) {
+    if (hasBusinessDetails) {
+      displayContent = `<div style="line-height:2;font-size:0.88rem;">
+        <p><strong>1. 已知情况</strong>：广告账户结构老化，点击成本上升，销售跟进转化不足。</p>
+        <p><strong>2. 当前判断</strong>：获客成本上升可能同时受投放端和销售转化端影响。</p>
+        <p><strong>3. 待补充信息</strong>：近三个月广告费用、咨询量、成交量和线索跟进数据。</p>
+        <p><strong>4. 下一步行动</strong>：先整理关键数据。</p>
+       </div>`;
+    } else {
+      displayContent = `<div style="line-height:2;font-size:0.88rem;">
+        <p><strong>1. 已知情况</strong>：已收到你的项目基本面描述。</p>
+        <p><strong>2. 当前判断</strong>：主系统痛点 and 目标基本清晰，我先根据你已提供的信息整理一个当前版本；缺失的信息放在待补充项里。</p>
+        <p><strong>3. 待补充信息</strong>：业务主体、目标衡量指标、核心约束条件。</p>
+        <p><strong>4. 下一步行动</strong>：请你补充以上信息后决定。</p>
+       </div>`;
+    }
+  } else {
+    displayContent = candidate.replace(/\n/g, '<br>');
+  }
   
   cardDiv.innerHTML = `
     <div class="card-header">
-      <span class="card-title">💎 ${artifactName}</span>
-      <span class="card-status pending">等待确认</span>
+      <span class="card-title">✦ ${artifactName}</span>
+      <span class="card-status pending">建议版本</span>
     </div>
     <div class="card-body">
       ${displayContent}
@@ -392,7 +467,6 @@ function detectAndRenderArtifact(parentDiv, text) {
 
   // 绑定交互按钮响应
   cardDiv.querySelector('#btnApprove').addEventListener('click', () => {
-    // 隐藏卡片交互按钮，展示已采用标签
     const actions = cardDiv.querySelector('.card-actions');
     actions.innerHTML = `<div style="font-size: 0.78rem; color: var(--color-success); font-weight: 600;">✓ 已采用这个版本</div>`;
     cardDiv.querySelector('.card-status').className = 'card-status accepted';
@@ -402,11 +476,9 @@ function detectAndRenderArtifact(parentDiv, text) {
   });
 
   cardDiv.querySelector('#btnFreeze').addEventListener('click', () => {
-    // 隐藏卡片交互按钮，展示已转为行动卡标签
     const actions = cardDiv.querySelector('.card-actions');
-    actions.innerHTML = `<div style="font-size: 0.78rem; color: var(--color-eliy); font-weight: 600;">✦ 已转为行动卡</div>`;
+    actions.innerHTML = `<div style="font-size: 0.78rem; color: var(--color-eliy); font-weight: 600;">✦ 已生成下一步行动卡</div>`;
     cardDiv.querySelector('.card-status').className = 'card-status converted';
-    cardDiv.querySelector('.card-status').textContent = '已转换';
     
     submitMessage('请基于当前成果生成一张下一步行动卡。');
   });
