@@ -117,11 +117,14 @@ async function handleChat(req, res) {
     const nextContextFile = readKernelFile('memory/NEXT_CONTEXT.md');
 
     let reply = '';
+    let cleanReply = '';
+    let artifact = null;
 
     if (mode === 'real_llm') {
       const apiKey = process.env.DEEPSEEK_API_KEY;
       if (!apiKey || apiKey === 'your_deepseek_api_key_here') {
         reply = `Real LLM call failed.\nReason: DEEPSEEK_API_KEY is not configured.\nFallback not used in this test.`;
+        cleanReply = reply;
         console.error('[API /api/chat] 真实 LLM 调用失败：未配置 API Key，且根据测试约束不使用 fallback');
       } else {
         console.log('[API /api/chat] 模式为 real_llm，发起真实 LLM 调用...');
@@ -129,31 +132,45 @@ async function handleChat(req, res) {
           const promptInstruction = 
             `[MANDATORY SYSTEM INSTRUCTION FOR CANDIDATE ARTIFACT GENERATION]\n` +
             `你必须在 "real LLM" 候选版本生成模式下运行。\n` +
-            `你的回答必须严格遵守以下结构与指导原则：\n\n` +
-            `1. [针对旧交付物改写 (FOR LEGACY ARTIFACT REWRITING - RLCG1-RLCG6)]:\n` +
-            `   - 识别并指出用户指定的质量问题。\n` +
-            `   - 基于旧版本内容生成一个干净、具备可执行性的候选版本。\n` +
-            `   - 禁止直接照抄原文或只做简单的分行处理。\n` +
-            `   - 严禁擅自添加原文未提及的任何时间或截止时间描述（如“明确时间前”、“周五前”、“下周”等），除非原文中明确提供。\n` +
-            `   - 必须完全且仅仅基于用户提供的事实内容进行改写。严禁编造任何未提供的关键事实，严禁补充或捏造原文未提及的人名（如“王明”、“李华”等）、具体业务细节。只改写不添加任何外部假设或虚构细节。\n` +
-            `   - 候选版本必须保持与原文同等的规模和体量（只改写，不扩展）。\n` +
-            `   - 针对不同类型抱怨的改写细节准则：\n` +
-            `     * [合并与同步要求 (如RLCG1)]：如果原始待办存在内容重叠或重复提取，必须将其合并为句意完整的单句候选，表述要自然流畅（如“请某人确认报价并同步”），严禁机械拆分为多条，且必须完整保留原文中的同步反馈动作。\n` +
-            `     * [处理“不够清楚” (如RLCG3)]：不能流于形式（如仅改写为“进行后续沟通”），必须将其细化为包含具体待处理事项、负责人和同步要求的动作，但严禁编造任何截止时间。\n` +
-            `     * [处理“完成标准不清楚” (如RLCG5)]：必须将模糊的动作细化为可验证的明确结果（如“整理主要问题并确认是否需要下一步处理，完成后同步摘要和建议”）。如果原文未提供明确的同步对象，需保守表达为“完成后等待确认同步对象”。\n` +
-            `     * [处理“太空泛计划” (如RLCG6)]：你必须保持单句表达（不超过1-2句，严禁拆分成多行步骤或执行计划）。你只需将原句中空泛的概念（如“推进产品优化”、“加强协同”）细化为对应同等规模的具体单一动作（例如将优化拆解为任务列表、安排一次销售同步会明确需求），以保证改写前后的句式体量一致。\n` +
-            `   - 必须严格遵守以下回复格式结构（不可多字少字，只输出这三项）：\n` +
-            `     识别到的问题：\n` +
-            `     <具体问题>\n` +
-            `     候选版本：\n` +
-            `     <仅包含改写后的单句或同等规模候选内容>\n` +
-            `     请确认是否采用，或说明希望继续修改的方向。\n\n` +
-            `2. [通用规则 (GENERAL RULES)]:\n` +
-            `   - 禁止自己直接同意或冻结该版本。状态必须保持等待用户确认。\n` +
-            `   - 严禁包含商业诊断、方法论、路线图或诊断信息。\n` +
-            `   - 必须在你的回答最末尾单独另起一行，以纯文本形式追加以下模式和模型块（注意换行）：\n` +
-            `     Mode: real LLM\n` +
-            `     Model: DeepSeek V4 Flash`;
+            `当前对话使用 S’FOCUS 协作方式。请按以下顺序推进：\n` +
+            `1. 澄清系统\n` +
+            `2. 澄清目标\n` +
+            `3. 澄清不良效应\n` +
+            `4. 提出可能制约\n` +
+            `5. 形成下一步行动\n` +
+            `不要替用户直接下最终判断。信息不足时，把缺失项放入待补充信息。\n\n` +
+            `[XML ARTIFACT PAYLOAD CONTRACT]\n` +
+            `1. 当用户要求整理成果（如“整理成果”、“整理成成果卡”等）时，你必须在回答最后使用 <eliy_artifact>...</eliy_artifact> 标签包裹一个标准的 JSON payload，类型为 current_result_card，格式如下：\n` +
+            `{\n` +
+            `  "schema_version": "0.1",\n` +
+            `  "type": "current_result_card",\n` +
+            `  "title": "当前成果卡｜待办事项草稿",\n` +
+            `  "status": "suggested",\n` +
+            `  "sections": [\n` +
+            `    { "label": "已知情况", "content": "..." },\n` +
+            `    { "label": "当前判断", "content": "..." },\n` +
+            `    { "label": "待补充信息", "content": "..." },\n` +
+            `    { "label": "下一步行动", "content": "..." }\n` +
+            `  ]\n` +
+            `}\n` +
+            `2. 当用户要求生成行动卡（如“请基于当前成果生成一张下一步行动卡”、“转成行动卡”）时，你必须在回答最后使用 <eliy_artifact>...</eliy_artifact> 标签包裹一个标准的 JSON payload，类型为 next_action_card，格式如下：\n` +
+            `{\n` +
+            `  "schema_version": "0.1",\n` +
+            `  "type": "next_action_card",\n` +
+            `  "title": "下一步行动卡｜整理获客成本关键数据",\n` +
+            `  "status": "suggested",\n` +
+            `  "fields": {\n` +
+            `    "行动名称": "...",\n` +
+            `    "行动目的": "...",\n` +
+            `    "下一步动作": "...",\n` +
+            `    "负责人": "待确认",\n` +
+            `    "完成标准": "...",\n` +
+            `    "检查时间": "待确认",\n` +
+            `    "待补充信息": "..."\n` +
+            `  }\n` +
+            `}\n` +
+            `缺失字段必须写“待确认”。完成标准尽量可观察。禁止输出 "frozen"、"决策库" 或 "高置信度诊断" 等字眼。\n` +
+            `如果不是用户明确要求整理成果或转行动卡，绝对不要输出 <eliy_artifact> 标签及 JSON。`;
 
           const classification = classifyArtifactInput(userText);
           let taskPrompt = '';
@@ -217,13 +234,13 @@ async function handleChat(req, res) {
                   textReply = possibleReply;
                   break;
                 }
-                console.warn(`[API /api/chat] 第 ${attempts} 次调用返回空响应，准备重试...`);
+                console.log(`[API /api/chat] 第 ${attempts} 次调用返回空响应，准备重试...`);
               } else {
                 const errText = await response.text();
-                console.warn(`[API /api/chat] 第 ${attempts} 次调用接口错误 (${response.status}): ${errText}，准备重试...`);
+                console.log(`[API /api/chat] 第 ${attempts} 次调用接口错误 (${response.status}): ${errText}，准备重试...`);
               }
             } catch (err) {
-              console.warn(`[API /api/chat] 第 ${attempts} 次调用异常: ${err.message}，准备重试...`);
+              console.log(`[API /api/chat] 第 ${attempts} 次调用异常: ${err.message}，准备重试...`);
             }
 
             if (attempts < maxAttempts) {
@@ -235,29 +252,100 @@ async function handleChat(req, res) {
             throw new Error("DeepSeek API returned empty or failed after 3 attempts.");
           }
           reply = textReply;
+          cleanReply = reply;
+
+          // 安全提取 Real LLM 返回的结构化 XML Payload
+          const match = reply.match(/<eliy_artifact>([\s\S]*?)<\/eliy_artifact>/);
+          if (match) {
+            try {
+              artifact = JSON.parse(match[1].trim());
+              if (!artifact.type || !artifact.title) {
+                artifact = null;
+              } else {
+                // 成功提取后，将 XML 标签从 reply 剔除，不渲染到前端聊天文本中
+                cleanReply = reply.replace(/<eliy_artifact>[\s\S]*?<\/eliy_artifact>/g, '').trim();
+              }
+            } catch (e) {
+              console.warn('[API /api/chat] Real LLM XML JSON 解析失败:', e.message);
+              artifact = null;
+            }
+          }
         } catch (err) {
           reply = `Real LLM call failed.\nReason: ${err.message}\nFallback not used in this test.`;
+          cleanReply = reply;
           console.error('[API /api/chat] 真实 LLM 调用失败，不使用 fallback:', err.message);
         }
       }
     } else {
       console.log('[API /api/chat] 模式为 generic_fallback，直接走对照 Mock 响应...');
       reply = generateMockReply(userText);
-      // 统一替换或在末尾追加 Mode: generic fallback baseline 以满足测试要求
+      // 统一替换或在末尾追加 Mode: generic fallback baseline
       if (reply.includes('Mode: generic fallback')) {
         reply = reply.replace('Mode: generic fallback', 'Mode: generic fallback baseline');
       } else {
         reply += '\n\nMode: generic fallback baseline';
       }
+      cleanReply = reply;
+
+      // generic_fallback 模式下的确定性 Payload 映射
+      const cleanUserText = userText.trim().toLowerCase();
+      const isCardPoint = cleanUserText.includes('卡点') || cleanUserText.includes('卡住') || cleanUserText.includes('卡在哪里');
+      
+      if (!isCardPoint) {
+        if (cleanUserText.includes('整理成成果卡') || cleanUserText.includes('整理成待办') || cleanUserText.includes('整理成果') || cleanUserText.includes('当前成果') || cleanUserText.includes('待办事项版本') || cleanUserText.includes('形成当前成果')) {
+          artifact = {
+            schema_version: "0.1",
+            type: "current_result_card",
+            title: "当前成果卡｜待办事项草稿",
+            status: "suggested",
+            sections: [
+              {
+                label: "已知情况",
+                content: "广告账户结构老化，点击成本上升，销售跟进转化不足。"
+              },
+              {
+                label: "当前判断",
+                content: "获客成本上升可能同时受投放端和销售转化端影响。"
+              },
+              {
+                label: "待补充信息",
+                content: "近三个月广告费用、咨询量、成交量和线索跟进数据。"
+              },
+              {
+                label: "下一步行动",
+                content: "先整理关键数据。"
+              }
+            ]
+          };
+          cleanReply = `我先根据你已提供的信息整理一个当前版本；缺失的信息放在待补充项里。\n\nMode: generic fallback baseline`;
+        } else if (cleanUserText.includes('请基于当前成果生成一张下一步行动卡') || cleanUserText.includes('转成行动卡') || cleanUserText.includes('生成行动卡')) {
+          artifact = {
+            schema_version: "0.1",
+            type: "next_action_card",
+            title: "下一步行动卡｜整理获客成本关键数据",
+            status: "suggested",
+            fields: {
+              "行动名称": "整理获客成本关键数据",
+              "行动目的": "确认获客成本上升主要来自投放端、销售转化端，还是两者共同作用。",
+              "下一步动作": "请先整理过去三个月的广告费用、咨询量、成交量 and 线索跟进数据。",
+              "负责人": "待确认",
+              "完成标准": "至少补齐广告费用、咨询量、成交量三项数据，并能按月份对比。",
+              "检查时间": "待确认",
+              "待补充信息": "线索来源、销售跟进记录、成交周期。"
+            }
+          };
+          cleanReply = `好的，我已基于当前成果为你生成了下一步行动卡草稿。\n\nMode: generic fallback baseline`;
+        }
+      }
     }
 
     // 写入本轮 user input + assistant response 到 transcripts/latest-transcript.md
-    const transcriptContent = `# Latest Transcript - Eliy v0.3.1-test\n\n**User**: ${userText}\n\n**Assistant**: ${reply}\n`;
+    const transcriptContent = `# Latest Transcript - Eliy v0.3.1-test\n\n**User**: ${userText}\n\n**Assistant**: ${cleanReply || reply}\n`;
     writeKernelFile('transcripts/latest-transcript.md', transcriptContent);
     console.log('[API /api/chat] 成功落盘 transcripts/latest-transcript.md');
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ reply: reply }));
+    res.end(JSON.stringify({ reply: cleanReply || reply, artifact: artifact }));
   } catch (err) {
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: err.message }));
@@ -464,6 +552,10 @@ async function handleRecord(req, res) {
   try {
     console.log('[API /api/record] 触发后台记录模块...');
 
+    // 解析出请求体 (支持前端附带的 artifact)
+    const body = await parseJsonBody(req).catch(() => ({}));
+    const clientArtifact = body.artifact || null;
+
     // 读取输入数据
     const latestTranscript = readKernelFile('transcripts/latest-transcript.md');
 
@@ -572,16 +664,19 @@ async function handleRecord(req, res) {
         `- Business Challenge: none detected.\n` +
         `- Capability Evidence: none inferred from this turn.\n`;
     }
+
+    // Append client payload as evidence context (without overriding the Guard decision)
+    newEvidenceContent += `\n- Client Artifact Evidence: ${clientArtifact ? JSON.stringify(clientArtifact) : 'none'}\n`;
     writeKernelFile('hlamt/EVIDENCE.md', newEvidenceContent);
 
     // === 3. NEXT_CONTEXT.md（current artifact 使用 assistant 實際回應文本）===
-    // 從 assistantMsg 中提取實際候選文本（取最有意義的部分）
+    // 從 assistantMsg 中提取實際候选文本（取最有意義的部分）
     function extractCandidateText(msg) {
       if (!msg || msg.trim().length === 0) return 'see transcript';
       // 去掉 [Mock] 前綴
       const cleaned = msg.replace(/^\[Mock\]\s*/i, '').trim();
 
-      // 優先精確提取成對的 --- 包裹的候選版本
+      // 優先精確提取成對的 --- 包裹的候选版本
       const matchDashes = cleaned.match(/---\s*\n+([\s\S]+?)\n+---/);
       if (matchDashes) {
         return matchDashes[1].trim();
@@ -605,7 +700,7 @@ async function handleRecord(req, res) {
       // 嘗試找到候補/改寫句（冒號後的首句）
       const afterColon = cleaned.match(/[：:]\s*\n?([^\n]{10,200})/);
       if (afterColon) return afterColon[1].trim();
-      // 取最長的非空行（最可能是實際候補）
+      // 取最长的非空行（最可能是实际候補）
       const lines = cleaned.split('\n').map(l => l.trim()).filter(l => l.length > 8);
       if (lines.length > 0) return lines.reduce((a, b) => a.length > b.length ? a : b).substring(0, 200);
       return cleaned.substring(0, 200);
@@ -672,6 +767,7 @@ async function handleRecord(req, res) {
       `# NEXT_CONTEXT.md\n` +
       `## Current Artifact Workflow\n` +
       `${nextContextBody}\n` +
+      `- Client Artifact Context: ${clientArtifact ? JSON.stringify(clientArtifact) : 'none'}\n` +
       `- Timestamp: ${new Date().toISOString()}\n`;
     writeKernelFile('memory/NEXT_CONTEXT.md', newNextContextContent);
 

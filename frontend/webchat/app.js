@@ -274,30 +274,74 @@ async function simulateEliyResponse(userText) {
   const typingDiv = appendMessage('assistant', '<div class="typing-indicator"><span></span><span></span><span></span></div>', true);
 
   let response = '';
-  // 建立 Mock 测试下的“成果卡 -> 行动卡”因果契约
-  if (userText.includes('请基于当前成果生成一张下一步行动卡') || userText.includes('生成行动卡') || userText.includes('转成行动卡')) {
-    response = `好的，我已基于当前成果为你生成了下一步行动卡草稿。\n\n下一步行动卡\n行动名称：\n整理获客成本关键数据\n行动目的：\n确认获客成本上升主要来自投放端、销售转化端，还是两者共同作用。\n下一步动作：\n请先整理过去三个月的广告费用、咨询量、成交量和线索跟进数据。\n负责人：\n待确认\n完成标准：\n至少补齐广告费用、咨询量、成交量三项数据，并能按月份对比。\n检查时间：\n待确认\n待补充信息：\n线索来源、销售跟进记录、成交周期。`;
-  } else {
-    try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: userText,
-          model: 'deepseek-v4-flash',
-          history: [{ role: 'user', content: userText }]
-        })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        response = data.reply;
-      } else {
-        throw new Error('API return non-200 status');
-      }
-    } catch (e) {
-      console.warn('[API] 后端离线，采用 Mock 模式', e);
-      // 提示：先根据已提供的信息整理一个当前版本
+  let artifactPayload = null;
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: userText,
+        model: 'deepseek-v4-flash',
+        history: [{ role: 'user', content: userText }]
+      })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      response = data.reply;
+      artifactPayload = data.artifact || null;
+    } else {
+      throw new Error('API return non-200 status');
+    }
+  } catch (e) {
+    console.warn('[API] 后端离线，采用 Mock 模式', e);
+    // 前端 fallback 逻辑
+    if (userText.includes('请基于当前成果生成一张下一步行动卡') || userText.includes('生成行动卡') || userText.includes('转成行动卡')) {
+      response = `好的，我已基于当前成果为你生成了下一步行动卡草稿。`;
+      artifactPayload = {
+        schema_version: "0.1",
+        type: "next_action_card",
+        title: "下一步行动卡｜整理获客成本关键数据",
+        status: "suggested",
+        fields: {
+          "行动名称": "整理获客成本关键数据",
+          "行动目的": "确认获客成本上升主要来自投放端、销售转化端，还是两者共同作用。",
+          "下一步动作": "请先整理过去三个月的广告费用、咨询量、成交量 and 线索跟进数据。",
+          "负责人": "待确认",
+          "完成标准": "至少补齐广告费用、咨询量、成交量三项数据，并能按月份对比。",
+          "检查时间": "待确认",
+          "待补充信息": "线索来源、销售跟进记录、成交周期。"
+        }
+      };
+    } else if (userText.includes('整理成成果卡') || userText.includes('整理成待办') || userText.includes('整理成果') || userText.includes('当前成果') || userText.includes('待办事项版本') || userText.includes('形成当前成果')) {
+      response = `我先根据你已提供的信息整理一个当前版本；缺失的信息放在待补充项里。`;
+      artifactPayload = {
+        schema_version: "0.1",
+        type: "current_result_card",
+        title: "当前成果卡｜待办事项草稿",
+        status: "suggested",
+        sections: [
+          {
+            label: "已知情况",
+            content: "广告账户结构老化，点击成本上升，销售跟进转化不足。"
+          },
+          {
+            label: "当前判断",
+            content: "获客成本上升可能同时受投放端和销售转化端影响。"
+          },
+          {
+            label: "待补充信息",
+            content: "近三个月广告费用、咨询量、成交量 and 线索跟进数据。"
+          },
+          {
+            label: "下一步行动",
+            content: "先整理关键数据。"
+          }
+        ]
+      };
+    } else {
       response = `我先根据你已提供的信息整理一个当前版本；缺失的信息放在待补充项里。请描述一下你当前面临的核心误区或拗力。`;
+      artifactPayload = null;
     }
   }
 
@@ -326,17 +370,119 @@ async function simulateEliyResponse(userText) {
 
   // 触发后台记录模块同步状态
   try {
-    await fetch('/api/record', { method: 'POST' });
+    await fetch('/api/record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        artifact: artifactPayload
+      })
+    });
   } catch (e) {
     console.warn('[Recorder] 后台归档失败:', e);
   }
 
   // 直接从回复文本中检查并抽取渲染“成果卡”或“行动卡”
-  detectAndRenderArtifact(typingDiv, response, userText);
+  detectAndRenderArtifact(typingDiv, response, userText, artifactPayload);
 }
 
 // === 直接从回复文本中检测成果卡/行动卡 (无文件系统依赖) ===
-function detectAndRenderArtifact(parentDiv, text, originalUserText = '') {
+function detectAndRenderArtifact(parentDiv, text, originalUserText = '', artifactPayload = null) {
+  if (artifactPayload) {
+    if (artifactPayload.type === 'current_result_card') {
+      const cardDiv = document.createElement('div');
+      cardDiv.className = 'artifact-card';
+      
+      const sectionsHtml = artifactPayload.sections.map(sec => {
+        return `<p><strong>${sec.label}：</strong>${sec.content}</p>`;
+      }).join('');
+
+      cardDiv.innerHTML = `
+        <div class="card-header">
+          <span class="card-title">✦ ${artifactPayload.title || '当前成果卡｜待办事项草稿'}</span>
+          <span class="card-status pending">建议版本</span>
+        </div>
+        <div class="card-body">
+          <div style="line-height:2;font-size:0.88rem;">
+            ${sectionsHtml}
+          </div>
+        </div>
+        <div class="card-actions">
+          <button class="card-btn approve" id="btnApprove">采用这个版本</button>
+          <button class="card-btn modify" id="btnModify">继续修改</button>
+          <button class="card-btn freeze" id="btnFreeze">转成行动卡</button>
+        </div>
+      `;
+
+      const bubble = parentDiv.querySelector('.bubble');
+      bubble.appendChild(cardDiv);
+      msgList.scrollTop = msgList.scrollHeight;
+
+      // 绑定交互按钮响应
+      cardDiv.querySelector('#btnApprove').addEventListener('click', () => {
+        const actions = cardDiv.querySelector('.card-actions');
+        actions.innerHTML = `<div style="font-size: 0.78rem; color: var(--color-success); font-weight: 600;">✓ 已采用这个版本</div>`;
+        cardDiv.querySelector('.card-status').className = 'card-status accepted';
+        cardDiv.querySelector('.card-status').textContent = '已采用';
+        
+        submitMessage('确认，采用这个版本。');
+      });
+
+      cardDiv.querySelector('#btnFreeze').addEventListener('click', () => {
+        const actions = cardDiv.querySelector('.card-actions');
+        actions.innerHTML = `<div style="font-size: 0.78rem; color: var(--color-eliy); font-weight: 600;">✦ 已生成下一步行动卡</div>`;
+        cardDiv.querySelector('.card-status').className = 'card-status converted';
+        
+        submitMessage('请基于当前成果生成一张下一步行动卡。');
+      });
+
+      cardDiv.querySelector('#btnModify').addEventListener('click', () => {
+        userInput.value = '我想继续修改：';
+        userInput.focus();
+        userInput.style.height = 'auto';
+        userInput.style.height = userInput.scrollHeight + 'px';
+      });
+      return;
+    } else if (artifactPayload.type === 'next_action_card') {
+      const cardDiv = document.createElement('div');
+      cardDiv.className = 'artifact-card action-card';
+
+      const fields = artifactPayload.fields || {};
+      const actionName = fields['行动名称'] || '待确认';
+      const actionGoal = fields['行动目的'] || '待确认';
+      const nextStep = fields['下一步动作'] || '待确认';
+      const owner = fields['负责人'] || '待确认';
+      const criteria = fields['完成标准'] || '待确认';
+      const checkTime = fields['检查时间'] || '待确认';
+      const extraInfo = fields['待补充信息'] || '待确认';
+
+      cardDiv.innerHTML = `
+        <div class="card-header">
+          <span class="card-title">⚡ ${artifactPayload.title || '下一步行动卡｜整理获客成本关键数据'}</span>
+          <span class="card-status pending">建议版本</span>
+        </div>
+        <div class="card-body">
+          <div style="line-height:1.8;font-size:0.88rem;">
+            <p><strong>行动名称：</strong>${actionName}</p>
+            <p><strong>行动目的：</strong>${actionGoal}</p>
+            <p><strong>下一步动作：</strong>${nextStep}</p>
+            <p><strong>负责人：</strong>${owner}</p>
+            <p><strong>完成标准：</strong>${criteria}</p>
+            <p><strong>检查时间：</strong>${checkTime}</p>
+            <p><strong>待补充信息：</strong>${extraInfo}</p>
+          </div>
+        </div>
+        <div class="card-actions">
+          <div style="font-size: 0.78rem; color: var(--color-text-muted); font-weight: 500;">已生成下一步行动卡</div>
+        </div>
+      `;
+
+      const bubble = parentDiv.querySelector('.bubble');
+      bubble.appendChild(cardDiv);
+      msgList.scrollTop = msgList.scrollHeight;
+      return;
+    }
+  }
+
   // 只匹配明确的整理/生成语义，删除泛化的“卡”匹配
   const keywords = [
     '整理成待办',
