@@ -152,15 +152,7 @@ function triggerSfocusSkill() {
 
   // 2. 界面展示排版优雅的步骤引导，不直接自动生成最终诊断结论
   appendMessage('assistant', `
-    <p>已开启 <strong>S’FOCUS 协作分析模式</strong>。让我们按步骤排查你的项目要素，以锁定核心约束：</p>
-    <div style="margin: 0.6rem 0; padding-left: 0.8rem; border-left: 2px solid var(--color-eliy); color: var(--color-text-muted);">
-      <p>1. 你的<strong>业务系统</strong>是什么？（如：销售漏斗、研发交付线）</p>
-      <p>2. 你的核心<strong>目标</strong>是什么？（如：月营收翻倍、提高交付速率）</p>
-      <p>3. 当前存在哪些<strong>不良效应 (UDE)</strong>？（如：CAC 过高、流失严重）</p>
-      <p>4. 你的<strong>制约因素 (Constraint)</strong> 可能在什么位置？</p>
-      <p>5. 下一步需要优先控制什么<strong>投料 (Input)</strong>？</p>
-    </div>
-    <p>请首先告诉我们：<strong>你的业务系统和你的核心目标分别是什么？</strong></p>
+    <p>我们可以用 S’FOCUS 来澄清这个经营问题。先从第一步开始：<strong>你现在要分析的系统是什么？这个系统的目标是什么？</strong></p>
   `, true);
 }
 
