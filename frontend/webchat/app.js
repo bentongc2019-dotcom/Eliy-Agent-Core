@@ -34,10 +34,13 @@ document.addEventListener('DOMContentLoaded', () => {
   state.sessionId = 'sess_' + Date.now();
   initUserContext();
 
-  // 2. 绑定页面上的交互事件监听
+  // 2. 恢复存储的主题偏好
+  initTheme();
+
+  // 3. 绑定页面上的交互事件监听
   setupEventHandlers();
 
-  // 3. 开启自适应高度输入区
+  // 4. 开启自适应高度输入区
   setupAutoResize();
 });
 
@@ -120,6 +123,31 @@ function setupEventHandlers() {
       handleFileSelected(file);
     }
   });
+
+  // 主题切换按钮
+  const themeToggleBtn = $('#themeToggleBtn');
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', () => toggleTheme());
+  }
+}
+
+// === 主题初始化与切换 ===
+function initTheme() {
+  const saved = localStorage.getItem('ELIY_THEME') || 'dark';
+  applyTheme(saved);
+}
+
+function toggleTheme() {
+  const current = document.body.getAttribute('data-theme') || 'dark';
+  const next = current === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  localStorage.setItem('ELIY_THEME', next);
+}
+
+function applyTheme(theme) {
+  document.body.setAttribute('data-theme', theme);
+  const icon = $('#themeIcon');
+  if (icon) icon.textContent = theme === 'dark' ? '🌙' : '☀️';
 }
 
 // === 开始新对话会话 ===
@@ -136,8 +164,8 @@ function startNewSession() {
   // 重置消息区为初始对话词
   msgList.innerHTML = '';
   appendMessage('assistant', `
-    <p>新对话已开启。你好，我是 <strong>Eliy</strong>，你的商业诊断教练。</p>
-    <p>我已经准备好接收你的项目输入，请描述你当前需要解决的核心商业问题或瓶颈。</p>
+    <p>新对话已开启。你好，我是 <strong>Eliy</strong>，主体型商业智能体。</p>
+    <p>先告诉我：<strong>你现在面临的最大挑战是什么？</strong></p>
   `, true);
 }
 
@@ -145,8 +173,8 @@ function startNewSession() {
 function triggerSfocusSkill() {
   if (state.isStreaming) return;
   
-  // 1. 提示用户进入 S'FOCUS 协作方式
-  appendMessage('user', '⚡ 启用 S’FOCUS 协作分析');
+  // 1. 以用户自然发言形式进入 S'FOCUS 协作
+  appendMessage('user', "用 S’FOCUS 澄清这个经营问题");
   state.isSfocusMode = true;
   sfocusSkillBtn.classList.add('active');
 
@@ -262,7 +290,7 @@ async function simulateEliyResponse(userText) {
     }
   } catch (e) {
     console.warn('[API] 后端离线，采用 Mock 模式', e);
-    response = `已收到。为了定位约束，我们需要再次确认你的核心业务参数。请补充 CAC 或获客转化率细节。`;
+    response = `我先根据你已提供的信息整理一个当前版本；缺失的信息放在待补充项里。请描述一下你当前面临的核心误区或拗力。`;
   }
 
   // 智能体消息流式渲染
@@ -294,8 +322,23 @@ function detectAndRenderArtifact(parentDiv, text) {
   const hasArtifact = text.includes('候选版本：') || 
                       text.includes('候補改寫版本') || 
                       text.includes('候选版本') || 
-                      text.includes('识别到的问题：');
-                      
+                      text.includes('识别到的问题：') ||
+                      // mock 内测阶段前端触发语义匹配（UI fallback only，不写入后端状态）
+                      text.includes('整理成待办') ||
+                      text.includes('整理成行动') ||
+                      text.includes('整理成成果卡') ||
+                      text.includes('待办事项版本') ||
+                      text.includes('行动卡') ||
+                      text.includes('当前成果');
+
+  // mock 阶段：如果用户输入包含以上关键词，生成轻量前端测试成果卡
+  const isUserTriggered = !text.includes('候选版本') && !text.includes('候補改寫版本') &&
+                          (text.includes('整理成待办') ||
+                           text.includes('整理成行动') ||
+                           text.includes('整理成成果卡') ||
+                           text.includes('待办事项版本') ||
+                           text.includes('行动卡') ||
+                           text.includes('当前成果'));
   if (!hasArtifact) return;
 
   // 提取卡片类型名称
@@ -317,13 +360,23 @@ function detectAndRenderArtifact(parentDiv, text) {
   const cardDiv = document.createElement('div');
   cardDiv.className = 'artifact-card';
   
+  // mock 阶段前端生成：默认当前成果卡结构
+  const displayContent = isUserTriggered
+    ? `<div style="line-height:2;font-size:0.88rem;">
+        <p><strong>1. 已知情况</strong>：根据当前对话整理</p>
+        <p><strong>2. 当前判断</strong>：待用户输入确认</p>
+        <p><strong>3. 待补充信息</strong>：业务主体、目标衡量指标</p>
+        <p><strong>4. 下一步行动</strong>：请你补充以上信息后决定</p>
+       </div>`
+    : candidate.replace(/\n/g, '<br>');
+  
   cardDiv.innerHTML = `
     <div class="card-header">
       <span class="card-title">💎 ${artifactName}</span>
       <span class="card-status pending">等待确认</span>
     </div>
     <div class="card-body">
-      ${candidate.replace(/\n/g, '<br>')}
+      ${displayContent}
     </div>
     <div class="card-actions">
       <button class="card-btn approve" id="btnApprove">采用这个版本</button>

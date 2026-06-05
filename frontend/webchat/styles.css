@@ -284,6 +284,25 @@ html, body {
   color: var(--color-text);
   background: var(--color-surface);
 }
+
+/* 主题切换按鈕 */
+.theme-toggle-btn {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: var(--transition);
+  flex-shrink: 0;
+}
+.theme-toggle-btn:hover {
+  background: var(--color-surface);
+}
 .user-profile {
   flex: 1;
   display: flex;
@@ -487,8 +506,8 @@ html, body {
 .message {
   display: flex;
   gap: 1rem;
-  max-width: 800px;
-  width: 100%;
+  max-width: 1040px;
+  width: calc(100% - 96px);
   margin: 0 auto;
   animation: message-fade-in 0.2s ease-out;
 }
@@ -851,4 +870,97 @@ html, body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(155, 140, 255, 0.2);
+}
+
+/* === 亮色主题覆盖 (Light Theme) === */
+body[data-theme="light"] {
+  --color-base: #f7f7f8;
+  --color-sidebar: #ffffff;
+  --color-surface: #f3f4f6;
+  --color-surface-hover: #e9eaf0;
+  --color-border: #e5e7eb;
+  --color-text: #111827;
+  --color-text-muted: #6b7280;
+  --color-eliy-bubble: rgba(155, 140, 255, 0.06);
+  --color-user-bubble: rgba(255, 178, 107, 0.08);
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  background: var(--color-base);
+  color: var(--color-text);
+}
+
+/* 亮色：聊天区背景 */
+body[data-theme="light"] #chatMain {
+  background: #ffffff;
+}
+body[data-theme="light"] .chat-header {
+  background: #ffffff;
+}
+body[data-theme="light"] .chat-footer {
+  background: linear-gradient(180deg, transparent, #ffffff 40%);
+}
+
+/* 亮色：输入框 */
+body[data-theme="light"] .input-container {
+  background: #ffffff;
+  box-shadow: 0 0 0 1px var(--color-border);
+}
+
+/* 亮色：新建对话按钮 */
+body[data-theme="light"] .new-chat-btn {
+  background: rgba(155, 140, 255, 0.1);
+  border-color: rgba(155, 140, 255, 0.3);
+  color: var(--color-text);
+}
+body[data-theme="light"] .new-chat-btn:hover {
+  background: rgba(155, 140, 255, 0.18);
+}
+
+/* 亮色：搜索框 */
+body[data-theme="light"] .search-box input {
+  background: #f3f4f6;
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+/* 亮色：Skill 卡片 */
+body[data-theme="light"] .skill-card {
+  background: #f3f4f6;
+  border-color: var(--color-border);
+}
+body[data-theme="light"] .skill-card.active {
+  background: #eef0ff;
+  border-color: rgba(155, 140, 255, 0.4);
+}
+
+/* 亮色：成果卡 */
+body[data-theme="light"] .artifact-card {
+  background: #fafafa;
+  border-color: #e5e7eb;
+}
+body[data-theme="light"] .card-header {
+  border-bottom-color: #e5e7eb;
+}
+
+/* 亮色：下拉菜单 */
+body[data-theme="light"] .dropdown-trigger,
+body[data-theme="light"] .dropdown-menu {
+  background: #ffffff;
+  border-color: var(--color-border);
+}
+body[data-theme="light"] .dropdown-item:hover {
+  background: #f3f4f6;
+}
+
+/* 亮色：用户信息栏 */
+body[data-theme="light"] .user-profile {
+  background: #f3f4f6;
+  border-color: var(--color-border);
+}
+
+/* 亮色：滚动条 */
+body[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+}
+body[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(155, 140, 255, 0.4);
 }
