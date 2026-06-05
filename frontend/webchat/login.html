@@ -212,9 +212,9 @@
       
       <form id="loginForm" onsubmit="handleLoginSubmit(event)">
         <div class="form-group">
-          <label for="email">邮箱地址</label>
+          <label for="email">内测账号</label>
           <div class="input-wrapper">
-            <input type="email" id="email" required placeholder="请输入内测邮箱">
+            <input type="text" id="email" required placeholder="请输入内测账号">
           </div>
         </div>
         
@@ -270,7 +270,7 @@
           window.location.href = './index.html';
         }, 1000);
       } else {
-        showAlert('邮箱或密码错误（默认测试凭证：test@eliy.local / 密码：123456）');
+        showAlert('账号或密码错误（默认测试凭证：test@eliy.local / 密码：123456）');
         submitBtn.disabled = false;
         submitBtn.textContent = '立即登录';
       }
