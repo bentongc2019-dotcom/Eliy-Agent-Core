@@ -301,6 +301,17 @@ async function simulateEliyResponse(userText) {
     }
   }
 
+  // 过滤成果卡触发前的机械追问文案
+  const isArtifactTrigger = userText.includes('整理成成果卡') || 
+                            userText.includes('整理成待办') || 
+                            userText.includes('整理成行动') || 
+                            userText.includes('当前成果') || 
+                            userText.includes('待办事项版本') ||
+                            userText.includes('整理成果');
+  if (isArtifactTrigger && response.includes('请提供更多业务细节')) {
+    response = `我先根据你已提供的信息整理一个当前版本；缺失的信息放在待补充项里。`;
+  }
+
   // 智能体消息流式渲染
   const bubble = typingDiv.querySelector('.bubble');
   bubble.innerHTML = '';

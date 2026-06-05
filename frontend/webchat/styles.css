@@ -969,13 +969,35 @@ body[data-theme="light"] #sfocusSkillBtn.active {
   border-left-color: var(--color-eliy);
 }
 
-/* 亮色：成果卡 */
+/* 亮色：成果卡与行动卡 */
 body[data-theme="light"] .artifact-card {
   background: #ffffff;
   border-color: #e5e7eb;
 }
 body[data-theme="light"] .card-header {
   border-bottom-color: #e5e7eb;
+}
+body[data-theme="light"] .card-title {
+  color: #111827; /* 标题主色 */
+}
+body[data-theme="light"] .card-body {
+  color: #374151; /* 正文主色 */
+  background: #f9fafb; /* 内容块背景 */
+  border-left-color: var(--color-eliy); /* 淡紫强调线 */
+}
+body[data-theme="light"] .card-body strong {
+  color: #111827; /* 粗体主色 */
+}
+body[data-theme="light"] .card-status.pending {
+  background: rgba(155, 140, 255, 0.12);
+  color: #6366f1; /* 亮色模式选用稍深紫色以保证良好对比度 */
+  border-color: rgba(155, 140, 255, 0.3);
+}
+body[data-theme="light"] .card-actions {
+  color: #4b5563;
+}
+body[data-theme="light"] .card-actions .card-action-tip {
+  color: #4b5563 !important;
 }
 
 /* 亮色：下拉菜单 */
