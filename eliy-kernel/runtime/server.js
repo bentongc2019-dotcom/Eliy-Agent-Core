@@ -573,6 +573,9 @@ async function handleRecord(req, res) {
     // 解析出请求体 (支持前端附带的 artifact)
     const body = await parseJsonBody(req).catch(() => ({}));
     const clientArtifact = body.artifact || null;
+    const normalizedClientArtifact = clientArtifact?.status === 'suggested'
+      ? { ...clientArtifact, status: 'proposed' }
+      : clientArtifact;
 
     // 读取输入数据
     const latestTranscript = readKernelFile('transcripts/latest-transcript.md');
@@ -601,10 +604,10 @@ async function handleRecord(req, res) {
     const artifactGuard = determineArtifactStatus(userMsg, assistantMsg);
     const isArtifactWorkflow = ['raw_material_with_legacy_artifact', 'user_candidate_requires_judgment', 'explicit_acceptance', 'explicit_rejection', 'explicit_freeze'].includes(classification);
     let preciseArtifactType = artifactGuard.artifact;
-    if (clientArtifact && clientArtifact.type) {
-      preciseArtifactType = clientArtifact.type;
+    if (normalizedClientArtifact && normalizedClientArtifact.type) {
+      preciseArtifactType = normalizedClientArtifact.type;
       if (!isArtifactWorkflow) {
-         artifactGuard.status = clientArtifact.status || 'proposed';
+         artifactGuard.status = normalizedClientArtifact.status || 'proposed';
          artifactGuard.reason = 'carried over from client artifact context';
       }
     } else if (isArtifactWorkflow) {
@@ -703,7 +706,7 @@ async function handleRecord(req, res) {
     }
 
     // Append client payload as evidence context (without overriding the Guard decision)
-    newEvidenceContent += `\n- Client Artifact Evidence: ${clientArtifact ? JSON.stringify(clientArtifact) : 'none'}\n`;
+    newEvidenceContent += `\n- Client Artifact Evidence: ${normalizedClientArtifact ? JSON.stringify(normalizedClientArtifact) : 'none'}\n`;
     writeKernelFile('hlamt/EVIDENCE.md', newEvidenceContent);
 
     // === 3. NEXT_CONTEXT.md（current artifact 使用 assistant 實際回應文本）===
@@ -760,8 +763,8 @@ async function handleRecord(req, res) {
     } else {
       const currentNext = readKernelFile('memory/NEXT_CONTEXT.md');
       const matchSavedArt = currentNext.match(/- Current artifact:\s*([\s\S]*?)(?=\n- Current artifact status|$)/);
-      if (clientArtifact) {
-        candidateText = JSON.stringify(clientArtifact);
+      if (normalizedClientArtifact) {
+        candidateText = JSON.stringify(normalizedClientArtifact);
       } else if (matchSavedArt && matchSavedArt[1].trim() !== 'none') {
         candidateText = matchSavedArt[1].trim();
       } else {
@@ -796,9 +799,9 @@ async function handleRecord(req, res) {
         `- Awaiting user input: none (artifact frozen)\n` +
         `- Do not infer unsupported workflow`,
       'no_artifact_input':
-        `- Current artifact: ${clientArtifact ? candidateText : 'none'}\n` +
-        `- Current artifact status: ${clientArtifact ? artifactGuard.status : 'none'}\n` +
-        `- Awaiting user input: ${clientArtifact ? 'awaiting user action on existing artifact' : 'no artifact workflow active'}\n` +
+        `- Current artifact: ${normalizedClientArtifact ? candidateText : 'none'}\n` +
+        `- Current artifact status: ${normalizedClientArtifact ? artifactGuard.status : 'none'}\n` +
+        `- Awaiting user input: ${normalizedClientArtifact ? 'awaiting user action on existing artifact' : 'no artifact workflow active'}\n` +
         `- Do not infer unsupported workflow`,
     };
     const nextContextBody = nextContextBodyMap[classification] || nextContextBodyMap['no_artifact_input'];
@@ -806,7 +809,7 @@ async function handleRecord(req, res) {
       `# NEXT_CONTEXT.md\n` +
       `## Current Artifact Workflow\n` +
       `${nextContextBody}\n` +
-      `- Client Artifact Context: ${clientArtifact ? JSON.stringify(clientArtifact) : 'none'}\n` +
+      `- Client Artifact Context: ${normalizedClientArtifact ? JSON.stringify(normalizedClientArtifact) : 'none'}\n` +
       (currentSkill === 'sfocus' ? 
         `\n## SFOCUS Skill State\n` +
         `CURRENT_SKILL: ${currentSkill}\n` +
