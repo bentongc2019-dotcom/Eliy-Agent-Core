@@ -102,6 +102,7 @@ async function handleChat(req, res) {
     const body = await parseJsonBody(req);
     const userText = body.text || '';
     const model = process.env.DEEPSEEK_MODEL || body.model || 'deepseek-v4-flash';
+    const clientArtifact = body.artifact || null;
 
     console.log(`[API /api/chat] 收到消息: "${userText}" | 模型: ${model}`);
 
@@ -129,7 +130,7 @@ async function handleChat(req, res) {
 
     let reply = '';
     let cleanReply = '';
-    let artifact = null;
+    let artifact = clientArtifact;
 
     if (mode === 'real_llm') {
       const apiKey = process.env.DEEPSEEK_API_KEY;
@@ -195,12 +196,12 @@ async function handleChat(req, res) {
               `请确认是否采用作为最终版本。\n\n` +
               `Mode: real LLM\n` +
               `Model: DeepSeek V4 Flash`;
-          } else if (classification === 'explicit_acceptance') {
+          } else if (classification === 'explicit_acceptance' || classification === 'explicit_freeze') {
             taskPrompt = 
               `[MANDATORY: EXPLICIT ACCEPTANCE]\n` +
-              `用户已经确认采纳了这个候选版本。\n` +
+              `用户已经确认采纳或冻结了这个候选版本。\n` +
               `你必须严格且仅按以下格式回复，不得偏离，也不得加入任何如“加入任务列表”等产品功能的动作：\n\n` +
-              `当前 artifact 已标记为 accepted。请提供下一条输入，或说明是否继续调整其他内容。\n\n` +
+              `当前 artifact 已标记为 ${classification === 'explicit_freeze' ? 'frozen' : 'accepted'}。请提供下一条输入，或说明是否继续调整其他内容。\n\n` +
               `Mode: real LLM\n` +
               `Model: DeepSeek V4 Flash`;
           } else {
@@ -426,7 +427,11 @@ function detectExplicitAcceptanceMarkers(msg) {
     t.includes('我接受') ||
     t.includes('接受这个') || t.includes('接受這個') ||
     /^確認/.test(t) || /^确认/.test(t) ||
-    t === '接受' || t === '接受。'
+    t === '接受' || t === '接受。' ||
+    t.includes('可以采用') || t.includes('可以採用') ||
+    t.includes('确认采用') || t.includes('確認採用') ||
+    t.includes('采用') || t.includes('採用') ||
+    t.includes('这个可以') || t.includes('這個可以')
   );
 }
 
@@ -596,7 +601,13 @@ async function handleRecord(req, res) {
     const artifactGuard = determineArtifactStatus(userMsg, assistantMsg);
     const isArtifactWorkflow = ['raw_material_with_legacy_artifact', 'user_candidate_requires_judgment', 'explicit_acceptance', 'explicit_rejection', 'explicit_freeze'].includes(classification);
     let preciseArtifactType = artifactGuard.artifact;
-    if (isArtifactWorkflow) {
+    if (clientArtifact && clientArtifact.type) {
+      preciseArtifactType = clientArtifact.type;
+      if (!isArtifactWorkflow) {
+         artifactGuard.status = clientArtifact.status || 'proposed';
+         artifactGuard.reason = 'carried over from client artifact context';
+      }
+    } else if (isArtifactWorkflow) {
       const currentStatus = readKernelFile('memory/ARTIFACT_STATUS.md');
       const matchSavedType = currentStatus.match(/Artifact:\s*([^\n]+)/);
       if (matchSavedType && matchSavedType[1].trim() !== 'none' && matchSavedType[1].trim() !== 'rewritten todo sentence' && matchSavedType[1].trim() !== 'action proposal') {
@@ -749,7 +760,9 @@ async function handleRecord(req, res) {
     } else {
       const currentNext = readKernelFile('memory/NEXT_CONTEXT.md');
       const matchSavedArt = currentNext.match(/- Current artifact:\s*([\s\S]*?)(?=\n- Current artifact status|$)/);
-      if (matchSavedArt && matchSavedArt[1].trim() !== 'none') {
+      if (clientArtifact) {
+        candidateText = JSON.stringify(clientArtifact);
+      } else if (matchSavedArt && matchSavedArt[1].trim() !== 'none') {
         candidateText = matchSavedArt[1].trim();
       } else {
         candidateText = extractCandidateText(assistantMsg);
@@ -783,9 +796,9 @@ async function handleRecord(req, res) {
         `- Awaiting user input: none (artifact frozen)\n` +
         `- Do not infer unsupported workflow`,
       'no_artifact_input':
-        `- Current artifact: none\n` +
-        `- Current artifact status: none\n` +
-        `- Awaiting user input: no artifact workflow active\n` +
+        `- Current artifact: ${clientArtifact ? candidateText : 'none'}\n` +
+        `- Current artifact status: ${clientArtifact ? artifactGuard.status : 'none'}\n` +
+        `- Awaiting user input: ${clientArtifact ? 'awaiting user action on existing artifact' : 'no artifact workflow active'}\n` +
         `- Do not infer unsupported workflow`,
     };
     const nextContextBody = nextContextBodyMap[classification] || nextContextBodyMap['no_artifact_input'];
