@@ -25,6 +25,9 @@ const dropdownTrigger = $('#dropdownTrigger');
 const dropdownMenu = $('#dropdownMenu');
 const menuToggle = $('#menuToggle');
 const sidebar = $('#sidebar');
+const sidebarOverlay = $('#sidebarOverlay');
+const sidebarCloseBtn = $('#sidebarCloseBtn');
+const chatMain = $('#chatMain');
 const attachBtn = $('#attachBtn');
 const fileInput = $('#fileInput');
 
@@ -102,14 +105,34 @@ function setupEventHandlers() {
   });
 
   // 新建对话逻辑
-  newChatBtn.addEventListener('click', () => startNewSession());
+  newChatBtn.addEventListener('click', () => {
+    startNewSession();
+    closeSidebar();
+  });
 
   // 点击左侧增强技能 S'FOCUS Skill 逻辑
-  sfocusSkillBtn.addEventListener('click', () => triggerSfocusSkill());
+  sfocusSkillBtn.addEventListener('click', () => {
+    triggerSfocusSkill();
+    closeSidebar();
+  });
 
   // 响应式侧边栏折叠 toggle
-  menuToggle.addEventListener('click', () => {
-    sidebar.classList.toggle('open');
+  menuToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleSidebar();
+  });
+  sidebarCloseBtn.addEventListener('click', closeSidebar);
+  sidebarOverlay.addEventListener('click', closeSidebar);
+  chatMain.addEventListener('click', () => {
+    if (isMobileSidebar() && sidebar.classList.contains('open')) {
+      closeSidebar();
+    }
+  });
+  window.addEventListener('resize', () => {
+    if (!isMobileSidebar()) closeSidebar();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeSidebar();
   });
 
   // ＋ 按钮选择上传附件（仅服务当前对话）
@@ -128,6 +151,32 @@ function setupEventHandlers() {
   const themeToggleBtn = $('#themeToggleBtn');
   if (themeToggleBtn) {
     themeToggleBtn.addEventListener('click', () => toggleTheme());
+  }
+}
+
+function isMobileSidebar() {
+  return window.matchMedia('(max-width: 900px)').matches;
+}
+
+function openSidebar() {
+  sidebar.classList.add('open');
+  sidebarOverlay.classList.add('open');
+  sidebarOverlay.setAttribute('aria-hidden', 'false');
+  menuToggle.setAttribute('aria-expanded', 'true');
+}
+
+function closeSidebar() {
+  sidebar.classList.remove('open');
+  sidebarOverlay.classList.remove('open');
+  sidebarOverlay.setAttribute('aria-hidden', 'true');
+  menuToggle.setAttribute('aria-expanded', 'false');
+}
+
+function toggleSidebar() {
+  if (sidebar.classList.contains('open')) {
+    closeSidebar();
+  } else {
+    openSidebar();
   }
 }
 
