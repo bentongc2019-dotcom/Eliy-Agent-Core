@@ -74,11 +74,14 @@ function setupEventHandlers() {
     }
   });
 
-  // 登出逻辑：清理 localStorage 凭证并返回登录页
+  // 登出逻辑：二次确认后才清理登录态
   $('#logoutBtn').addEventListener('click', () => {
+    const confirmed = window.confirm('确定要退出 Eliy 内测登录吗？当前聊天上下文可能会中断。');
+    if (!confirmed) return;
+
     localStorage.removeItem('ELIY_AUTH_TOKEN');
     localStorage.removeItem('ELIY_USER_NAME');
-    window.location.replace('./login.html');
+    window.location.href = './login.html';
   });
 
   // 模型选择下拉菜单切换展示
@@ -315,6 +318,75 @@ function formatText(text) {
   }).join('');
 }
 
+function normalizeActionCardFields(artifactPayload = {}, assistantText = '', originalUserText = '') {
+  const sourceFields = artifactPayload.fields || {};
+  const aliases = {
+    '行动名称': ['行动名称', 'name', 'title', 'action_name', 'actionName'],
+    '行动目的': ['行动目的', 'purpose', 'goal', 'action_goal', 'actionGoal'],
+    '下一步动作': ['下一步动作', 'next_step', 'nextAction', 'next_action', 'nextStep'],
+    '负责人': ['负责人', 'owner', 'assignee', 'responsible_person'],
+    '完成标准': ['完成标准', 'success_criteria', 'done_definition', 'completion_criteria', 'acceptance_criteria'],
+    '检查时间': ['检查时间', 'check_time', 'review_time', 'checkTime'],
+    '待补充信息': ['待补充信息', 'missing_info', 'additional_info', 'extra_info']
+  };
+
+  const normalized = {};
+  Object.keys(aliases).forEach(label => {
+    normalized[label] = pickActionCardField(sourceFields, aliases[label]) ||
+      extractActionCardTextField(assistantText, label) ||
+      '待确认';
+  });
+
+  if (isAllActionCardFieldsPending(normalized)) {
+    const fallback = buildConservativeActionCardFallback(artifactPayload.title, assistantText, originalUserText);
+    Object.assign(normalized, fallback);
+  }
+
+  return normalized;
+}
+
+function pickActionCardField(fields, keys) {
+  for (const key of keys) {
+    const value = fields[key];
+    if (isMeaningfulActionCardValue(value)) return String(value).trim();
+  }
+  return '';
+}
+
+function extractActionCardTextField(text, fieldName) {
+  const escaped = fieldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`${escaped}[：:]\\s*([^\\n]+)`, 'i');
+  const match = text.match(regex);
+  return match && isMeaningfulActionCardValue(match[1]) ? match[1].trim() : '';
+}
+
+function isMeaningfulActionCardValue(value) {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  return trimmed.length > 0 && trimmed !== '待确认';
+}
+
+function isAllActionCardFieldsPending(fields) {
+  return Object.values(fields).every(value => !isMeaningfulActionCardValue(value));
+}
+
+function buildConservativeActionCardFallback(title = '', assistantText = '', originalUserText = '') {
+  const sourceText = `${title}\n${assistantText}\n${originalUserText}`;
+  const bottleneckMatch = sourceText.match(/(?:选|选择|候选瓶颈[：:]?)\\s*([^，。\\n]+?)(?:作为|为|$)/);
+  const titleSeed = title.replace(/^下一步行动卡[｜|:：]?/, '').trim();
+  const bottleneck = (bottleneckMatch && bottleneckMatch[1].trim()) || titleSeed || '当前候选瓶颈';
+
+  return {
+    '行动名称': `根据当前候选瓶颈整理：${bottleneck}`,
+    '行动目的': `用最小证据确认“${bottleneck}”是否真的是当前最值得优先处理的瓶颈。`,
+    '下一步动作': `围绕“${bottleneck}”补齐一组可观察事实，并记录最直接的下一步行动。`,
+    '负责人': '待确认',
+    '完成标准': '至少形成一条可在下轮检查的最小行动记录，并说明是否缓解当前候选瓶颈。',
+    '检查时间': '待确认',
+    '待补充信息': '待确认'
+  };
+}
+
 // === 模拟智能体响应流 ===
 async function simulateEliyResponse(userText) {
   state.isStreaming = true;
@@ -495,14 +567,14 @@ function detectAndRenderArtifact(parentDiv, text, originalUserText = '', artifac
       const cardDiv = document.createElement('div');
       cardDiv.className = 'artifact-card action-card';
 
-      const fields = artifactPayload.fields || {};
-      const actionName = fields['行动名称'] || '待确认';
-      const actionGoal = fields['行动目的'] || '待确认';
-      const nextStep = fields['下一步动作'] || '待确认';
-      const owner = fields['负责人'] || '待确认';
-      const criteria = fields['完成标准'] || '待确认';
-      const checkTime = fields['检查时间'] || '待确认';
-      const extraInfo = fields['待补充信息'] || '待确认';
+      const fields = normalizeActionCardFields(artifactPayload, text, originalUserText);
+      const actionName = fields['行动名称'];
+      const actionGoal = fields['行动目的'];
+      const nextStep = fields['下一步动作'];
+      const owner = fields['负责人'];
+      const criteria = fields['完成标准'];
+      const checkTime = fields['检查时间'];
+      const extraInfo = fields['待补充信息'];
 
       cardDiv.innerHTML = `
         <div class="card-header">
@@ -564,20 +636,14 @@ function detectAndRenderArtifact(parentDiv, text, originalUserText = '', artifac
     const cardDiv = document.createElement('div');
     cardDiv.className = 'artifact-card action-card';
 
-    // 字段提取逻辑，匹配失败则显示为“待确认”
-    const getField = (fieldName) => {
-      const regex = new RegExp(`${fieldName}：?\\s*\\n?([^\\n]+)`, 'i');
-      const match = text.match(regex);
-      return match ? match[1].trim() : '待确认';
-    };
-
-    const actionName = getField('行动名称');
-    const actionGoal = getField('行动目的');
-    const nextStep = getField('下一步动作');
-    const owner = getField('负责人');
-    const criteria = getField('完成标准');
-    const checkTime = getField('检查时间');
-    const extraInfo = getField('待补充信息');
+    const fields = normalizeActionCardFields({ title: '下一步行动卡草稿', fields: {} }, text, originalUserText);
+    const actionName = fields['行动名称'];
+    const actionGoal = fields['行动目的'];
+    const nextStep = fields['下一步动作'];
+    const owner = fields['负责人'];
+    const criteria = fields['完成标准'];
+    const checkTime = fields['检查时间'];
+    const extraInfo = fields['待补充信息'];
 
     cardDiv.innerHTML = `
       <div class="card-header">

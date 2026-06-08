@@ -235,6 +235,17 @@
   </div>
 
   <script>
+    const MOCK_LOGIN_EMAIL = 'pretest@eliy.local';
+    const MOCK_LOGIN_PASSWORD_SHA256 = '3d966740a774161f155efee41349c29cfa06f7ed962da574d241f9c7ab89aa6b';
+
+    async function sha256Hex(value) {
+      const data = new TextEncoder().encode(value);
+      const digest = await crypto.subtle.digest('SHA-256', data);
+      return Array.from(new Uint8Array(digest))
+        .map(byte => byte.toString(16).padStart(2, '0'))
+        .join('');
+    }
+
     function showAlert(message, type = 'danger') {
       const alertBox = document.getElementById('alertBox');
       alertBox.textContent = message;
@@ -260,7 +271,9 @@
       // 纯前端 Mock 延迟以表现真实的等待体验
       await new Promise(r => setTimeout(r, 600));
 
-      if (email === 'test@eliy.local' && password === '123456') {
+      const passwordHash = await sha256Hex(password);
+
+      if (email === MOCK_LOGIN_EMAIL && passwordHash === MOCK_LOGIN_PASSWORD_SHA256) {
         // 保存凭证
         localStorage.setItem('ELIY_AUTH_TOKEN', 'mock-local-token-xyz');
         localStorage.setItem('ELIY_USER_NAME', '内测管理员');
@@ -270,7 +283,7 @@
           window.location.href = './index.html';
         }, 1000);
       } else {
-        showAlert('账号或密码错误（默认测试凭证：test@eliy.local / 密码：123456）');
+        showAlert('账号或密码错误，请使用本轮内测凭证登录。');
         submitBtn.disabled = false;
         submitBtn.textContent = '立即登录';
       }
