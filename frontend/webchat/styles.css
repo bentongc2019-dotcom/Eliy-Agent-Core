@@ -217,6 +217,13 @@ html, body {
   overflow-y: auto;
   padding-right: 2px;
 }
+.history-empty {
+  padding: 0.75rem 0.8rem;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+}
 
 .skill-item, .history-item {
   position: relative;

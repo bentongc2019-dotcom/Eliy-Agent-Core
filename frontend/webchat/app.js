@@ -11,7 +11,11 @@ const state = {
   messageCount: 0,
   attachedFile: null,
   isSfocusMode: false,
+  currentConversation: null,
 };
+
+const RECENT_CONVERSATIONS_KEY = 'ELIY_RECENT_CONVERSATIONS';
+const MAX_RECENT_CONVERSATIONS = 10;
 
 // === DOM 元素缓存 ===
 const $ = (sel) => document.querySelector(sel);
@@ -45,6 +49,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 4. 开启自适应高度输入区
   setupAutoResize();
+
+  // 5. 初始化浏览器本地最近对话
+  startNewSession();
+  renderRecentConversations();
 });
 
 // === 用户上下文与安全拦截守卫 ===
@@ -205,9 +213,15 @@ function applyTheme(theme) {
 // === 开始新对话会话 ===
 function startNewSession() {
   if (state.isStreaming) return;
-  state.sessionId = 'sess_' + Date.now();
+  state.sessionId = createConversationId();
   state.messageCount = 0;
   state.isSfocusMode = false;
+  state.currentConversation = {
+    id: state.sessionId,
+    title: '新对话',
+    updatedAt: Date.now(),
+    messages: []
+  };
   
   sfocusSkillBtn.classList.remove('active');
   const activeHistory = historyList.querySelector('.history-item.active');
@@ -215,11 +229,8 @@ function startNewSession() {
 
   // 重置消息区为初始对话词
   msgList.innerHTML = '';
-  appendMessage('assistant', `
-    <p>你好，我是Eliy，你的主体型商业智能体。</p>
-    <p>我不会给你空洞的鼓励。我会帮你看清问题、聚焦瓶颈、做出有依据的判断。</p>
-    <p>先告诉我：你现在面临的最大挑战是什么？</p>
-  `, true);
+  appendMessage('assistant', getWelcomeMessageHTML(), true);
+  renderRecentConversations();
 }
 
 // === S'FOCUS Skill 激活与步骤引导修正 ===
@@ -228,14 +239,14 @@ function triggerSfocusSkill() {
   if (state.isSfocusMode) return;
   
   // 1. 以用户自然发言形式进入 S'FOCUS 协作
-  appendMessage('user', "用 S'FOCUS 澄清这个经营问题");
+  appendMessage('user', "用 S'FOCUS 澄清这个经营问题", false, { persist: true });
   state.isSfocusMode = true;
   sfocusSkillBtn.classList.add('active');
 
   // 2. 界面展示排版优雅的步骤引导，不直接自动生成最终诊断结论
   appendMessage('assistant', `
     <p>我们可以用 S'FOCUS 来澄清这个经营问题。先从第一步开始：你现在要分析的系统是什么？这个系统的目标是什么？</p>
-  `, true);
+  `, true, { persist: true });
 }
 
 // === 附件选择与预览条展示（仅服务当前对话） ===
@@ -281,7 +292,7 @@ function submitMessage(directText = '') {
     fileInput.value = '';
   }
 
-  appendMessage('user', finalMessageText);
+  appendMessage('user', finalMessageText, false, { persist: true });
   userInput.value = '';
   userInput.style.height = 'auto';
 
@@ -289,7 +300,7 @@ function submitMessage(directText = '') {
 }
 
 // === 渲染消息气泡 ===
-function appendMessage(role, content, isHTML = false) {
+function appendMessage(role, content, isHTML = false, options = {}) {
   const div = document.createElement('div');
   div.className = `message ${role}`;
   const avatarText = role === 'assistant' ? 'E' : '你';
@@ -300,7 +311,150 @@ function appendMessage(role, content, isHTML = false) {
   msgList.appendChild(div);
   msgList.scrollTop = msgList.scrollHeight;
   state.messageCount++;
+  if (options.persist) {
+    persistConversationMessage({ role, content, isHTML, artifact: options.artifact || null });
+  }
   return div;
+}
+
+function createConversationId() {
+  return `conv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function getRecentConversations() {
+  try {
+    const raw = localStorage.getItem(RECENT_CONVERSATIONS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    console.warn('[History] 最近对话读取失败:', e);
+    return [];
+  }
+}
+
+function setRecentConversations(conversations) {
+  const next = conversations
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+    .slice(0, MAX_RECENT_CONVERSATIONS);
+  localStorage.setItem(RECENT_CONVERSATIONS_KEY, JSON.stringify(next));
+}
+
+function persistConversationMessage(message) {
+  if (!state.currentConversation) return;
+
+  const now = Date.now();
+  const safeMessage = {
+    role: message.role,
+    content: message.content,
+    isHTML: !!message.isHTML,
+    artifact: message.artifact || null,
+    createdAt: now
+  };
+
+  state.currentConversation.messages.push(safeMessage);
+  state.currentConversation.updatedAt = now;
+
+  if (state.currentConversation.title === '新对话' && message.role === 'user') {
+    state.currentConversation.title = createConversationTitle(message.content);
+  }
+
+  const conversations = getRecentConversations().filter(item => item.id !== state.currentConversation.id);
+  conversations.unshift(state.currentConversation);
+  setRecentConversations(conversations);
+  renderRecentConversations();
+}
+
+function createConversationTitle(text) {
+  const cleaned = String(text)
+    .replace(/^\[当前会话附件:[\s\S]*?\]\s*/m, '')
+    .replace(/\s+/g, '')
+    .trim();
+  return cleaned.slice(0, 16) || '新对话';
+}
+
+function renderRecentConversations() {
+  const conversations = getRecentConversations();
+  historyList.innerHTML = '';
+
+  if (conversations.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'history-empty';
+    empty.textContent = '暂无最近对话';
+    historyList.appendChild(empty);
+    return;
+  }
+
+  conversations.forEach(conversation => {
+    const item = document.createElement('div');
+    item.className = `history-item${conversation.id === state.sessionId ? ' active' : ''}`;
+    item.dataset.conversationId = conversation.id;
+    item.innerHTML = `
+      <span class="history-icon">💬</span>
+      <div class="history-details">
+        <span class="history-title">${escapeHTML(conversation.title || '新对话')}</span>
+        <span class="history-time">${formatHistoryTime(conversation.updatedAt)}</span>
+      </div>
+    `;
+    item.addEventListener('click', () => {
+      loadConversation(conversation.id);
+      closeSidebar();
+    });
+    historyList.appendChild(item);
+  });
+}
+
+function loadConversation(conversationId) {
+  const conversation = getRecentConversations().find(item => item.id === conversationId);
+  if (!conversation) return;
+
+  state.sessionId = conversation.id;
+  state.messageCount = 0;
+  state.isSfocusMode = false;
+  state.currentConversation = {
+    ...conversation,
+    messages: Array.isArray(conversation.messages) ? conversation.messages : []
+  };
+  sfocusSkillBtn.classList.remove('active');
+  msgList.innerHTML = '';
+
+  if (state.currentConversation.messages.length === 0) {
+    appendMessage('assistant', getWelcomeMessageHTML(), true);
+  } else {
+    state.currentConversation.messages.forEach(message => {
+      const messageDiv = appendMessage(message.role, message.content, !!message.isHTML);
+      if (message.role === 'assistant' && message.artifact) {
+        detectAndRenderArtifact(messageDiv, message.content, '', message.artifact);
+      }
+    });
+  }
+
+  renderRecentConversations();
+}
+
+function getWelcomeMessageHTML() {
+  return `
+    <p>你好，我是Eliy，你的主体型商业智能体。</p>
+    <p>我不会给你空洞的鼓励。我会帮你看清问题、聚焦瓶颈、做出有依据的判断。</p>
+    <p>先告诉我：你现在面临的最大挑战是什么？</p>
+  `;
+}
+
+function formatHistoryTime(timestamp) {
+  if (!timestamp) return '刚刚';
+  const diff = Date.now() - timestamp;
+  if (diff < 60 * 1000) return '刚刚';
+  if (diff < 60 * 60 * 1000) return `${Math.floor(diff / (60 * 1000))}分钟前`;
+  if (diff < 24 * 60 * 60 * 1000) return `${Math.floor(diff / (60 * 60 * 1000))}小时前`;
+  return `${Math.floor(diff / (24 * 60 * 60 * 1000))}天前`;
+}
+
+function escapeHTML(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // === 消息格式化转换 ===
@@ -504,6 +658,12 @@ async function simulateEliyResponse(userText) {
 
   // 直接从回复文本中检查并抽取渲染“成果卡”或“行动卡”
   detectAndRenderArtifact(typingDiv, response, userText, artifactPayload);
+  persistConversationMessage({
+    role: 'assistant',
+    content: response,
+    isHTML: false,
+    artifact: artifactPayload
+  });
 }
 
 // === 直接从回复文本中检测成果卡/行动卡 (无文件系统依赖) ===
