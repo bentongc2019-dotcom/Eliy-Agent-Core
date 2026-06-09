@@ -91,18 +91,23 @@
           <button class="menu-toggle" id="menuToggle">☰</button>
           <div class="model-dropdown">
             <button class="dropdown-trigger" id="dropdownTrigger">
-              <span class="model-badge">v0.3.1</span>
+              <span class="model-badge">v0.3.2</span>
               <span class="model-name">Eliy Agent</span>
               <span class="dropdown-arrow">▼</span>
             </button>
             <div class="dropdown-menu" id="dropdownMenu">
-              <div class="dropdown-item active">Eliy v0.3.1 (DeepSeek Flash)</div>
+              <div class="dropdown-item active">Eliy v0.3.2 (DeepSeek Flash)</div>
               <div class="dropdown-item disabled">Eliy v0.4.0 (Planning - 规划中)</div>
             </div>
           </div>
         </div>
 
         <div class="header-right">
+          <div class="skill-observer" id="skillObserver" aria-live="polite">
+            <span>当前 Skill：<strong id="frontSkillMode">default</strong></span>
+            <span>后端观测：<strong id="backendSkillMode">未返回</strong></span>
+            <span>触发来源：<strong id="skillTriggerSource">none</strong></span>
+          </div>
           <div class="status-indicator">
             <span class="status-dot" id="statusDot"></span>
             <span id="statusText">连接就绪</span>

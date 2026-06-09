@@ -1,4 +1,4 @@
-/* Eliy v0.3.1-test Chat-first Visual Design System (Flat Dark Edition) */
+/* Eliy v0.3.2-test Chat-first Visual Design System (Flat Dark Edition) */
 
 :root {
   --color-base: #080a10;           /* 右侧主聊天区大背景 */
@@ -523,6 +523,24 @@ html, body {
   align-items: center;
   gap: 1.2rem;
 }
+.skill-observer {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  max-width: min(52vw, 560px);
+  padding: 0.35rem 0.55rem;
+  border: 1px solid rgba(155, 140, 255, 0.22);
+  border-radius: var(--radius-sm);
+  background: rgba(20, 26, 45, 0.55);
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+.skill-observer strong {
+  color: var(--color-eliy);
+  font-weight: 600;
+}
 .status-indicator {
   display: flex;
   align-items: center;
@@ -950,7 +968,22 @@ html, body {
     gap: 0.6rem;
   }
   .header-right {
+    display: flex;
+    margin-left: auto;
+    min-width: 0;
+  }
+  .status-indicator {
     display: none;
+  }
+  .skill-observer {
+    max-width: 42vw;
+    justify-content: flex-end;
+    gap: 0.2rem 0.4rem;
+    padding: 0.25rem 0.4rem;
+    font-size: 0.62rem;
+  }
+  .skill-observer span {
+    white-space: nowrap;
   }
   .model-dropdown {
     min-width: 0;

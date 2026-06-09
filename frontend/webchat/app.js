@@ -1,12 +1,12 @@
 /**
- * Eliy Chat-first Client — app.js (v0.3.1-test)
+ * Eliy Chat-first Client — app.js (v0.3.2-test)
  * 纯 JS 实现的商业智能体交互与状态引擎 (轻量扁平版)
  */
 
 // === 全局状态 ===
 const state = {
   sessionId: null,
-  activeModel: 'Eliy v0.3.1',
+  activeModel: 'Eliy v0.3.2',
   isStreaming: false,
   messageCount: 0,
   attachedFile: null,
@@ -34,6 +34,9 @@ const sidebarCloseBtn = $('#sidebarCloseBtn');
 const chatMain = $('#chatMain');
 const attachBtn = $('#attachBtn');
 const fileInput = $('#fileInput');
+const frontSkillMode = $('#frontSkillMode');
+const backendSkillMode = $('#backendSkillMode');
+const skillTriggerSource = $('#skillTriggerSource');
 
 // === 初始化入口 ===
 document.addEventListener('DOMContentLoaded', () => {
@@ -224,6 +227,7 @@ function startNewSession() {
   };
   
   sfocusSkillBtn.classList.remove('active');
+  updateSkillObserver();
   const activeHistory = historyList.querySelector('.history-item.active');
   if (activeHistory) activeHistory.classList.remove('active');
 
@@ -242,6 +246,7 @@ function triggerSfocusSkill() {
   appendMessage('user', "用 S'FOCUS 澄清这个经营问题", false, { persist: true });
   state.isSfocusMode = true;
   sfocusSkillBtn.classList.add('active');
+  updateSkillObserver();
 
   // 2. 界面展示排版优雅的步骤引导，不直接自动生成最终诊断结论
   appendMessage('assistant', `
@@ -415,6 +420,7 @@ function loadConversation(conversationId) {
     messages: Array.isArray(conversation.messages) ? conversation.messages : []
   };
   sfocusSkillBtn.classList.remove('active');
+  updateSkillObserver();
   msgList.innerHTML = '';
 
   if (state.currentConversation.messages.length === 0) {
@@ -470,6 +476,16 @@ function formatText(text) {
     line = line.replace(/`(.*?)`/g, '<code style="background:rgba(155,140,255,0.15);padding:0.1rem 0.35rem;border-radius:4px;font-size:0.85rem;color:var(--color-eliy)">$1</code>');
     return `<p>${line}</p>`;
   }).join('');
+}
+
+function getActiveSkill() {
+  return state.isSfocusMode ? 'sfocus' : 'default';
+}
+
+function updateSkillObserver(debugMeta = null) {
+  if (frontSkillMode) frontSkillMode.textContent = getActiveSkill();
+  if (backendSkillMode) backendSkillMode.textContent = debugMeta?.skillModeObserved || '未返回';
+  if (skillTriggerSource) skillTriggerSource.textContent = debugMeta?.triggerSource || 'none';
 }
 
 function normalizeActionCardFields(artifactPayload = {}, assistantText = '', originalUserText = '') {
@@ -558,6 +574,7 @@ async function simulateEliyResponse(userText) {
       body: JSON.stringify({
         text: userText,
         model: 'deepseek-v4-flash',
+        activeSkill: getActiveSkill(),
         history: [{ role: 'user', content: userText }]
       })
     });
@@ -565,6 +582,7 @@ async function simulateEliyResponse(userText) {
       const data = await res.json();
       response = data.reply;
       artifactPayload = data.artifact || null;
+      updateSkillObserver(data.debug_meta || null);
     } else {
       throw new Error('API return non-200 status');
     }

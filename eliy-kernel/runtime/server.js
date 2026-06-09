@@ -103,8 +103,7 @@ async function handleChat(req, res) {
     const userText = body.text || '';
     const model = process.env.DEEPSEEK_MODEL || body.model || 'deepseek-v4-flash';
     const clientArtifact = body.artifact || null;
-
-    console.log(`[API /api/chat] 收到消息: "${userText}" | 模型: ${model}`);
+    const activeSkillReceived = body.activeSkill === 'sfocus' ? 'sfocus' : 'default';
 
     const mode = process.env.CANDIDATE_GENERATION_MODE || 'generic_fallback';
     console.log(`[API /api/chat] 当前候选生成模式 CANDIDATE_GENERATION_MODE: ${mode}`);
@@ -118,7 +117,29 @@ async function handleChat(req, res) {
     const nextContextFile = readKernelFile('memory/NEXT_CONTEXT.md');
 
     const sfocusKeywords = ["S’FOCUS", "SFOCUS", "瓶颈思维", "找瓶颈", "控制投料", "Choke the Release", "TOC learning or practice", "用 Eliy 分析一个经营系统"];
-    const isSfocusTriggered = sfocusKeywords.some(kw => userText.includes(kw)) || nextContextFile.includes("CURRENT_SKILL: sfocus");
+    const isFrontendSkillTriggered = activeSkillReceived === 'sfocus';
+    const isKeywordTriggered = sfocusKeywords.some(kw => userText.includes(kw));
+    const isNextContextTriggered = nextContextFile.includes("CURRENT_SKILL: sfocus");
+    const isSfocusTriggered = isFrontendSkillTriggered || isKeywordTriggered || isNextContextTriggered;
+    const triggerSource = isFrontendSkillTriggered
+      ? 'frontend_active_skill'
+      : isKeywordTriggered
+        ? 'keyword'
+        : isNextContextTriggered
+          ? 'next_context'
+          : 'none';
+    const skillModeObserved = (isFrontendSkillTriggered || isKeywordTriggered)
+      ? 'sfocus'
+      : isNextContextTriggered
+        ? 'mixed_or_inferred'
+        : 'default';
+    const artifactStatusText = readKernelFile('memory/ARTIFACT_STATUS.md');
+    const artifactStatusMatch = artifactStatusText.match(/Status:\s*([^\n]+)/);
+    const currentArtifactStatus = artifactStatusMatch ? artifactStatusMatch[1].trim() : 'unknown';
+    const textPreview = userText.replace(/\s+/g, ' ').slice(0, 20);
+    console.log(
+      `[API /api/chat][observability] textPreview="${textPreview}" | activeSkillReceived=${activeSkillReceived} | sfocusInjected=${isSfocusTriggered} | triggerSource=${triggerSource} | hasClientArtifactContext=${!!clientArtifact} | currentArtifactStatus=${currentArtifactStatus}`
+    );
     let sfocusSkillContent = "";
     if (isSfocusTriggered) {
       try {
@@ -354,12 +375,21 @@ async function handleChat(req, res) {
     }
 
     // 写入本轮 user input + assistant response 到 transcripts/latest-transcript.md
-    const transcriptContent = `# Latest Transcript - Eliy v0.3.1-test\n\n**User**: ${userText}\n\n**Assistant**: ${cleanReply || reply}\n`;
+    const transcriptContent = `# Latest Transcript - Eliy v0.3.2-test\n\n**User**: ${userText}\n\n**Assistant**: ${cleanReply || reply}\n`;
     writeKernelFile('transcripts/latest-transcript.md', transcriptContent);
     console.log('[API /api/chat] 成功落盘 transcripts/latest-transcript.md');
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ reply: cleanReply || reply, artifact: artifact }));
+    res.end(JSON.stringify({
+      reply: cleanReply || reply,
+      artifact: artifact,
+      debug_meta: {
+        activeSkillReceived,
+        sfocusInjected: isSfocusTriggered,
+        triggerSource,
+        skillModeObserved
+      }
+    }));
   } catch (err) {
     res.writeHead(500, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: err.message }));
@@ -1408,7 +1438,7 @@ function generateMockReply(userText) {
 
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`\n======================================================`);
-  console.log(`✨ Eliy v0.3.1-test Local Runtime Service 启动成功！`);
+  console.log(`✨ Eliy v0.3.2-test Local Runtime Service 启动成功！`);
   console.log(`🌐 访问地址: http://localhost:${PORT}/index.html`);
   console.log(`🎙 语音版地址: http://localhost:${PORT}/voice.html`);
   console.log(`======================================================\n`);
