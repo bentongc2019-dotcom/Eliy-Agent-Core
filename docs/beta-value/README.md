@@ -38,23 +38,23 @@
 
 - `closed-experience-runbook.md`：主持人流程手册；
 - `participant-instruction.md`：发给老学员的体验说明；
-- `A-tech-pass-check.md`：1 分钟技术通行检查；
+- `A-tech-pass-check.md`：1 分钟进入与基础使用确认；
 - `B-sfocus-value-feedback-form.md`：本轮主价值反馈表；
 - `C-agency-experience-observation-form.md`：主体型体验观察表；
 - `D-followup-action-review-signup.md`：后续行动复盘报名表；
 - `facilitator-observation-sheet.md`：主持人 / 内部观察表；
 - `post-session-synthesis-template.md`：体验结束后的内部整理模板。
 
-## 技术通行检查与价值反馈的区别
+## 进入与基础使用确认与价值反馈的区别
 
-技术通行检查只确认用户能打开、登录、发送消息、看到回复和行动卡。它不是本轮主反馈表。
+进入与基础使用确认只确认用户能打开、登录、发送消息、看到回复和行动卡。它不是本轮主反馈表，内部可作为技术通行辅助检查。
 
 价值反馈关注的是：Eliy 是否帮助用户完成 S'FOCUS 的关键动作，是否形成更清楚的判断，是否愿意执行行动卡。
 
 ## 体验流程摘要
 
 1. 5 分钟：说明 Eliy 与 S'FOCUS 场景；
-2. 5 分钟：完成技术通行检查；
+2. 5 分钟：完成进入与基础使用确认；
 3. 20-30 分钟：用户带入真实问题与 Eliy 互动；
 4. 10 分钟：填写价值反馈；
 5. 5 分钟：选择是否进入后续行动复盘。
@@ -65,7 +65,7 @@
 
 每位用户至少回收：
 
-1. 技术通行检查结果；
+1. 进入与基础使用确认结果；
 2. S'FOCUS 价值反馈；
 3. 主体型体验观察；
 4. 是否愿意执行行动卡与参加 7 天复盘。
