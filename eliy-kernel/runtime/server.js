@@ -112,6 +112,7 @@ async function handleChat(req, res) {
     const flashGuardRules = readKernelFile('runtime/ELIY_V0.3.1_FLASH_RUNTIME_GUARD_RULES.md');
     const hacAgentRules = readKernelFile('hac/HAC_AGENT_RULES.md');
     const frontendRules = readKernelFile('hac/FRONTEND_AGENT_RULES.md');
+    const defaultIdentityStyle = readKernelFile('hac/DEFAULT_IDENTITY_STYLE.md');
     const hlamtFile = readKernelFile('hlamt/HLAMT.md');
     const stateFile = readKernelFile('memory/STATE.md');
     const nextContextFile = readKernelFile('memory/NEXT_CONTEXT.md');
@@ -162,16 +163,24 @@ async function handleChat(req, res) {
       } else {
         console.log('[API /api/chat] 模式为 real_llm，发起真实 LLM 调用...');
         try {
-          const promptInstruction = 
-            `[MANDATORY SYSTEM INSTRUCTION FOR CANDIDATE ARTIFACT GENERATION]\n` +
-            `你必须在 "real LLM" 候选版本生成模式下运行。\n` +
-            `当前对话使用 S’FOCUS 协作方式。请按以下顺序推进：\n` +
-            `1. 澄清系统\n` +
-            `2. 澄清目标\n` +
-            `3. 澄清不良效应\n` +
-            `4. 提出可能制约\n` +
-            `5. 形成下一步行动\n` +
-            `不要替用户直接下最终判断。信息不足时，把缺失项放入待补充信息。\n\n` +
+          const modeInstruction = isSfocusTriggered
+            ? `[MANDATORY SYSTEM INSTRUCTION FOR SFOCUS COLLABORATION]\n` +
+              `你必须在 "real LLM" 候选版本生成模式下运行。\n` +
+              `当前对话使用 S’FOCUS 协作方式。请按以下顺序推进：\n` +
+              `1. 澄清系统\n` +
+              `2. 澄清目标\n` +
+              `3. 澄清不良效应\n` +
+              `4. 提出可能制约\n` +
+              `5. 形成下一步行动\n` +
+              `不要替用户直接下最终判断。信息不足时，把缺失项放入待补充信息。\n\n`
+            : `[MANDATORY SYSTEM INSTRUCTION FOR DEFAULT MODE]\n` +
+              `你必须在 Eliy default mode 下运行。\n` +
+              `不要声称当前对话正在使用 S’FOCUS，除非 SFOCUS.skill 已被明确触发。\n` +
+              `先理解用户真实意图，再决定是澄清、解释、收敛还是推进。\n` +
+              `普通对话中不要暴露 artifact、Recorder、NEXT_CONTEXT、debug_meta、proposed、accepted、frozen 等内部语言。\n` +
+              `不要默认生成 Action Card；只有用户明确要求，或对话已收敛到一个被用户接受的具体行动时才生成。\n\n`;
+
+          const artifactPayloadContract =
             `[XML ARTIFACT PAYLOAD CONTRACT]\n` +
             `1. 当用户要求整理成果（如“整理成果”、“整理成成果卡”等）时，你必须在回答最后使用 <eliy_artifact>...</eliy_artifact> 标签包裹一个标准的 JSON payload，类型为 current_result_card，格式如下：\n` +
             `{\n` +
@@ -204,6 +213,7 @@ async function handleChat(req, res) {
             `}\n` +
             `缺失字段必须写“待确认”。完成标准尽量可观察。禁止输出 "frozen"、"决策库" 或 "高置信度诊断" 等字眼。\n` +
             `如果不是用户明确要求整理成果或转行动卡，绝对不要输出 <eliy_artifact> 标签及 JSON。`;
+          const promptInstruction = modeInstruction + artifactPayloadContract;
 
           const classification = classifyArtifactInput(userText);
           let taskPrompt = '';
@@ -232,7 +242,7 @@ async function handleChat(req, res) {
           const messages = [
             {
               role: 'system',
-              content: `${flashGuardRules}\n\n${hacAgentRules}\n\n${frontendRules}\n\n${hlamtFile}\n\n当前状态:\n${stateFile}\n\n当前上下文:\n${nextContextFile}\n\n${taskPrompt}${sfocusSkillContent ? '\n\n' + sfocusSkillContent : ''}`
+              content: `${flashGuardRules}\n\n${hacAgentRules}\n\n${frontendRules}${isSfocusTriggered ? '' : '\n\n' + defaultIdentityStyle}\n\n${hlamtFile}\n\n当前状态:\n${stateFile}\n\n当前上下文:\n${nextContextFile}\n\n${taskPrompt}${sfocusSkillContent ? '\n\n' + sfocusSkillContent : ''}`
             },
             ...(body.history || [{ role: 'user', content: userText }])
           ];
