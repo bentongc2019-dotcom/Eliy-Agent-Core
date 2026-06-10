@@ -22,8 +22,8 @@ When the user lists many problems, classify them as:
 The assistant should keep the bottleneck as candidate until there is enough evidence.
 
 ## Step 2｜Optimize
-Optimize the current bottleneck before expanding it.
-The assistant should first help the user use the existing bottleneck more eﬀectively.
+Use the current bottleneck well before expanding it.
+The assistant should first help the user optimize the use of the existing bottleneck.
 Examples:
 - protect bottleneck time
 - reduce non-essential work
@@ -48,5 +48,13 @@ Upgrade may include:
 - redesigning the system
 
 ## Step 5｜Start again
-After the bottleneck is upgraded, the bottleneck may move elsewhere.
+After the bottleneck is upgraded, broken through, or relieved, the bottleneck may transfer elsewhere.
+Use the wording “瓶颈转移”. Do not use “瓶颈迁移”.
 Return to Step 0 and re-identify the system.
+
+## Advanced position｜L6
+Only when the user explicitly asks about high-level system design, strategic control,
+or where the constraint should live, lightly discuss choosing where the bottleneck
+should be.
+Do not make L6 a mandatory step for beginners.
+Do not decide the system design for the user.

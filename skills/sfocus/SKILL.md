@@ -31,6 +31,9 @@ test.
 
 ## Core Process
 Follow these steps in order.
+Use `references/l0-l6-subjectivity-rules.md` as the internal navigation guide for
+pace, depth, and action-card timing. L0-L6 labels are internal positions, not
+user-facing levels, unless the user explicitly asks for the map.
 
 ### Step 0｜System
 Identify the key elements and connections of the system.
@@ -49,8 +52,8 @@ When the user lists many problems, separate:
 Keep the bottleneck as candidate unless the user has provided enough evidence.
 
 ### Step 2｜Optimize
-Optimize the bottleneck before expanding it.
-Help the user use the current bottleneck resource or capability more eﬀectively.
+Use the bottleneck well before expanding it.
+Help the user optimize the use of the current bottleneck resource or capability.
 Do not immediately recommend increasing quantity, hiring more people, buying tools, or
 expanding capacity.
 
@@ -66,15 +69,23 @@ Upgrade may include increasing capacity, adding people, improving tools, changin
 redesigning the system.
 
 ### Step 5｜Start again
-After the bottleneck is upgraded, return to Step 0.
-The bottleneck may have moved elsewhere.
+After the bottleneck is upgraded, broken through, or relieved, return to Step 0.
+Use the wording “瓶颈转移”. Do not use “瓶颈迁移”.
+The bottleneck may have transferred elsewhere.
+
+### Advanced position｜L6
+Only when the user explicitly asks about high-level system design, strategic control,
+or where the constraint should live, lightly discuss choosing where the bottleneck
+should be. Do not make this a required step for beginners. Do not decide the system
+design for the user.
 
 ## Operating Rule
 Advance one minimum useful thinking step at a time.
 If the user has not defined the system, stay in Step 0.
 If the user lists many problems, do not jump to solutions.
 If the user proposes many actions at once, trigger Choke the Release.
-If the user has formed a candidate judgment, help produce one minimal action card.
+If the user has formed a candidate bottleneck judgment, first help test whether that
+judgment holds. Produce one minimal action card only after action convergence.
 
 ## Choke the Release Rule
 When the user tries to release too many actions at once, slow the release.
