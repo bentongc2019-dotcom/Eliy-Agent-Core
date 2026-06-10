@@ -531,6 +531,47 @@ function classifyArtifactInput(userMsg) {
   return 'no_artifact_input';
 }
 
+function detectAssistantArtifactProposal(assistantMsg) {
+  const msg = assistantMsg || '';
+  if (!msg.trim()) return null;
+
+  const xmlPayload = msg.match(/<eliy_artifact>([\s\S]*?)<\/eliy_artifact>/i);
+  if (xmlPayload) {
+    const typeMatch = xmlPayload[1].match(/"type"\s*:\s*"([^"]+)"/i);
+    return {
+      artifact: typeMatch ? typeMatch[1] : 'artifact payload',
+      reason: 'assistant returned explicit artifact payload'
+    };
+  }
+
+  const inlineTypeMatch = msg.match(/"type"\s*:\s*"(next_action_card|current_result_card)"/i);
+  if (inlineTypeMatch) {
+    return {
+      artifact: inlineTypeMatch[1],
+      reason: 'assistant returned explicit artifact payload'
+    };
+  }
+
+  const hasActionCardLabel = /行动卡|行動卡|next_action_card/i.test(msg);
+  const hasResultCardLabel = /成果卡|current_result_card/i.test(msg);
+  const structureFields = msg.match(/标题|標題|对象|對象|截止时间|截止時間|验收标准|驗收標準|完成标准|完成標準|负责人|負責人|行动名称|行動名稱|下一步动作|下一步動作/g) || [];
+  if ((hasActionCardLabel || hasResultCardLabel) && structureFields.length >= 2) {
+    return {
+      artifact: hasActionCardLabel ? 'next_action_card' : 'current_result_card',
+      reason: 'assistant proposed a structured artifact card'
+    };
+  }
+
+  if (/候选版本|候選版本|候補版本|候选工件|候選工件|请确认是否采用|請確認是否採用|是否采用这个版本|是否採用這個版本|请确认是否采用此卡|請確認是否採用此卡/.test(msg)) {
+    return {
+      artifact: 'candidate artifact',
+      reason: 'assistant proposed a candidate artifact for confirmation'
+    };
+  }
+
+  return null;
+}
+
 function determineArtifactStatus(userMsg, assistantMsg) {
   const isTestSignal = 
     userMsg.includes('NEXT_CONTEXT') || 
@@ -589,12 +630,12 @@ function determineArtifactStatus(userMsg, assistantMsg) {
       
     case 'no_artifact_input':
     default:
-      const hasArtifact = (assistantMsg.includes('行动') || assistantMsg.includes('处方') || assistantMsg.includes('proposal') || assistantMsg.includes('建議'));
-      if (hasArtifact) {
+      const assistantArtifact = detectAssistantArtifactProposal(assistantMsg);
+      if (assistantArtifact) {
         return {
-          artifact: 'action proposal',
+          artifact: assistantArtifact.artifact,
           status: 'proposed',
-          reason: 'assistant proposed a business action plan'
+          reason: assistantArtifact.reason
         };
       }
       return {
