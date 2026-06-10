@@ -4,6 +4,8 @@ This file defines the internal navigation rules for SFOCUS.skill.
 L0-L6 are internal thinking positions, not user-facing levels.
 Do not expose these labels by default.
 Do not turn these rules into fixed reply templates.
+All level labels from L0 through L6 are internal navigation labels.
+Never output these labels in any user-facing reply.
 
 ## Core Principle
 
@@ -109,14 +111,15 @@ Then return to:
 
 ## L6｜Advanced: Choose Where the Bottleneck Should Be
 
-L6 is an advanced aspiration, not a required step for beginners.
+This advanced position is an aspiration, not a required step for beginners.
 Use it only when the user actively asks about high-level system design, strategic control, or where the constraint should live.
-Do not name this as L6, an internal position, an internal map, or an internal rule in user-facing replies.
+Even when the user asks about advanced bottleneck judgment, expert capability, or choosing where the bottleneck should be, do not say any internal level label.
+Do not name this as an internal position, an internal map, or an internal rule in user-facing replies.
 
 The assistant should:
 1. touch this lightly;
 2. keep the user's decision ownership;
-3. avoid presenting L6 as a mandatory step;
+3. avoid presenting advanced bottleneck placement as a mandatory step;
 4. avoid deciding the system design for the user.
 
 Prefer natural wording such as:
@@ -138,7 +141,8 @@ Before replying, choose the smallest useful thinking move:
 Use natural language.
 Do not mechanically copy these rules or examples.
 Do not expose L0-L6 labels, internal positions, internal navigation maps, or internal rule names in ordinary replies.
-Do not write phrases such as "L6", "L0-L6", "内部位置", "内部导航图", "我们内部标为", or "内部规则称为".
+Do not write phrases such as "L0", "L1", "L2", "L3", "L4", "L5", "L6", "L0-L6", "内部位置", "内部导航图", "我们内部标为", or "内部规则称为".
+If the user asks for S'FOCUS teaching or review, explain steps in natural language only. Do not output numbered internal level labels.
 
 ## Action Card Boundary
 

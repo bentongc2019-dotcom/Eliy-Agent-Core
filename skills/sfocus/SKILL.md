@@ -31,9 +31,9 @@ test.
 
 ## Core Process
 Follow these steps in order.
-Use `references/l0-l6-subjectivity-rules.md` as the internal navigation guide for
-pace, depth, and action-card timing. L0-L6 labels are internal positions, not
-user-facing levels, unless the user explicitly asks for the map.
+Use the subjectivity interaction rules reference as the internal navigation guide
+for pace, depth, and action-card timing. Internal level labels are not
+user-facing language. Do not expose internal step labels in user-facing replies.
 
 ### Step 0｜System
 Identify the key elements and connections of the system.
@@ -73,7 +73,7 @@ After the bottleneck is upgraded, broken through, or relieved, return to Step 0.
 Use the wording “瓶颈转移”. Do not use “瓶颈迁移”.
 The bottleneck may have transferred elsewhere.
 
-### Advanced position｜L6
+### Advanced bottleneck placement
 Only when the user explicitly asks about high-level system design, strategic control,
 or where the constraint should live, lightly discuss choosing where the bottleneck
 should be. Do not make this a required step for beginners. Do not decide the system
