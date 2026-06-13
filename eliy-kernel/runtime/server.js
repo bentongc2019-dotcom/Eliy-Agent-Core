@@ -104,6 +104,8 @@ async function handleChat(req, res) {
     const model = process.env.DEEPSEEK_MODEL || body.model || 'deepseek-v4-flash';
     const clientArtifact = body.artifact || null;
     const activeSkillReceived = body.activeSkill === 'sfocus' ? 'sfocus' : 'default';
+    const contextScope = normalizeContextScope(body.contextScope);
+    const isNewConversationContext = contextScope === 'new_conversation';
 
     const mode = process.env.CANDIDATE_GENERATION_MODE || 'generic_fallback';
     console.log(`[API /api/chat] 当前候选生成模式 CANDIDATE_GENERATION_MODE: ${mode}`);
@@ -114,13 +116,13 @@ async function handleChat(req, res) {
     const frontendRules = readKernelFile('hac/FRONTEND_AGENT_RULES.md');
     const defaultIdentityStyle = readKernelFile('hac/DEFAULT_IDENTITY_STYLE.md');
     const hlamtFile = readKernelFile('hlamt/HLAMT.md');
-    const stateFile = readKernelFile('memory/STATE.md');
-    const nextContextFile = readKernelFile('memory/NEXT_CONTEXT.md');
+    const stateFile = isNewConversationContext ? buildNeutralStateContext() : readKernelFile('memory/STATE.md');
+    const nextContextFile = isNewConversationContext ? buildNeutralNextContext() : readKernelFile('memory/NEXT_CONTEXT.md');
 
     const sfocusKeywords = ["S’FOCUS", "SFOCUS", "瓶颈思维", "找瓶颈", "控制投料", "Choke the Release", "TOC learning or practice", "用 Eliy 分析一个经营系统"];
     const isFrontendSkillTriggered = activeSkillReceived === 'sfocus';
     const isKeywordTriggered = sfocusKeywords.some(kw => userText.includes(kw));
-    const isNextContextTriggered = nextContextFile.includes("CURRENT_SKILL: sfocus");
+    const isNextContextTriggered = !isNewConversationContext && nextContextFile.includes("CURRENT_SKILL: sfocus");
     const isSfocusTriggered = isFrontendSkillTriggered || isKeywordTriggered || isNextContextTriggered;
     const triggerSource = isFrontendSkillTriggered
       ? 'frontend_active_skill'
@@ -134,12 +136,12 @@ async function handleChat(req, res) {
       : isNextContextTriggered
         ? 'mixed_or_inferred'
         : 'default';
-    const artifactStatusText = readKernelFile('memory/ARTIFACT_STATUS.md');
+    const artifactStatusText = isNewConversationContext ? buildNeutralArtifactStatus() : readKernelFile('memory/ARTIFACT_STATUS.md');
     const artifactStatusMatch = artifactStatusText.match(/Status:\s*([^\n]+)/);
     const currentArtifactStatus = artifactStatusMatch ? artifactStatusMatch[1].trim() : 'unknown';
     const textPreview = userText.replace(/\s+/g, ' ').slice(0, 20);
     console.log(
-      `[API /api/chat][observability] textPreview="${textPreview}" | activeSkillReceived=${activeSkillReceived} | sfocusInjected=${isSfocusTriggered} | triggerSource=${triggerSource} | hasClientArtifactContext=${!!clientArtifact} | currentArtifactStatus=${currentArtifactStatus}`
+      `[API /api/chat][observability] textPreview="${textPreview}" | contextScope=${contextScope} | activeSkillReceived=${activeSkillReceived} | sfocusInjected=${isSfocusTriggered} | triggerSource=${triggerSource} | hasClientArtifactContext=${!!clientArtifact} | currentArtifactStatus=${currentArtifactStatus}`
     );
     let sfocusSkillContent = "";
     if (isSfocusTriggered) {
@@ -397,7 +399,8 @@ async function handleChat(req, res) {
         activeSkillReceived,
         sfocusInjected: isSfocusTriggered,
         triggerSource,
-        skillModeObserved
+        skillModeObserved,
+        contextScope
       }
     }));
   } catch (err) {
@@ -654,6 +657,9 @@ async function handleRecord(req, res) {
     // 解析出请求体 (支持前端附带的 artifact)
     const body = await parseJsonBody(req).catch(() => ({}));
     const clientArtifact = body.artifact || null;
+    const activeSkillReceived = body.activeSkill === 'sfocus' ? 'sfocus' : 'default';
+    const contextScope = normalizeContextScope(body.contextScope);
+    const isNewConversationContext = contextScope === 'new_conversation';
     const normalizedClientArtifact = clientArtifact?.status === 'suggested'
       ? { ...clientArtifact, status: 'proposed' }
       : clientArtifact;
@@ -672,8 +678,10 @@ async function handleRecord(req, res) {
       const match = text.match(regex);
       return match ? match[1].trim() : null;
     };
-    const currentNextContextForParse = readKernelFile('memory/NEXT_CONTEXT.md');
-    let currentSkill = extractField(assistantMsg, 'CURRENT_SKILL') || extractField(currentNextContextForParse, 'CURRENT_SKILL') || 'none';
+    const currentNextContextForParse = isNewConversationContext ? buildNeutralNextContext() : readKernelFile('memory/NEXT_CONTEXT.md');
+    let currentSkill = activeSkillReceived === 'sfocus'
+      ? 'sfocus'
+      : extractField(assistantMsg, 'CURRENT_SKILL') || extractField(currentNextContextForParse, 'CURRENT_SKILL') || 'none';
     let currentStep = extractField(assistantMsg, 'CURRENT_STEP') || extractField(currentNextContextForParse, 'CURRENT_STEP') || '';
     let systemUnderDisc = extractField(assistantMsg, 'SYSTEM_UNDER_DISCUSSION') || extractField(currentNextContextForParse, 'SYSTEM_UNDER_DISCUSSION') || '';
     let candidateBottleneck = extractField(assistantMsg, 'CANDIDATE_BOTTLENECK') || extractField(currentNextContextForParse, 'CANDIDATE_BOTTLENECK') || '';
@@ -692,7 +700,7 @@ async function handleRecord(req, res) {
          artifactGuard.reason = 'carried over from client artifact context';
       }
     } else if (isArtifactWorkflow) {
-      const currentStatus = readKernelFile('memory/ARTIFACT_STATUS.md');
+      const currentStatus = isNewConversationContext ? buildNeutralArtifactStatus() : readKernelFile('memory/ARTIFACT_STATUS.md');
       const matchSavedType = currentStatus.match(/Artifact:\s*([^\n]+)/);
       if (matchSavedType && matchSavedType[1].trim() !== 'none' && matchSavedType[1].trim() !== 'rewritten todo sentence' && matchSavedType[1].trim() !== 'action proposal') {
         preciseArtifactType = matchSavedType[1].trim();
@@ -842,7 +850,7 @@ async function handleRecord(req, res) {
     } else if (classification === 'user_candidate_requires_judgment') {
       candidateText = extractUserCandidateText(userMsg);
     } else {
-      const currentNext = readKernelFile('memory/NEXT_CONTEXT.md');
+      const currentNext = isNewConversationContext ? buildNeutralNextContext() : readKernelFile('memory/NEXT_CONTEXT.md');
       const matchSavedArt = currentNext.match(/- Current artifact:\s*([\s\S]*?)(?=\n- Current artifact status|$)/);
       if (normalizedClientArtifact) {
         candidateText = JSON.stringify(normalizedClientArtifact);
@@ -1095,6 +1103,43 @@ function parseJsonBody(req) {
       }
     });
   });
+}
+
+function normalizeContextScope(scope) {
+  return scope === 'new_conversation' ? 'new_conversation' : 'existing_conversation';
+}
+
+function buildNeutralStateContext() {
+  return [
+    '# STATE.md',
+    '- Phase: INTAKE',
+    '- Classification: no_artifact_input',
+    '- Current Focus: new conversation; no prior server-side context',
+    '- Last User Input: "None"',
+    ''
+  ].join('\n');
+}
+
+function buildNeutralNextContext() {
+  return [
+    '# NEXT_CONTEXT.md',
+    '## Current Artifact Workflow',
+    '- Current artifact: none',
+    '- Current artifact status: none',
+    '- Awaiting user input: no artifact workflow active',
+    '- Client Artifact Context: none',
+    ''
+  ].join('\n');
+}
+
+function buildNeutralArtifactStatus() {
+  return [
+    '# ARTIFACT_STATUS.md',
+    'Artifact: none',
+    'Status: none',
+    'Reason: new conversation context isolation',
+    ''
+  ].join('\n');
 }
 
 function readKernelFile(relPath) {

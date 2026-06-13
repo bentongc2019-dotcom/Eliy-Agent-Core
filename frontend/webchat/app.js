@@ -12,6 +12,7 @@ const state = {
   attachedFile: null,
   isSfocusMode: false,
   currentConversation: null,
+  serverContextInitialized: false,
 };
 
 const RECENT_CONVERSATIONS_KEY = 'ELIY_RECENT_CONVERSATIONS';
@@ -219,11 +220,13 @@ function startNewSession() {
   state.sessionId = createConversationId();
   state.messageCount = 0;
   state.isSfocusMode = false;
+  state.serverContextInitialized = false;
   state.currentConversation = {
     id: state.sessionId,
     title: '新对话',
     updatedAt: Date.now(),
-    messages: []
+    messages: [],
+    serverContextInitialized: false
   };
   
   sfocusSkillBtn.classList.remove('active');
@@ -415,6 +418,7 @@ function loadConversation(conversationId) {
   state.sessionId = conversation.id;
   state.messageCount = 0;
   state.isSfocusMode = false;
+  state.serverContextInitialized = !!conversation.serverContextInitialized;
   state.currentConversation = {
     ...conversation,
     messages: Array.isArray(conversation.messages) ? conversation.messages : []
@@ -480,6 +484,21 @@ function formatText(text) {
 
 function getActiveSkill() {
   return state.isSfocusMode ? 'sfocus' : 'default';
+}
+
+function getServerContextScope() {
+  return state.serverContextInitialized ? 'existing_conversation' : 'new_conversation';
+}
+
+function markServerContextInitialized() {
+  state.serverContextInitialized = true;
+  if (state.currentConversation) {
+    state.currentConversation.serverContextInitialized = true;
+    const conversations = getRecentConversations().filter(item => item.id !== state.currentConversation.id);
+    conversations.unshift(state.currentConversation);
+    setRecentConversations(conversations);
+    renderRecentConversations();
+  }
 }
 
 function updateSkillObserver(debugMeta = null) {
@@ -566,6 +585,7 @@ async function simulateEliyResponse(userText) {
 
   let response = '';
   let artifactPayload = null;
+  const contextScope = getServerContextScope();
 
   try {
     const res = await fetch('/api/chat', {
@@ -575,6 +595,8 @@ async function simulateEliyResponse(userText) {
         text: userText,
         model: 'deepseek-v4-flash',
         activeSkill: getActiveSkill(),
+        contextScope,
+        conversationId: state.sessionId,
         history: [{ role: 'user', content: userText }]
       })
     });
@@ -667,9 +689,13 @@ async function simulateEliyResponse(userText) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        artifact: artifactPayload
+        artifact: artifactPayload,
+        activeSkill: getActiveSkill(),
+        contextScope,
+        conversationId: state.sessionId
       })
     });
+    markServerContextInitialized();
   } catch (e) {
     console.warn('[Recorder] 后台归档失败:', e);
   }
