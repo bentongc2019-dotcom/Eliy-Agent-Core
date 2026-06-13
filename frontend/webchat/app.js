@@ -490,6 +490,10 @@ function getServerContextScope() {
   return state.serverContextInitialized ? 'existing_conversation' : 'new_conversation';
 }
 
+function getCurrentConversationId() {
+  return state.currentConversation?.id || state.sessionId;
+}
+
 function markServerContextInitialized() {
   state.serverContextInitialized = true;
   if (state.currentConversation) {
@@ -586,6 +590,14 @@ async function simulateEliyResponse(userText) {
   let response = '';
   let artifactPayload = null;
   const contextScope = getServerContextScope();
+  const conversationId = getCurrentConversationId();
+  console.info('[Client Context]', {
+    event: 'send_chat',
+    conversationId,
+    contextScope,
+    serverContextInitialized: state.serverContextInitialized,
+    activeSkill: getActiveSkill()
+  });
 
   try {
     const res = await fetch('/api/chat', {
@@ -596,7 +608,7 @@ async function simulateEliyResponse(userText) {
         model: 'deepseek-v4-flash',
         activeSkill: getActiveSkill(),
         contextScope,
-        conversationId: state.sessionId,
+        conversationId,
         history: [{ role: 'user', content: userText }]
       })
     });
@@ -692,7 +704,7 @@ async function simulateEliyResponse(userText) {
         artifact: artifactPayload,
         activeSkill: getActiveSkill(),
         contextScope,
-        conversationId: state.sessionId
+        conversationId
       })
     });
     markServerContextInitialized();

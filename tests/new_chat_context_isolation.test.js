@@ -19,6 +19,9 @@ const KERNEL_FILES = [
 
 let originalFiles = new Map();
 let originalMode;
+let originalDeepSeekKey;
+let originalDeepSeekBaseUrl;
+let originalFetch;
 
 function readKernelFile(relPath) {
   const filePath = path.join(KERNEL_DIR, relPath);
@@ -43,7 +46,7 @@ function restoreKernelFiles() {
   }
 }
 
-async function loadTestableServer() {
+async function loadTestableServer({ mode = 'generic_fallback' } = {}) {
   let serverCode = fs.readFileSync(path.join(KERNEL_DIR, 'runtime/server.js'), 'utf-8');
   serverCode = serverCode.replace(
     /server\.listen\([\s\S]*?\}\);/g,
@@ -54,7 +57,7 @@ async function loadTestableServer() {
 
   const cacheBust = `${pathToFileURL(TESTABLE_SERVER_PATH).href}?t=${Date.now()}_${Math.random()}`;
   const serverModule = await import(cacheBust);
-  process.env.CANDIDATE_GENERATION_MODE = 'generic_fallback';
+  process.env.CANDIDATE_GENERATION_MODE = mode;
   return serverModule;
 }
 
@@ -118,6 +121,9 @@ function seedSfocusContext() {
 describe('new chat context isolation', () => {
   beforeEach(() => {
     originalMode = process.env.CANDIDATE_GENERATION_MODE;
+    originalDeepSeekKey = process.env.DEEPSEEK_API_KEY;
+    originalDeepSeekBaseUrl = process.env.DEEPSEEK_BASE_URL;
+    originalFetch = globalThis.fetch;
     process.env.CANDIDATE_GENERATION_MODE = 'generic_fallback';
     originalFiles = new Map(KERNEL_FILES.map(relPath => [relPath, readKernelFile(relPath)]));
   });
@@ -130,6 +136,29 @@ describe('new chat context isolation', () => {
     } else {
       process.env.CANDIDATE_GENERATION_MODE = originalMode;
     }
+    if (originalDeepSeekKey === undefined) {
+      delete process.env.DEEPSEEK_API_KEY;
+    } else {
+      process.env.DEEPSEEK_API_KEY = originalDeepSeekKey;
+    }
+    if (originalDeepSeekBaseUrl === undefined) {
+      delete process.env.DEEPSEEK_BASE_URL;
+    } else {
+      process.env.DEEPSEEK_BASE_URL = originalDeepSeekBaseUrl;
+    }
+    globalThis.fetch = originalFetch;
+  });
+
+  test('webchat html cache-busts app.js so browsers load the context isolation client', () => {
+    const indexHtml = fs.readFileSync(path.join(ROOT_DIR, 'frontend/webchat/index.html'), 'utf-8');
+
+    expect(indexHtml).toMatch(/<script\s+src="app\.js\?v=[^"]+"/);
+  });
+
+  test('runtime serves webchat shell assets without browser cache reuse', () => {
+    const serverSource = fs.readFileSync(path.join(KERNEL_DIR, 'runtime/server.js'), 'utf-8');
+
+    expect(serverSource).toContain("headers['Cache-Control'] = 'no-store, max-age=0'");
   });
 
   test('new conversation first turn ignores stale NEXT_CONTEXT skill state', async () => {
@@ -204,5 +233,48 @@ describe('new chat context isolation', () => {
     expect(record.statusCode).toBe(200);
     expect(readKernelFile('memory/NEXT_CONTEXT.md')).toContain('CURRENT_SKILL: sfocus');
     expect(readKernelFile('memory/NEXT_CONTEXT.md')).not.toContain('stale previous conversation');
+  });
+
+  test('new TOC conversation real_llm prompt excludes stale previous conversation context', async () => {
+    seedSfocusContext();
+    process.env.DEEPSEEK_API_KEY = 'test-deepseek-key';
+    process.env.DEEPSEEK_BASE_URL = 'https://example.test';
+    const { handleChat } = await loadTestableServer({ mode: 'real_llm' });
+
+    let capturedDeepSeekBody = null;
+    globalThis.fetch = async (_url, options) => {
+      capturedDeepSeekBody = JSON.parse(options.body);
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [
+            {
+              message: {
+                content: 'TOC 学习可以先从约束、系统目标和当前问题开始。'
+              }
+            }
+          ]
+        })
+      };
+    };
+
+    const chat = await callHandler(handleChat, {
+      text: '我想学习TOC',
+      activeSkill: 'default',
+      contextScope: 'new_conversation',
+      conversationId: 'conv_new_toc_1',
+      history: [{ role: 'user', content: '我想学习TOC' }]
+    });
+
+    expect(chat.statusCode).toBe(200);
+    expect(chat.data.debug_meta.contextScope).toBe('new_conversation');
+    expect(chat.data.debug_meta.triggerSource).toBe('none');
+    expect(chat.data.debug_meta.sfocusInjected).toBe(false);
+
+    const systemPrompt = capturedDeepSeekBody.messages[0].content;
+    expect(systemPrompt).not.toContain('课程交付系统');
+    expect(systemPrompt).not.toContain('老师时间和精力不足');
+    expect(systemPrompt).not.toContain('stale previous conversation');
+    expect(systemPrompt).toContain('new conversation; no prior server-side context');
   });
 });

@@ -86,7 +86,11 @@ const server = http.createServer(async (req, res) => {
 
     if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
       const ext = path.extname(filePath);
-      res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' });
+      const headers = { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' };
+      if (['.html', '.js', '.css'].includes(ext)) {
+        headers['Cache-Control'] = 'no-store, max-age=0';
+      }
+      res.writeHead(200, headers);
       fs.createReadStream(filePath).pipe(res);
     } else {
       res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -106,6 +110,7 @@ async function handleChat(req, res) {
     const activeSkillReceived = body.activeSkill === 'sfocus' ? 'sfocus' : 'default';
     const contextScope = normalizeContextScope(body.contextScope);
     const isNewConversationContext = contextScope === 'new_conversation';
+    const conversationId = typeof body.conversationId === 'string' ? body.conversationId : 'none';
 
     const mode = process.env.CANDIDATE_GENERATION_MODE || 'generic_fallback';
     console.log(`[API /api/chat] 当前候选生成模式 CANDIDATE_GENERATION_MODE: ${mode}`);
@@ -141,7 +146,7 @@ async function handleChat(req, res) {
     const currentArtifactStatus = artifactStatusMatch ? artifactStatusMatch[1].trim() : 'unknown';
     const textPreview = userText.replace(/\s+/g, ' ').slice(0, 20);
     console.log(
-      `[API /api/chat][observability] textPreview="${textPreview}" | contextScope=${contextScope} | activeSkillReceived=${activeSkillReceived} | sfocusInjected=${isSfocusTriggered} | triggerSource=${triggerSource} | hasClientArtifactContext=${!!clientArtifact} | currentArtifactStatus=${currentArtifactStatus}`
+      `[API /api/chat][observability] textPreview="${textPreview}" | conversationId=${conversationId} | contextScope=${contextScope} | activeSkillReceived=${activeSkillReceived} | sfocusInjected=${isSfocusTriggered} | triggerSource=${triggerSource} | hasClientArtifactContext=${!!clientArtifact} | currentArtifactStatus=${currentArtifactStatus}`
     );
     let sfocusSkillContent = "";
     if (isSfocusTriggered) {
@@ -400,7 +405,8 @@ async function handleChat(req, res) {
         sfocusInjected: isSfocusTriggered,
         triggerSource,
         skillModeObserved,
-        contextScope
+        contextScope,
+        conversationId
       }
     }));
   } catch (err) {
@@ -660,6 +666,7 @@ async function handleRecord(req, res) {
     const activeSkillReceived = body.activeSkill === 'sfocus' ? 'sfocus' : 'default';
     const contextScope = normalizeContextScope(body.contextScope);
     const isNewConversationContext = contextScope === 'new_conversation';
+    const conversationId = typeof body.conversationId === 'string' ? body.conversationId : 'none';
     const normalizedClientArtifact = clientArtifact?.status === 'suggested'
       ? { ...clientArtifact, status: 'proposed' }
       : clientArtifact;
@@ -709,7 +716,7 @@ async function handleRecord(req, res) {
       }
     }
 
-    console.log(`[API /api/record] classification: ${classification} | artifact_status: ${artifactGuard.status}`);
+    console.log(`[API /api/record] conversationId=${conversationId} | contextScope=${contextScope} | activeSkillReceived=${activeSkillReceived} | classification=${classification} | artifact_status=${artifactGuard.status}`);
 
     // === 1. STATE.md ===
     const stateFocusMap = {
