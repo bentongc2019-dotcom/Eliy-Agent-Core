@@ -7,6 +7,7 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.json",
     "license:scan": "node dist/license-scan.js",
+    "test:deepseek": "node dist/deepseek-tests.js",
     "test:runtime": "node dist/tests.js"
   },
   "keywords": [],
@@ -16,6 +17,7 @@
   "type": "module",
   "dependencies": {
     "@openai/agents": "0.11.6",
+    "openai": "6.42.0",
     "zod": "4.4.3"
   },
   "devDependencies": {

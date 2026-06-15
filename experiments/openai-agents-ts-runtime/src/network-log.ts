@@ -17,9 +17,10 @@ let installed = false;
 function classify(url: string): { domain: string; allowed: boolean; reason: string } {
   const parsed = new URL(url);
   const domain = parsed.host;
-  const allowedHosts = new Set(["api.openai.com"]);
+  const configuredAllowedHost = process.env.RUNTIME_ALLOWED_MODEL_DOMAIN;
+  const allowedHosts = new Set(["api.openai.com", configuredAllowedHost].filter(Boolean));
   if (allowedHosts.has(domain)) {
-    return { domain, allowed: true, reason: "OpenAI Model API" };
+    return { domain, allowed: true, reason: "Configured OpenAI-compatible Model API" };
   }
   return { domain, allowed: false, reason: "Not in runtime allowlist" };
 }
