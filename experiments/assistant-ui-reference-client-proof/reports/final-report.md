@@ -1,10 +1,10 @@
 # assistant-ui Reference Client Proof Final Report
 
-Generated: 2026-06-15T21:30:00+08:00
+Generated: 2026-06-15T22:10:00+08:00
 
-Task: `CP-HAC-ASSISTANT-UI-REFERENCE-CLIENT-PROOF-01`
-Scope: assistant-ui Commercialization Gate x Reference Client Prototype Validation
-Pass: GitHub Actions Browser Evidence Pass
+Task: `CP-HAC-ASSISTANT-UI-REFERENCE-CLIENT-DEFECT-ISOLATION-01`
+Scope: Browser Failure Root-cause x Final Remediation Pass
+Final conclusion: `Reference Client Proof Failed`
 
 ## 1. Repository State
 
@@ -13,10 +13,12 @@ Pass: GitHub Actions Browser Evidence Pass
 - Functional Proof Commit: `254ee01 test(assistant-ui): add reference client proof`
 - Portable Package Commit: `f96613b docs(assistant-ui): prepare portable browser validation package`
 - CI Workflow Commit: `cb137e4 ci(assistant-ui): add hosted chromium reference proof`
-- Validation Target Commit: `cb137e47d90fcb49d763a2dc4ef924975bc42e99`
-- GitHub Actions Run: `27548274912`
-- GitHub Actions Run URL: `https://github.com/bentongc2019-dotcom/Eliy-Agent-Core/actions/runs/27548274912`
-- GitHub Actions Job URL: `https://github.com/bentongc2019-dotcom/Eliy-Agent-Core/actions/runs/27548274912/job/81427332997`
+- Prior Evidence Commit: `a37dfee test(assistant-ui): record hosted chromium browser evidence`
+- Root-cause Commit: `e9773f2 test(assistant-ui): isolate browser proof defects`
+- Remediation Commit / Validation Target Commit: `84de9e4d7716d78418a6ba3386d10569ee560989`
+- Final GitHub Actions Run: `27551332487`
+- Final Run URL: `https://github.com/bentongc2019-dotcom/Eliy-Agent-Core/actions/runs/27551332487`
+- Final Job URL: `https://github.com/bentongc2019-dotcom/Eliy-Agent-Core/actions/runs/27551332487/job/81438138521`
 - Evidence Status: `Failed`
 - Started from clean baseline branch: `fix/new-chat-context-isolation-l1` at `dbb70a1`
 - Formal Eliy business code modified: No
@@ -35,216 +37,199 @@ Pass: GitHub Actions Browser Evidence Pass
 | `react-dom` | 19.2.7 | MIT | runtime peer |
 | `@playwright/test` | 1.61.0 | Apache-2.0 | dev-only hosted browser evidence harness |
 
-Lockfile: `package-lock.json`
+Package versions were not changed in this defect isolation pass.
 
-## 3. License and Dependency Scan
+## 3. License and Commercial Boundary
 
-- Installed package entries before CI harness: 145
-- Production-reachable package entries before CI harness: 98
-- Production license distribution before CI harness: MIT=96, BSD-3-Clause=1, 0BSD=1
-- Suspicious or UNKNOWN production licenses: 0
-- npm audit production vulnerabilities: 0
-- Saved LICENSE files: `reports/licenses/`
-- CI harness dependency: `@playwright/test@1.61.0`, dev-only, Apache-2.0
+- Commercialization/license Gate remains passed based on the existing inventory.
+- Production license UNKNOWN count remains `0`.
+- npm audit production vulnerabilities: `0`.
+- Assistant Cloud used: No.
+- Assistant Cloud credential used: No.
+- Real LLM used: No.
+- Real API key used: No.
+- Real Agent Runtime connected: No.
+- assistant-ui fork or package source patch: No.
+- assistant-ui private internal API used: No.
 
-License conclusion: Commercialization/license gate remains passed for the assistant-ui prototype. The final proof still fails because browser evidence did not pass.
+Note: `assistant-cloud` remains a transitive dependency of `@assistant-ui/react`, but the proof prototype does not import `AssistantCloud`, cloud runtime hooks, cloud adapters, or cloud credentials.
 
-## 4. Assistant Cloud / LLM / Runtime Boundary
+## 4. Root-cause Isolation
 
-- Assistant Cloud used: No
-- Assistant Cloud credential used: No
-- Real LLM used: No
-- Real API key used: No
-- Real Agent Runtime connected: No
-- assistant-ui fork or package source patch: No
-- assistant-ui package versions changed during CI pass: No
+Root-cause report: `reports/defect-root-cause.md`
 
-Note: `assistant-cloud` is installed as a transitive dependency of `@assistant-ui/react`, but this prototype does not import `AssistantCloud`, cloud runtime hooks, cloud adapters, or cloud credentials.
+| Defect | Root-cause Category | Responsible Layer | Remediation Attempt |
+|---|---|---|---|
+| Selector collision | A. Test Harness 时序错误 | Playwright selector scope | Scoped Test A selectors to Chat / Thread containers and preserved Event Ledger. |
+| `Resource updated before mount` | A. Test Harness 时序错误 | Browser test harness and thin assistant-ui integration timing | Added proof-ready waiting, initial `human_confirmation_requested`, stable external-store adapter object, cleanup guards, and Mock Controller decision persistence. |
 
-## 5. GitHub Actions Environment
+The remediation was committed in `84de9e4` and stayed within test-only / thin integration boundaries.
+
+## 5. Final GitHub Actions Environment
 
 | Item | Evidence |
 |---|---|
 | Runner | GitHub Actions Hosted Runner |
-| OS | Ubuntu 24.04.4 LTS |
-| Runner image | `ubuntu-24.04`, version `20260607.184.1` |
+| OS | `ubuntu-24.04` |
 | Node.js | `v25.9.0` |
 | npm | `11.12.1` |
 | Playwright | `@playwright/test@1.61.0` |
-| Browser | Playwright bundled Chromium, user agent `HeadlessChrome/149.0.7827.55` |
+| Browser | Playwright bundled Chromium |
 | Typecheck | Passed |
 | Build | Passed |
 | Browser proof tests | Failed |
-| Artifact upload | Passed, artifact ID `7638917900` |
+| Artifact upload | Passed |
 
-Artifact download URL: `https://github.com/bentongc2019-dotcom/Eliy-Agent-Core/actions/runs/27548274912/artifacts/7638917900`
-
-Downloaded local artifact directory:
+Final artifact directory:
 
 ```text
-reports/ci-artifacts/
+reports/ci-artifacts-final/
 ```
 
-## 6. Browser Test Results
+## 6. Final Browser Test Results
 
-| Test | Result | Evidence | Notes |
+| Test | Result | Failure Evidence | Notes |
 |---|---|---|---|
-| Test A - Chat / Streaming | Failed | `browser-test-results-ci.json`, trace, screenshot | Browser rendered. Failure was Playwright strict-mode selector collision: stream text appeared in chat and ledger. |
-| Test B - Tool Request | Passed | trace, screenshot | Tool name/args/status visible; pending before decision. |
-| Test C - Approve | Failed | trace, screenshot, video, console error | User action executed, but browser Console had `Resource updated before mount` twice. |
-| Test D - Deny | Failed | trace, screenshot, video, console error | User action executed, but browser Console had `Resource updated before mount` twice. |
-| Test E - Modify | Failed | trace, screenshot, video, console error | Structured modify path executed, but browser Console had `Resource updated before mount` twice. |
-| Test F - Interrupt / Resume | Passed | trace, screenshot | Interrupt/resume path passed; no human decision replay. |
-| Test G - Artifact | Passed | trace, screenshot | Artifact display/status path passed. |
-| Test H - Failure / Recovery | Passed | trace, screenshot | Failure/recovery path passed; no human decision replay. |
+| Test A - Chat / Streaming | Failed | `proof-ready` stayed `warming`; expected `ready`. | Selector collision was no longer the observed failure, but the path did not pass. |
+| Test B - Tool Request | Failed | `proof-ready` stayed `warming`; expected `ready`. | Test did not reach Tool Request assertions. |
+| Test C - Approve | Failed | `proof-ready` stayed `warming`; expected `ready`. | Approve once-only was not proven in the final run. |
+| Test D - Deny | Failed | `proof-ready` stayed `warming`; expected `ready`. | Deny once-only was not proven in the final run. |
+| Test E - Modify | Failed | `proof-ready` stayed `warming`; expected `ready`. | Structured Modify once-only was not proven in the final run. |
+| Test F - Interrupt / Resume | Failed | `proof-ready` stayed `warming`; expected `ready`. | Interrupt / Resume regression occurred before action assertions. |
+| Test G - Artifact | Failed | `proof-ready` stayed `warming`; expected `ready`. | Artifact path did not pass. |
+| Test H - Failure / Recovery | Failed | `proof-ready` stayed `warming`; expected `ready`. | Failure / recovery path did not pass. |
 
 Summary:
 
 ```text
-Passed: 4
-Failed: 4
+Passed: 0
+Failed: 8
 Skipped: 0
-Run status: failure
+Browser environment: usable
+Overall browser proof: Failed
 ```
 
-Important distinction:
-
-- Browser environment was usable; Chromium launched and rendered the page.
-- This is no longer `Environment Blocked`.
-- Because the browser proof tests ran and failed, the final result is `Reference Client Proof Failed`.
+The final run did not show `Resource updated before mount`, but that is not pass evidence because the suite failed earlier at readiness and did not execute the Human Decision actions.
 
 ## 7. Human Decision Evidence
 
-| Capability | Implementation Source | CI Result | Evidence |
+| Capability | Implementation Source | Final CI Result | Evidence |
 |---|---|---|---|
-| Approve | Configured Open-source | Failed | `respondToApproval` path was exercised, but Console error caused Test C failure. |
-| Deny | Configured Open-source | Failed | `respondToApproval` path was exercised, but Console error caused Test D failure. |
-| Modify | Configured Open-source | Failed | `resume` structured payload path was exercised, but Console error caused Test E failure. |
-| Interrupt | Configured Open-source | Passed | Mock controller event `run_interrupted` captured. |
-| Resume | Configured Open-source | Passed | Mock controller event `run_resumed` captured; no prior human decision replay. |
+| Approve | Configured Open-source / Thin Integration | Failed | Test C did not reach click/assertion stage because `proof-ready` stayed `warming`. |
+| Deny | Configured Open-source / Thin Integration | Failed | Test D did not reach click/assertion stage because `proof-ready` stayed `warming`. |
+| Modify | Configured Open-source / Thin Integration | Failed | Test E did not reach structured Modify assertion stage because `proof-ready` stayed `warming`. |
+| Interrupt | Configured Open-source / Thin Integration | Failed | Test F did not reach action assertion stage. |
+| Resume | Configured Open-source / Thin Integration | Failed | Test F did not reach action assertion stage. |
 
-Duplicate submission evidence:
+Required proof not established:
 
-- Test C intended check: `human_approved` once and no replay after reload, but test failed on Console error.
-- Test D intended check: `human_denied` once and no replay after reload, but test failed on Console error.
-- Test E intended check: `human_modified` once and no replay after reload, but test failed on Console error.
-- Test F/H passed no-replay checks for non-decision state transitions.
+- Approve once-only: Not proven.
+- Deny once-only: Not proven.
+- Modify once-only: Not proven.
+- Reload no-replay: Not proven.
+- `Resource updated before mount` disappearance in actual decision paths: Not proven.
 
 ## 8. Runtime Network Audit
 
-CI Setup Network allowed:
+Final network report: `reports/runtime-network-requests-final.md`
 
-- npm registry and package cache;
-- GitHub Actions services;
-- Playwright Chromium/browser dependency download;
-- Ubuntu package mirrors during `npx playwright install --with-deps chromium`.
+Observed application runtime requests were local only:
 
-Application Runtime Network evidence:
+- `http://127.0.0.1:4177/`
+- `http://127.0.0.1:4177/@vite/client`
+- `http://127.0.0.1:4177/@react-refresh`
+- `http://127.0.0.1:4177/src/main.tsx`
+- `http://127.0.0.1:4177/src/styles.css`
+- `http://127.0.0.1:4177/node_modules/...`
 
-- Captured from Playwright traces for all eight tests.
-- All observed runtime URLs were local:
-  - `http://127.0.0.1:4177/`
-  - `http://127.0.0.1:4177/@vite/client`
-  - `http://127.0.0.1:4177/@react-refresh`
-  - `http://127.0.0.1:4177/src/main.tsx`
-  - `http://127.0.0.1:4177/src/styles.css`
-  - `http://127.0.0.1:4177/node_modules/...`
-  - `ws://127.0.0.1:4177/?token=...` for local Vite HMR
-- No Assistant Cloud request observed.
-- No remote model API request observed.
-- No remote Agent Runtime request observed.
-- No commercial License service request observed.
-- No real API key endpoint observed.
+No forbidden runtime request was observed:
 
-Network audit conclusion: Passed for application runtime network boundary. The proof still fails due browser interaction/console evidence.
+- Assistant Cloud: No.
+- Remote model API: No.
+- Remote Agent Runtime: No.
+- Commercial License service: No.
+- Real API key endpoint: No.
+
+Network boundary result: Passed, but the overall proof failed due browser interaction failures.
 
 ## 9. Artifacts
 
 Saved under:
 
 ```text
-reports/ci-artifacts/
+reports/ci-artifacts-final/
 ```
 
-Included evidence:
+Included:
 
-- `playwright-report/index.html`
-- `test-results/**/trace.zip`
-- `test-results/**/test-failed-1.png`
-- `test-results/**/test-finished-1.png`
-- `test-results/**/video.webm` for failed tests with video
-- `test-results/**/error-context.md`
-- `screenshots/test-a-chat-streaming.png`
-- `screenshots/test-b-tool-request.png`
-- `screenshots/test-c-approve.png`
-- `screenshots/test-d-deny.png`
-- `screenshots/test-e-modify.png`
-- `screenshots/test-f-interrupt-resume.png`
-- `screenshots/test-g-artifact.png`
-- `screenshots/test-h-failure-recovery.png`
-- `reports/browser-test-results-ci.json`
-- `reports/runtime-network-requests-ci.md`
+- Playwright HTML report.
+- Eight test screenshots.
+- Eight trace archives.
+- Eight videos.
+- Eight `error-context.md` files.
+- Browser console records in Playwright report / generated markdown.
+- Mock Controller event log in generated markdown.
+- Runtime network report.
 
-## 10. Open-core Contribution Matrix
+## 10. Actual Modified Files in Defect Pass
 
-| Capability | Implementation Source | Evidence |
-|---|---|---|
-| Thread / message runtime | Configured Open-source | `useExternalStoreRuntime` and `AssistantRuntimeProvider` from public `@assistant-ui/react` exports. |
-| Chat / Streaming display | Configured Open-source | Browser rendered stream; Test A failed due test selector strict-mode collision, not absence of rendering. |
-| Tool Request UI | Thin Extension | Public `MessagePrimitive.Parts` custom tool renderer. Test B passed. |
-| Approve | Configured Open-source | Public `respondToApproval`; Test C failed due Console error. |
-| Deny | Configured Open-source | Public `respondToApproval`; Test D failed due Console error. |
-| Modify | Configured Open-source | Public `resume` structured payload; Test E failed due Console error. |
-| Interrupt / Resume | Configured Open-source | External-store state; Test F passed. |
-| Artifact | Thin Extension | assistant-ui data part renderer with custom artifact UI; Test G passed. |
-| Failure / Recovery | Configured Open-source | External-store assistant message status; Test H passed. |
-| Custom branding | Thin Extension | HAC-Agent proof branding in local CSS/source. |
+Root-cause commit:
 
-Counts: Native Open-source=0, Configured Open-source=7, Thin Extension=3, Custom Replacement=0, Cloud=0, Unsupported=0.
+- `reports/defect-root-cause.md`
 
-## 11. Forced Pass Items
+Remediation commit:
 
-| # | Item | Result |
-|---:|---|---|
-| 1 | Commercialization/license Gate passed | Passed |
-| 2 | No Assistant Cloud dependency | Passed |
-| 3 | Chat / Streaming runnable | Failed in CI due selector collision; browser rendered stream evidence exists |
-| 4 | Tool Request display | Passed |
-| 5 | Approve reliable submission | Failed, Console error during browser proof |
-| 6 | Deny reliable submission | Failed, Console error during browser proof |
-| 7 | Modify structured update | Failed, Console error during browser proof |
-| 8 | Interrupt / Resume state consistency | Passed |
-| 9 | Artifact / Chat separation | Passed |
-| 10 | Frontend does not infer Runtime Truth | Partially evidenced; full pass blocked by failed browser suite |
-| 11 | No duplicate submission after rerender | Failed to prove for Approve/Deny/Modify because tests failed |
-| 12 | External Mock Event Stream compatible | Partially evidenced |
-| 13 | HAC-Agent custom branding | Passed |
-| 14 | No fork | Passed |
-| 15 | No large Custom Replacement | Passed at source/harness level |
-| 16 | Core path uses public open-source API | Passed at source/harness level |
-| 17 | Reproducible test evidence | Failed overall; CI evidence reproducible but browser suite failed |
+- `.github/workflows/assistant-ui-reference-client-proof.yml`
+- `experiments/assistant-ui-reference-client-proof/src/main.tsx`
+- `experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts`
+
+Final evidence commit will add/update:
+
+- `reports/browser-test-results-final.md`
+- `reports/runtime-network-requests-final.md`
+- `reports/final-report.md`
+- `reports/ci-artifacts-final/`
+
+Custom code delta in remediation commit:
+
+```text
+3 files changed, 230 insertions(+), 69 deletions(-)
+```
+
+## 11. SDK / Cloud / Runtime Boundary
+
+- SDK patch: No.
+- Private API: No.
+- Fork: No.
+- Assistant Cloud: No.
+- Real LLM: No.
+- Real Agent Runtime: No.
+- Real API Key: No.
+- Console error suppression: No.
+- Test assertion weakening: No.
+- Event Ledger deletion: No.
+- Merge / deploy: No.
 
 ## 12. Final Conclusion
 
 ```text
 Reference Client Proof Failed
+assistant-ui Eliminated
 ```
 
 Reason:
 
-- GitHub Actions hosted Chromium successfully launched and rendered the proof page.
+- GitHub Actions hosted Chromium launched and rendered the page, so the result is not `Environment Blocked`.
 - Typecheck and build passed.
-- The browser test suite actually executed.
-- Four of eight required browser paths failed:
-  - Chat / Streaming failed due a test selector collision after rendered evidence appeared.
-  - Approve, Deny, and Modify failed because the browser Console emitted `Resource updated before mount`.
-- Under the task rules, a real browser test failure after successful browser launch is not `Environment Blocked`.
-- Application runtime network audit did not show forbidden Assistant Cloud, remote model, remote Agent Runtime, or License service requests.
+- The final full browser suite ran and failed all eight required paths.
+- The final failure was a proof readiness regression: `proof-ready` remained `warming`.
+- Approve / Deny / Modify once-only and reload no-replay were not proven.
+- The task explicitly allows no further infinite remediation after this final run.
 
-Recommendation to freeze:
+Freeze recommendation:
 
 ```text
 HAC-Agent Reference Client = assistant-ui
 ```
 
-Not recommended. Do not freeze assistant-ui until browser-level evidence passes under the unchanged gate.
+Not recommended. Do not freeze assistant-ui as the HAC-Agent Reference Client.

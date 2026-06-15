@@ -1,0 +1,782 @@
+{
+  "config": {
+    "argv": [
+      "/opt/hostedtoolcache/node/25.9.0/x64/bin/node",
+      "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/node_modules/.bin/playwright",
+      "test"
+    ],
+    "configFile": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/playwright.config.ts",
+    "rootDir": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "ci": {
+        "commitHref": "https://github.com/bentongc2019-dotcom/Eliy-Agent-Core/commit/84de9e4d7716d78418a6ba3386d10569ee560989",
+        "commitHash": "84de9e4d7716d78418a6ba3386d10569ee560989",
+        "buildHref": "https://github.com/bentongc2019-dotcom/Eliy-Agent-Core/actions/runs/27551332487"
+      },
+      "gitCommit": {
+        "shortHash": "84de9e4",
+        "hash": "84de9e4d7716d78418a6ba3386d10569ee560989",
+        "subject": "test(assistant-ui): remediate browser proof defects",
+        "body": "test(assistant-ui): remediate browser proof defects\n",
+        "author": {
+          "name": "RichBoss",
+          "email": "your_email@example.com",
+          "time": 1781531703000
+        },
+        "committer": {
+          "name": "RichBoss",
+          "email": "your_email@example.com",
+          "time": 1781531703000
+        },
+        "branch": "spike/assistant-ui-reference-client-proof"
+      },
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "ci": {
+            "commitHref": "https://github.com/bentongc2019-dotcom/Eliy-Agent-Core/commit/84de9e4d7716d78418a6ba3386d10569ee560989",
+            "commitHash": "84de9e4d7716d78418a6ba3386d10569ee560989",
+            "buildHref": "https://github.com/bentongc2019-dotcom/Eliy-Agent-Core/actions/runs/27551332487"
+          },
+          "gitCommit": {
+            "shortHash": "84de9e4",
+            "hash": "84de9e4d7716d78418a6ba3386d10569ee560989",
+            "subject": "test(assistant-ui): remediate browser proof defects",
+            "body": "test(assistant-ui): remediate browser proof defects\n",
+            "author": {
+              "name": "RichBoss",
+              "email": "your_email@example.com",
+              "time": 1781531703000
+            },
+            "committer": {
+              "name": "RichBoss",
+              "email": "your_email@example.com",
+              "time": 1781531703000
+            },
+            "branch": "spike/assistant-ui-reference-client-proof"
+          },
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 45000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "line",
+        null
+      ],
+      [
+        "html",
+        {
+          "outputFolder": "playwright-report",
+          "open": "never"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "reports/browser-test-results-ci.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.61.0",
+    "workers": 1,
+    "webServer": {
+      "command": "npm run dev -- --host 127.0.0.1 --port 4177",
+      "url": "http://127.0.0.1:4177",
+      "reuseExistingServer": false,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "assistant-ui-reference-client.spec.ts",
+      "file": "assistant-ui-reference-client.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "assistant-ui hosted browser reference proof",
+          "file": "assistant-ui-reference-client.spec.ts",
+          "line": 270,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Test A - Chat / Streaming",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 9552,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n\n    at waitForProofReady (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:97:49)\n    at openProof (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:106:3)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:276:7\n    at recordResult (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:236:5)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:275:5",
+                        "location": {
+                          "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                          "column": 49,
+                          "line": 97
+                        },
+                        "snippet": "\u001b[0m \u001b[90m  95 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"thread-root\"\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m  96 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"mock-controller\"\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  97 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"proof-ready\"\u001b[39m))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"ready\"\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                 \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m  98 |\u001b[39m }\n \u001b[90m  99 |\u001b[39m\n \u001b[90m 100 |\u001b[39m \u001b[36masync\u001b[39m \u001b[36mfunction\u001b[39m openProof(page\u001b[33m:\u001b[39m \u001b[33mPage\u001b[39m\u001b[33m,\u001b[39m options\u001b[33m:\u001b[39m { fresh\u001b[33m?\u001b[39m\u001b[33m:\u001b[39m boolean } \u001b[33m=\u001b[39m {}) {\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                            "column": 49,
+                            "line": 97
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n\n\n   95 |   await expect(page.getByTestId(\"thread-root\")).toBeVisible();\n   96 |   await expect(page.getByTestId(\"mock-controller\")).toBeVisible();\n>  97 |   await expect(page.getByTestId(\"proof-ready\")).toHaveText(\"ready\");\n      |                                                 ^\n   98 | }\n   99 |\n  100 | async function openProof(page: Page, options: { fresh?: boolean } = {}) {\n    at waitForProofReady (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:97:49)\n    at openProof (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:106:3)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:276:7\n    at recordResult (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:236:5)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:275:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-06-15T13:57:06.902Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-a10cc-oof-Test-A---Chat-Streaming/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-a10cc-oof-Test-A---Chat-Streaming/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-a10cc-oof-Test-A---Chat-Streaming/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-a10cc-oof-Test-A---Chat-Streaming/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                        "column": 49,
+                        "line": 97
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "eb5b08a323d75d6076d6-2ca7aea24559f9541276",
+              "file": "assistant-ui-reference-client.spec.ts",
+              "line": 271,
+              "column": 3
+            },
+            {
+              "title": "Test B - Tool Request",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 9507,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n\n    at waitForProofReady (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:97:49)\n    at openProof (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:106:3)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:291:7\n    at recordResult (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:236:5)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:290:5",
+                        "location": {
+                          "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                          "column": 49,
+                          "line": 97
+                        },
+                        "snippet": "\u001b[0m \u001b[90m  95 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"thread-root\"\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m  96 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"mock-controller\"\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  97 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"proof-ready\"\u001b[39m))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"ready\"\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                 \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m  98 |\u001b[39m }\n \u001b[90m  99 |\u001b[39m\n \u001b[90m 100 |\u001b[39m \u001b[36masync\u001b[39m \u001b[36mfunction\u001b[39m openProof(page\u001b[33m:\u001b[39m \u001b[33mPage\u001b[39m\u001b[33m,\u001b[39m options\u001b[33m:\u001b[39m { fresh\u001b[33m?\u001b[39m\u001b[33m:\u001b[39m boolean } \u001b[33m=\u001b[39m {}) {\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                            "column": 49,
+                            "line": 97
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n\n\n   95 |   await expect(page.getByTestId(\"thread-root\")).toBeVisible();\n   96 |   await expect(page.getByTestId(\"mock-controller\")).toBeVisible();\n>  97 |   await expect(page.getByTestId(\"proof-ready\")).toHaveText(\"ready\");\n      |                                                 ^\n   98 | }\n   99 |\n  100 | async function openProof(page: Page, options: { fresh?: boolean } = {}) {\n    at waitForProofReady (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:97:49)\n    at openProof (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:106:3)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:291:7\n    at recordResult (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:236:5)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:290:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-06-15T13:57:18.056Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-dc4e2-proof-Test-B---Tool-Request/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-dc4e2-proof-Test-B---Tool-Request/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-dc4e2-proof-Test-B---Tool-Request/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-dc4e2-proof-Test-B---Tool-Request/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                        "column": 49,
+                        "line": 97
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "eb5b08a323d75d6076d6-cf29d4bf9ad2dcf9873f",
+              "file": "assistant-ui-reference-client.spec.ts",
+              "line": 286,
+              "column": 3
+            },
+            {
+              "title": "Test C - Approve",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 9465,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n\n    at waitForProofReady (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:97:49)\n    at openProof (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:106:3)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:307:7\n    at recordResult (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:236:5)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:306:5",
+                        "location": {
+                          "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                          "column": 49,
+                          "line": 97
+                        },
+                        "snippet": "\u001b[0m \u001b[90m  95 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"thread-root\"\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m  96 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"mock-controller\"\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  97 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"proof-ready\"\u001b[39m))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"ready\"\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                 \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m  98 |\u001b[39m }\n \u001b[90m  99 |\u001b[39m\n \u001b[90m 100 |\u001b[39m \u001b[36masync\u001b[39m \u001b[36mfunction\u001b[39m openProof(page\u001b[33m:\u001b[39m \u001b[33mPage\u001b[39m\u001b[33m,\u001b[39m options\u001b[33m:\u001b[39m { fresh\u001b[33m?\u001b[39m\u001b[33m:\u001b[39m boolean } \u001b[33m=\u001b[39m {}) {\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                            "column": 49,
+                            "line": 97
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n\n\n   95 |   await expect(page.getByTestId(\"thread-root\")).toBeVisible();\n   96 |   await expect(page.getByTestId(\"mock-controller\")).toBeVisible();\n>  97 |   await expect(page.getByTestId(\"proof-ready\")).toHaveText(\"ready\");\n      |                                                 ^\n   98 | }\n   99 |\n  100 | async function openProof(page: Page, options: { fresh?: boolean } = {}) {\n    at waitForProofReady (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:97:49)\n    at openProof (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:106:3)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:307:7\n    at recordResult (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:236:5)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:306:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-06-15T13:57:28.150Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-bed21-ence-proof-Test-C---Approve/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-bed21-ence-proof-Test-C---Approve/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-bed21-ence-proof-Test-C---Approve/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-bed21-ence-proof-Test-C---Approve/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                        "column": 49,
+                        "line": 97
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "eb5b08a323d75d6076d6-9be5408d910399db4ad5",
+              "file": "assistant-ui-reference-client.spec.ts",
+              "line": 302,
+              "column": 3
+            },
+            {
+              "title": "Test D - Deny",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 9542,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n\n    at waitForProofReady (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:97:49)\n    at openProof (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:106:3)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:326:7\n    at recordResult (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:236:5)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:325:5",
+                        "location": {
+                          "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                          "column": 49,
+                          "line": 97
+                        },
+                        "snippet": "\u001b[0m \u001b[90m  95 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"thread-root\"\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m  96 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"mock-controller\"\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  97 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"proof-ready\"\u001b[39m))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"ready\"\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                 \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m  98 |\u001b[39m }\n \u001b[90m  99 |\u001b[39m\n \u001b[90m 100 |\u001b[39m \u001b[36masync\u001b[39m \u001b[36mfunction\u001b[39m openProof(page\u001b[33m:\u001b[39m \u001b[33mPage\u001b[39m\u001b[33m,\u001b[39m options\u001b[33m:\u001b[39m { fresh\u001b[33m?\u001b[39m\u001b[33m:\u001b[39m boolean } \u001b[33m=\u001b[39m {}) {\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                            "column": 49,
+                            "line": 97
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n\n\n   95 |   await expect(page.getByTestId(\"thread-root\")).toBeVisible();\n   96 |   await expect(page.getByTestId(\"mock-controller\")).toBeVisible();\n>  97 |   await expect(page.getByTestId(\"proof-ready\")).toHaveText(\"ready\");\n      |                                                 ^\n   98 | }\n   99 |\n  100 | async function openProof(page: Page, options: { fresh?: boolean } = {}) {\n    at waitForProofReady (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:97:49)\n    at openProof (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:106:3)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:326:7\n    at recordResult (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:236:5)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:325:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-06-15T13:57:38.198Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-dc3a9-ference-proof-Test-D---Deny/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-dc3a9-ference-proof-Test-D---Deny/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-dc3a9-ference-proof-Test-D---Deny/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-dc3a9-ference-proof-Test-D---Deny/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                        "column": 49,
+                        "line": 97
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "eb5b08a323d75d6076d6-4861f6d7e9a5e306a8f8",
+              "file": "assistant-ui-reference-client.spec.ts",
+              "line": 321,
+              "column": 3
+            },
+            {
+              "title": "Test E - Modify",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 9510,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n\n    at waitForProofReady (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:97:49)\n    at openProof (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:106:3)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:347:7\n    at recordResult (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:236:5)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:346:5",
+                        "location": {
+                          "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                          "column": 49,
+                          "line": 97
+                        },
+                        "snippet": "\u001b[0m \u001b[90m  95 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"thread-root\"\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m  96 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"mock-controller\"\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  97 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"proof-ready\"\u001b[39m))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"ready\"\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                 \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m  98 |\u001b[39m }\n \u001b[90m  99 |\u001b[39m\n \u001b[90m 100 |\u001b[39m \u001b[36masync\u001b[39m \u001b[36mfunction\u001b[39m openProof(page\u001b[33m:\u001b[39m \u001b[33mPage\u001b[39m\u001b[33m,\u001b[39m options\u001b[33m:\u001b[39m { fresh\u001b[33m?\u001b[39m\u001b[33m:\u001b[39m boolean } \u001b[33m=\u001b[39m {}) {\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                            "column": 49,
+                            "line": 97
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n\n\n   95 |   await expect(page.getByTestId(\"thread-root\")).toBeVisible();\n   96 |   await expect(page.getByTestId(\"mock-controller\")).toBeVisible();\n>  97 |   await expect(page.getByTestId(\"proof-ready\")).toHaveText(\"ready\");\n      |                                                 ^\n   98 | }\n   99 |\n  100 | async function openProof(page: Page, options: { fresh?: boolean } = {}) {\n    at waitForProofReady (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:97:49)\n    at openProof (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:106:3)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:347:7\n    at recordResult (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:236:5)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:346:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-06-15T13:57:48.341Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-adcfa-rence-proof-Test-E---Modify/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-adcfa-rence-proof-Test-E---Modify/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-adcfa-rence-proof-Test-E---Modify/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-adcfa-rence-proof-Test-E---Modify/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                        "column": 49,
+                        "line": 97
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "eb5b08a323d75d6076d6-40b6f596cdfa92d1ba6e",
+              "file": "assistant-ui-reference-client.spec.ts",
+              "line": 342,
+              "column": 3
+            },
+            {
+              "title": "Test F - Interrupt / Resume",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 9350,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n\n    at waitForProofReady (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:97:49)\n    at openProof (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:106:3)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:378:7\n    at recordResult (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:236:5)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:377:5",
+                        "location": {
+                          "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                          "column": 49,
+                          "line": 97
+                        },
+                        "snippet": "\u001b[0m \u001b[90m  95 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"thread-root\"\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m  96 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"mock-controller\"\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  97 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"proof-ready\"\u001b[39m))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"ready\"\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                 \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m  98 |\u001b[39m }\n \u001b[90m  99 |\u001b[39m\n \u001b[90m 100 |\u001b[39m \u001b[36masync\u001b[39m \u001b[36mfunction\u001b[39m openProof(page\u001b[33m:\u001b[39m \u001b[33mPage\u001b[39m\u001b[33m,\u001b[39m options\u001b[33m:\u001b[39m { fresh\u001b[33m?\u001b[39m\u001b[33m:\u001b[39m boolean } \u001b[33m=\u001b[39m {}) {\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                            "column": 49,
+                            "line": 97
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n\n\n   95 |   await expect(page.getByTestId(\"thread-root\")).toBeVisible();\n   96 |   await expect(page.getByTestId(\"mock-controller\")).toBeVisible();\n>  97 |   await expect(page.getByTestId(\"proof-ready\")).toHaveText(\"ready\");\n      |                                                 ^\n   98 | }\n   99 |\n  100 | async function openProof(page: Page, options: { fresh?: boolean } = {}) {\n    at waitForProofReady (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:97:49)\n    at openProof (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:106:3)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:378:7\n    at recordResult (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:236:5)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:377:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-06-15T13:57:58.437Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-1cb97-f-Test-F---Interrupt-Resume/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-1cb97-f-Test-F---Interrupt-Resume/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-1cb97-f-Test-F---Interrupt-Resume/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-1cb97-f-Test-F---Interrupt-Resume/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                        "column": 49,
+                        "line": 97
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "eb5b08a323d75d6076d6-ea186171a47c08e288bf",
+              "file": "assistant-ui-reference-client.spec.ts",
+              "line": 373,
+              "column": 3
+            },
+            {
+              "title": "Test G - Artifact",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 9545,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n\n    at waitForProofReady (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:97:49)\n    at openProof (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:106:3)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:396:7\n    at recordResult (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:236:5)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:395:5",
+                        "location": {
+                          "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                          "column": 49,
+                          "line": 97
+                        },
+                        "snippet": "\u001b[0m \u001b[90m  95 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"thread-root\"\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m  96 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"mock-controller\"\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  97 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"proof-ready\"\u001b[39m))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"ready\"\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                 \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m  98 |\u001b[39m }\n \u001b[90m  99 |\u001b[39m\n \u001b[90m 100 |\u001b[39m \u001b[36masync\u001b[39m \u001b[36mfunction\u001b[39m openProof(page\u001b[33m:\u001b[39m \u001b[33mPage\u001b[39m\u001b[33m,\u001b[39m options\u001b[33m:\u001b[39m { fresh\u001b[33m?\u001b[39m\u001b[33m:\u001b[39m boolean } \u001b[33m=\u001b[39m {}) {\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                            "column": 49,
+                            "line": 97
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n\n\n   95 |   await expect(page.getByTestId(\"thread-root\")).toBeVisible();\n   96 |   await expect(page.getByTestId(\"mock-controller\")).toBeVisible();\n>  97 |   await expect(page.getByTestId(\"proof-ready\")).toHaveText(\"ready\");\n      |                                                 ^\n   98 | }\n   99 |\n  100 | async function openProof(page: Page, options: { fresh?: boolean } = {}) {\n    at waitForProofReady (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:97:49)\n    at openProof (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:106:3)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:396:7\n    at recordResult (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:236:5)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:395:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-06-15T13:58:08.362Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-75f6b-nce-proof-Test-G---Artifact/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-75f6b-nce-proof-Test-G---Artifact/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-75f6b-nce-proof-Test-G---Artifact/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-75f6b-nce-proof-Test-G---Artifact/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                        "column": 49,
+                        "line": 97
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "eb5b08a323d75d6076d6-fbf517828e040d649832",
+              "file": "assistant-ui-reference-client.spec.ts",
+              "line": 391,
+              "column": 3
+            },
+            {
+              "title": "Test H - Failure / Recovery",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 45000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 9448,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n\n    at waitForProofReady (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:97:49)\n    at openProof (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:106:3)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:412:7\n    at recordResult (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:236:5)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:411:5",
+                        "location": {
+                          "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                          "column": 49,
+                          "line": 97
+                        },
+                        "snippet": "\u001b[0m \u001b[90m  95 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"thread-root\"\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m  96 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"mock-controller\"\u001b[39m))\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m  97 |\u001b[39m   \u001b[36mawait\u001b[39m expect(page\u001b[33m.\u001b[39mgetByTestId(\u001b[32m\"proof-ready\"\u001b[39m))\u001b[33m.\u001b[39mtoHaveText(\u001b[32m\"ready\"\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                                                 \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m  98 |\u001b[39m }\n \u001b[90m  99 |\u001b[39m\n \u001b[90m 100 |\u001b[39m \u001b[36masync\u001b[39m \u001b[36mfunction\u001b[39m openProof(page\u001b[33m:\u001b[39m \u001b[33mPage\u001b[39m\u001b[33m,\u001b[39m options\u001b[33m:\u001b[39m { fresh\u001b[33m?\u001b[39m\u001b[33m:\u001b[39m boolean } \u001b[33m=\u001b[39m {}) {\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                            "column": 49,
+                            "line": 97
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoHaveText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator:  getByTestId('proof-ready')\nExpected: \u001b[32m\"ready\"\u001b[39m\nReceived: \u001b[31m\"warming\"\u001b[39m\nTimeout:  8000ms\n\nCall log:\n\u001b[2m  - Expect \"toHaveText\" with timeout 8000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('proof-ready')\u001b[22m\n\u001b[2m    20 × locator resolved to <span class=\"proof-ready\" data-testid=\"proof-ready\">warming</span>\u001b[22m\n\u001b[2m       - unexpected value \"warming\"\u001b[22m\n\n\n   95 |   await expect(page.getByTestId(\"thread-root\")).toBeVisible();\n   96 |   await expect(page.getByTestId(\"mock-controller\")).toBeVisible();\n>  97 |   await expect(page.getByTestId(\"proof-ready\")).toHaveText(\"ready\");\n      |                                                 ^\n   98 | }\n   99 |\n  100 | async function openProof(page: Page, options: { fresh?: boolean } = {}) {\n    at waitForProofReady (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:97:49)\n    at openProof (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:106:3)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:412:7\n    at recordResult (/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:236:5)\n    at /home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts:411:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-06-15T13:58:18.490Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-11ac1-f-Test-H---Failure-Recovery/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-11ac1-f-Test-H---Failure-Recovery/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-11ac1-f-Test-H---Failure-Recovery/error-context.md"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/test-results/assistant-ui-reference-cli-11ac1-f-Test-H---Failure-Recovery/trace.zip"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/home/runner/work/Eliy-Agent-Core/Eliy-Agent-Core/experiments/assistant-ui-reference-client-proof/tests/assistant-ui-reference-client.spec.ts",
+                        "column": 49,
+                        "line": 97
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "eb5b08a323d75d6076d6-2d05a6d18fdeb3d9d3ea",
+              "file": "assistant-ui-reference-client.spec.ts",
+              "line": 407,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-06-15T13:57:05.883Z",
+    "duration": 82254.254,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 8,
+    "flaky": 0
+  }
+}

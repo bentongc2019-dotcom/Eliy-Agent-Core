@@ -1,0 +1,10 @@
+Generated: 2026-06-15T11:16:49.204Z
+
+Attempt: Playwright bundled Chromium
+Reached page render: No
+Failure class: executable missing
+
+Error summary:
+browserType.launch: Executable doesn't exist at /Users/rich1350/Library/Caches/ms-playwright/chromium_headless_shell-1200/chrome-headless-shell-mac-arm64/chrome-headless-shell
+
+No browser was downloaded in this pass.
