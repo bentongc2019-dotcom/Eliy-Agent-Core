@@ -13,7 +13,11 @@ Instrumentation method: global fetch wrapper installed before runtime test execu
 
 | URL / Domain | Method | Purpose | Runtime allowed | Credential present | Evidence |
 |---|---|---|---|---|---|
-| None observed | n/a | Runtime path did not call network in this environment | n/a | No | reports/runtime-network-records.json |
+| api.openai.com | POST | OpenAI Model API | Yes | API key present but value not logged | reports/runtime-network-records.json |
+| api.openai.com | POST | OpenAI Model API | Yes | API key present but value not logged | reports/runtime-network-records.json |
+| api.openai.com | POST | OpenAI Model API | Yes | API key present but value not logged | reports/runtime-network-records.json |
+| api.openai.com | POST | OpenAI Model API | Yes | API key present but value not logged | reports/runtime-network-records.json |
+| api.openai.com | POST | OpenAI Model API | Yes | API key present but value not logged | reports/runtime-network-records.json |
 
 Runtime allowlist:
 - api.openai.com for OpenAI Model API only.
