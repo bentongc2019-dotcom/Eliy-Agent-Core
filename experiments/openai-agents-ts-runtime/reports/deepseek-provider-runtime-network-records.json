@@ -6,6 +6,6 @@
     "domain": "api.deepseek.com",
     "allowed": true,
     "reason": "Configured OpenAI-compatible Model API",
-    "timestamp": "2026-06-15T20:43:46.962Z"
+    "timestamp": "2026-06-15T20:52:04.519Z"
   }
 ]
