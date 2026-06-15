@@ -30,6 +30,7 @@ const reportsDir = path.resolve("reports");
 const screenshotsDir = path.resolve("screenshots");
 const browserResultsPath = path.join(reportsDir, "browser-test-results.md");
 const networkResultsPath = path.join(reportsDir, "runtime-network-requests-ci.md");
+const controllerStorageKey = "hac-assistant-ui-reference-proof-controller-v1";
 const allResults: TestResult[] = [];
 
 function ensureArtifactDirs() {
@@ -90,10 +91,19 @@ function setupEvidence(page: Page, testName: string) {
   return { runtimeRequests, consoleMessages, consoleErrors };
 }
 
-async function openProof(page: Page) {
-  await page.goto("/");
+async function waitForProofReady(page: Page) {
   await expect(page.getByTestId("thread-root")).toBeVisible();
   await expect(page.getByTestId("mock-controller")).toBeVisible();
+  await expect(page.getByTestId("proof-ready")).toHaveText("ready");
+}
+
+async function openProof(page: Page, options: { fresh?: boolean } = {}) {
+  await page.goto("/");
+  if (options.fresh) {
+    await page.evaluate((key) => window.sessionStorage.removeItem(key), controllerStorageKey);
+    await page.reload();
+  }
+  await waitForProofReady(page);
 }
 
 async function saveScreenshot(page: Page, slug: string) {
@@ -104,6 +114,10 @@ async function saveScreenshot(page: Page, slug: string) {
 
 async function eventCount(page: Page, type: string) {
   return page.getByTestId("event-ledger").locator("li", { hasText: `${type}:` }).count();
+}
+
+async function waitForHumanConfirmation(page: Page, version = 1) {
+  await expect(page.getByTestId("event-ledger")).toContainText(`human_confirmation_requested: Tool args v${version} pending.`);
 }
 
 async function writeReports() {
@@ -259,10 +273,12 @@ test.describe("assistant-ui hosted browser reference proof", () => {
     const evidence = setupEvidence(page, testName);
 
     await recordResult(page, testName, evidence, "No human decision submitted in this path.", "test-a-chat-streaming", async () => {
-      await openProof(page);
-      await expect(page.getByText("Please validate the HAC-Agent Reference Client boundary with assistant-ui.")).toBeVisible();
-      await expect(page.getByText(/assistant-ui external-store runtime is active/)).toBeVisible();
-      await expect(page.getByText(/no Assistant Cloud or real model is used/)).toBeVisible();
+      await openProof(page, { fresh: true });
+      const thread = page.getByTestId("thread-root");
+      await expect(thread.getByText("Please validate the HAC-Agent Reference Client boundary with assistant-ui.")).toBeVisible();
+      await expect(thread.getByTestId("message-text").filter({ hasText: /assistant-ui external-store runtime is active/ })).toBeVisible();
+      await expect(thread.getByTestId("message-text").filter({ hasText: /no Assistant Cloud or real model is used/ })).toBeVisible();
+      await expect(page.getByTestId("event-ledger")).toContainText("stream_delta: assistant-ui external-store runtime is active;");
       await expect(page.getByTestId("run-state")).toContainText("running");
     });
   });
@@ -272,7 +288,8 @@ test.describe("assistant-ui hosted browser reference proof", () => {
     const evidence = setupEvidence(page, testName);
 
     await recordResult(page, testName, evidence, "No human decision submitted in this path.", "test-b-tool-request", async () => {
-      await openProof(page);
+      await openProof(page, { fresh: true });
+      await waitForHumanConfirmation(page);
       await expect(page.getByTestId("tool-request")).toBeVisible();
       await expect(page.getByTestId("tool-name")).toHaveText("request_human_decision");
       await expect(page.getByTestId("tool-args")).toContainText("review_reference_client_boundary");
@@ -286,16 +303,18 @@ test.describe("assistant-ui hosted browser reference proof", () => {
     const testName = "Test C - Approve";
     const evidence = setupEvidence(page, testName);
 
-    await recordResult(page, testName, evidence, "human_approved is emitted once; reload does not replay it.", "test-c-approve", async () => {
-      await openProof(page);
+    await recordResult(page, testName, evidence, "human_approved count remains 1 after reload; no replay.", "test-c-approve", async () => {
+      await openProof(page, { fresh: true });
+      await waitForHumanConfirmation(page);
       await page.getByTestId("approve-button").click();
       await expect(page.getByTestId("decision-state")).toContainText("approved");
       await expect(page.getByTestId("run-state")).toContainText("recovered");
       await expect(page.getByTestId("tool-status")).toContainText("approved");
       await expect.poll(() => eventCount(page, "human_approved")).toBe(1);
       await page.reload();
-      await openProof(page);
-      await expect.poll(() => eventCount(page, "human_approved")).toBe(0);
+      await waitForProofReady(page);
+      await expect(page.getByTestId("decision-state")).toContainText("approved");
+      await expect.poll(() => eventCount(page, "human_approved")).toBe(1);
     });
   });
 
@@ -303,8 +322,9 @@ test.describe("assistant-ui hosted browser reference proof", () => {
     const testName = "Test D - Deny";
     const evidence = setupEvidence(page, testName);
 
-    await recordResult(page, testName, evidence, "human_denied is emitted once; reload does not replay it.", "test-d-deny", async () => {
-      await openProof(page);
+    await recordResult(page, testName, evidence, "human_denied count remains 1 after reload; no replay.", "test-d-deny", async () => {
+      await openProof(page, { fresh: true });
+      await waitForHumanConfirmation(page);
       await page.getByTestId("deny-button").click();
       await expect(page.getByTestId("decision-state")).toContainText("denied");
       await expect(page.getByTestId("run-state")).toContainText("recovered");
@@ -312,8 +332,10 @@ test.describe("assistant-ui hosted browser reference proof", () => {
       await expect(page.getByTestId("tool-status")).not.toContainText("executed");
       await expect.poll(() => eventCount(page, "human_denied")).toBe(1);
       await page.reload();
-      await openProof(page);
-      await expect.poll(() => eventCount(page, "human_denied")).toBe(0);
+      await waitForProofReady(page);
+      await expect(page.getByTestId("decision-state")).toContainText("denied");
+      await expect(page.getByTestId("tool-status")).toContainText("denied");
+      await expect.poll(() => eventCount(page, "human_denied")).toBe(1);
     });
   });
 
@@ -321,8 +343,9 @@ test.describe("assistant-ui hosted browser reference proof", () => {
     const testName = "Test E - Modify";
     const evidence = setupEvidence(page, testName);
 
-    await recordResult(page, testName, evidence, "human_modified is emitted once; reload does not replay it.", "test-e-modify", async () => {
-      await openProof(page);
+    await recordResult(page, testName, evidence, "human_modified count remains 1 after reload; no replay.", "test-e-modify", async () => {
+      await openProof(page, { fresh: true });
+      await waitForHumanConfirmation(page);
       const modifiedArgs = {
         task: "review_reference_client_boundary_with_modified_risk",
         riskLevel: "high",
@@ -337,9 +360,13 @@ test.describe("assistant-ui hosted browser reference proof", () => {
       await expect(page.getByTestId("tool-args")).toContainText('"version": 2');
       await expect(page.getByTestId("event-ledger")).toContainText("human_confirmation_requested:");
       await expect.poll(() => eventCount(page, "human_modified")).toBe(1);
+      await waitForHumanConfirmation(page, 2);
       await page.reload();
-      await openProof(page);
-      await expect.poll(() => eventCount(page, "human_modified")).toBe(0);
+      await waitForProofReady(page);
+      await expect(page.getByTestId("decision-state")).toContainText("modified");
+      await expect(page.getByTestId("tool-args")).toContainText('"version": 2');
+      await expect(page.getByTestId("tool-args")).not.toContainText('"version": 1');
+      await expect.poll(() => eventCount(page, "human_modified")).toBe(1);
     });
   });
 
@@ -348,7 +375,7 @@ test.describe("assistant-ui hosted browser reference proof", () => {
     const evidence = setupEvidence(page, testName);
 
     await recordResult(page, testName, evidence, "No prior human decision is replayed during interrupt/resume.", "test-f-interrupt-resume", async () => {
-      await openProof(page);
+      await openProof(page, { fresh: true });
       await page.getByTestId("interrupt-button").click();
       await expect(page.getByTestId("run-state")).toContainText("interrupted");
       await expect.poll(() => eventCount(page, "run_interrupted")).toBe(1);
@@ -366,7 +393,7 @@ test.describe("assistant-ui hosted browser reference proof", () => {
     const evidence = setupEvidence(page, testName);
 
     await recordResult(page, testName, evidence, "No human decision submitted in this path.", "test-g-artifact", async () => {
-      await openProof(page);
+      await openProof(page, { fresh: true });
       await expect(page.getByTestId("artifact-panel")).toBeVisible();
       await expect(page.getByTestId("artifact-status")).toContainText("proposed");
       await expect(page.getByTestId("artifact-status")).not.toContainText("accepted");
@@ -382,7 +409,7 @@ test.describe("assistant-ui hosted browser reference proof", () => {
     const evidence = setupEvidence(page, testName);
 
     await recordResult(page, testName, evidence, "No human decision is replayed during failure/recovery.", "test-h-failure-recovery", async () => {
-      await openProof(page);
+      await openProof(page, { fresh: true });
       await page.getByTestId("fail-button").click();
       await expect(page.getByTestId("run-state")).toContainText("failed");
       await expect.poll(() => eventCount(page, "run_failed")).toBe(1);

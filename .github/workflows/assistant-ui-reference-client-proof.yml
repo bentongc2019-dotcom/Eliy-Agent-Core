@@ -4,6 +4,13 @@ on:
   push:
     branches:
       - spike/assistant-ui-reference-client-proof
+    paths:
+      - ".github/workflows/assistant-ui-reference-client-proof.yml"
+      - "experiments/assistant-ui-reference-client-proof/package.json"
+      - "experiments/assistant-ui-reference-client-proof/package-lock.json"
+      - "experiments/assistant-ui-reference-client-proof/src/**"
+      - "experiments/assistant-ui-reference-client-proof/tests/**"
+      - "experiments/assistant-ui-reference-client-proof/playwright.config.ts"
 
 permissions:
   contents: read

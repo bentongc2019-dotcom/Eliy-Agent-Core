@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import {
   AssistantRuntimeProvider,
   ComposerPrimitive,
+  type ExternalStoreAdapter,
   MessagePrimitive,
   ThreadPrimitive,
   type AppendMessage,
@@ -31,6 +32,7 @@ type LedgerEvent = {
 };
 
 const startedAt = new Date("2026-06-15T00:00:00.000Z");
+const controllerStorageKey = "hac-assistant-ui-reference-proof-controller-v1";
 
 const initialArgs: ToolArgs = {
   task: "review_reference_client_boundary",
@@ -38,6 +40,62 @@ const initialArgs: ToolArgs = {
   requiresHumanAgency: true,
   version: 1
 };
+
+type ControllerSnapshot = {
+  toolArgs: ToolArgs;
+  decision: Decision;
+  runState: RunState;
+  artifactStatus: ArtifactStatus;
+  streamText: string;
+  events: LedgerEvent[];
+  nextEventId: number;
+  sentDecisionKeys: string[];
+};
+
+function initialEvents(): LedgerEvent[] {
+  return [
+    { id: 1, type: "thread_started", detail: "assistant-ui external-store runtime mounted." },
+    { id: 2, type: "message", detail: "Seeded user message is visible." },
+    { id: 3, type: "run_started", detail: "Local mock run started without Assistant Cloud." },
+    { id: 4, type: "tool_requested", detail: "request_human_decision awaits explicit human input." },
+    { id: 5, type: "human_confirmation_requested", detail: "Tool args v1 pending." },
+    { id: 6, type: "artifact_proposed", detail: "Artifact status is proposed from mock runtime input." }
+  ];
+}
+
+function defaultSnapshot(): ControllerSnapshot {
+  return {
+    toolArgs: initialArgs,
+    decision: "pending",
+    runState: "running",
+    artifactStatus: "proposed",
+    streamText: "Local mock stream:",
+    events: initialEvents(),
+    nextEventId: 7,
+    sentDecisionKeys: []
+  };
+}
+
+function readControllerSnapshot(): ControllerSnapshot {
+  if (typeof window === "undefined") {
+    return defaultSnapshot();
+  }
+
+  const raw = window.sessionStorage.getItem(controllerStorageKey);
+  if (!raw) {
+    return defaultSnapshot();
+  }
+
+  try {
+    return { ...defaultSnapshot(), ...(JSON.parse(raw) as Partial<ControllerSnapshot>) };
+  } catch {
+    return defaultSnapshot();
+  }
+}
+
+function writeControllerSnapshot(snapshot: ControllerSnapshot) {
+  window.sessionStorage.setItem(controllerStorageKey, JSON.stringify(snapshot));
+}
 
 function textPart(text: string) {
   return { type: "text" as const, text };
@@ -195,7 +253,7 @@ function MessageView() {
     <MessagePrimitive.Root className="message" data-testid="thread-message">
       <MessagePrimitive.Parts
         components={{
-          Text: ({ text }) => <p className="message-text">{text}</p>,
+          Text: ({ text }) => <p className="message-text" data-testid="message-text">{text}</p>,
           tools: {
             by_name: {
               request_human_decision: HumanDecisionTool
@@ -213,21 +271,22 @@ function MessageView() {
 }
 
 function ProofApp() {
-  const [toolArgs, setToolArgs] = useState(initialArgs);
-  const [decision, setDecision] = useState<Decision>("pending");
-  const [runState, setRunState] = useState<RunState>("running");
-  const [artifactStatus, setArtifactStatus] = useState<ArtifactStatus>("proposed");
-  const [streamText, setStreamText] = useState("Local mock stream:");
-  const [events, setEvents] = useState<LedgerEvent[]>([
-    { id: 1, type: "thread_started", detail: "assistant-ui external-store runtime mounted." },
-    { id: 2, type: "message", detail: "Seeded user message is visible." },
-    { id: 3, type: "run_started", detail: "Local mock run started without Assistant Cloud." },
-    { id: 4, type: "tool_requested", detail: "request_human_decision awaits explicit human input." },
-    { id: 5, type: "artifact_proposed", detail: "Artifact status is proposed from mock runtime input." }
-  ]);
-  const nextEventId = useRef(6);
-  const sentDecisions = useRef(new Set<string>());
+  const initialSnapshot = useRef<ControllerSnapshot | null>(null);
+  if (initialSnapshot.current === null) {
+    initialSnapshot.current = readControllerSnapshot();
+  }
+
+  const [toolArgs, setToolArgs] = useState(initialSnapshot.current.toolArgs);
+  const [decision, setDecision] = useState<Decision>(initialSnapshot.current.decision);
+  const [runState, setRunState] = useState<RunState>(initialSnapshot.current.runState);
+  const [artifactStatus, setArtifactStatus] = useState<ArtifactStatus>(initialSnapshot.current.artifactStatus);
+  const [streamText, setStreamText] = useState(initialSnapshot.current.streamText);
+  const [events, setEvents] = useState<LedgerEvent[]>(initialSnapshot.current.events);
+  const nextEventId = useRef(initialSnapshot.current.nextEventId);
+  const sentDecisions = useRef(new Set(initialSnapshot.current.sentDecisionKeys));
   const rerenderCount = useRef(0);
+  const mounted = useRef(false);
+  const streamStarted = useRef(false);
   rerenderCount.current += 1;
 
   const appendEvent = useCallback((type: string, detail: string) => {
@@ -235,6 +294,30 @@ function ProofApp() {
   }, []);
 
   useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    writeControllerSnapshot({
+      toolArgs,
+      decision,
+      runState,
+      artifactStatus,
+      streamText,
+      events,
+      nextEventId: nextEventId.current,
+      sentDecisionKeys: [...sentDecisions.current]
+    });
+  }, [artifactStatus, decision, events, runState, streamText, toolArgs]);
+
+  useEffect(() => {
+    if (streamStarted.current || streamText.includes("no Assistant Cloud or real model is used.")) {
+      return undefined;
+    }
+    streamStarted.current = true;
     const chunks = [
       " assistant-ui external-store runtime is active;",
       " structured tool approval is pending;",
@@ -242,12 +325,15 @@ function ProofApp() {
     ];
     const timers = chunks.map((chunk, index) =>
       window.setTimeout(() => {
+        if (!mounted.current) {
+          return;
+        }
         setStreamText((current) => `${current}${chunk}`);
         appendEvent("stream_delta", chunk.trim());
       }, 200 + index * 180)
     );
     return () => timers.forEach((timer) => window.clearTimeout(timer));
-  }, [appendEvent]);
+  }, [appendEvent, streamText]);
 
   const messages = useMemo<ThreadMessage[]>(
     () => [
@@ -263,15 +349,30 @@ function ProofApp() {
     [artifactStatus, decision, runState, streamText, toolArgs]
   );
 
-  const adapter = useMemo(
-    () => ({
-      messages,
-      isRunning: runState === "running",
-      state: { runState, artifactStatus },
-      onNew: async (message: AppendMessage) => {
-        appendEvent("message", `User submitted: ${JSON.stringify(message.content)}`);
-      },
-      onRespondToToolApproval: async (options: RespondToToolApprovalOptions) => {
+  const latestState = useRef({
+    messages,
+    runState,
+    artifactStatus
+  });
+  latestState.current = {
+    messages,
+    runState,
+    artifactStatus
+  };
+
+  const handlers = useRef({
+    onNew: async (_message: AppendMessage) => {},
+    onRespondToToolApproval: async (_options: RespondToToolApprovalOptions) => {},
+    onResumeToolCall: (_options: { toolCallId: string; payload: unknown }) => {},
+    onCancel: async () => {},
+    onReload: async () => {}
+  });
+
+  handlers.current = {
+    onNew: async (message: AppendMessage) => {
+      appendEvent("message", `User submitted: ${JSON.stringify(message.content)}`);
+    },
+    onRespondToToolApproval: async (options: RespondToToolApprovalOptions) => {
         const key = `approval:${options.approvalId}`;
         if (sentDecisions.current.has(key)) {
           appendEvent("duplicate_blocked", `Ignored duplicate approval ${options.approvalId}.`);
@@ -283,32 +384,55 @@ function ProofApp() {
         setRunState("recovered");
         appendEvent(approved ? "human_approved" : "human_denied", JSON.stringify(options));
         appendEvent("run_resumed", "Run resumed after approval decision.");
-      },
-      onResumeToolCall: (options: { toolCallId: string; payload: unknown }) => {
-        const key = `modify:${options.toolCallId}`;
-        if (sentDecisions.current.has(key)) {
-          appendEvent("duplicate_blocked", `Ignored duplicate modify ${options.toolCallId}.`);
-          return;
-        }
-        sentDecisions.current.add(key);
-        const payload = options.payload as { type: string; args: ToolArgs };
-        const nextArgs = { ...payload.args, version: toolArgs.version + 1 };
-        setToolArgs(nextArgs);
-        setDecision("modified");
-        setRunState("interrupted");
-        appendEvent("human_modified", JSON.stringify({ original: toolArgs, next: nextArgs }));
-        appendEvent("human_confirmation_requested", `Tool args v${nextArgs.version} pending.`);
-      },
-      onCancel: async () => {
-        setRunState("interrupted");
-        appendEvent("run_interrupted", "Composer cancellation interrupted the mock run.");
-      },
-      onReload: async () => {
-        setRunState("running");
-        appendEvent("run_resumed", "Reload resumed mock run state.");
+    },
+    onResumeToolCall: (options: { toolCallId: string; payload: unknown }) => {
+      const key = `modify:${options.toolCallId}`;
+      if (sentDecisions.current.has(key)) {
+        appendEvent("duplicate_blocked", `Ignored duplicate modify ${options.toolCallId}.`);
+        return;
       }
+      sentDecisions.current.add(key);
+      const payload = options.payload as { type: string; args: ToolArgs };
+      const nextArgs = { ...payload.args, version: toolArgs.version + 1 };
+      setToolArgs(nextArgs);
+      setDecision("modified");
+      setRunState("interrupted");
+      appendEvent("human_modified", JSON.stringify({ original: toolArgs, next: nextArgs }));
+      appendEvent("human_confirmation_requested", `Tool args v${nextArgs.version} pending.`);
+    },
+    onCancel: async () => {
+      setRunState("interrupted");
+      appendEvent("run_interrupted", "Composer cancellation interrupted the mock run.");
+    },
+    onReload: async () => {
+      setRunState("running");
+      appendEvent("run_resumed", "Reload resumed mock run state.");
+    }
+  };
+
+  const adapter = useMemo<ExternalStoreAdapter<ThreadMessage>>(
+    () => ({
+      get messages() {
+        return latestState.current.messages;
+      },
+      get isRunning() {
+        return latestState.current.runState === "running";
+      },
+      get state() {
+        return {
+          runState: latestState.current.runState,
+          artifactStatus: latestState.current.artifactStatus
+        };
+      },
+      onNew: async (message: AppendMessage) => handlers.current.onNew(message),
+      onRespondToToolApproval: async (options: RespondToToolApprovalOptions) =>
+        handlers.current.onRespondToToolApproval(options),
+      onResumeToolCall: (options: { toolCallId: string; payload: unknown }) =>
+        handlers.current.onResumeToolCall(options),
+      onCancel: async () => handlers.current.onCancel(),
+      onReload: async () => handlers.current.onReload()
     }),
-    [appendEvent, artifactStatus, messages, runState, toolArgs]
+    []
   );
 
   const runtime = useExternalStoreRuntime(adapter);
@@ -354,6 +478,9 @@ function ProofApp() {
             <h1>HAC-Agent Open-source Boundary</h1>
           </div>
           <strong data-testid="run-state">{runState}</strong>
+          <span className="proof-ready" data-testid="proof-ready">
+            {streamText.includes("no Assistant Cloud or real model is used.") ? "ready" : "warming"}
+          </span>
         </header>
 
         <section className="workspace">
