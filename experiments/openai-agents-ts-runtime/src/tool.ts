@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { tool } from "@openai/agents";
 import { z } from "zod";
+import { evaluateHacGate } from "./hac-gate.js";
 import { appendJsonl, logsDir, nowIso, readJson, writeJson } from "./storage.js";
 
 export const PrepareRefundInput = z.object({
@@ -54,7 +55,7 @@ export const prepareRefundTool = tool({
     "Prepare a mock refund proposal. This spike tool never issues a real refund and only writes a local execution log.",
   parameters: PrepareRefundInput,
   strict: true,
-  needsApproval: true,
+  needsApproval: async () => evaluateHacGate("prepare_refund").requiresHumanApproval,
   execute: async (input, _context, details) => {
     const args = PrepareRefundInput.parse(input);
     await recordToolExecution({

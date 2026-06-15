@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "license:scan": "node dist/license-scan.js",
     "test:deepseek": "node dist/deepseek-tests.js",
+    "test:hac-thin-harness": "node dist/hac-thin-harness-tests.js",
     "test:runtime": "node dist/tests.js"
   },
   "keywords": [],
