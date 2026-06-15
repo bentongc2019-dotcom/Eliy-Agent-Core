@@ -1,0 +1,47 @@
+{
+  "generatedAt": "2026-06-15T11:16:49.204Z",
+  "branch": "spike/assistant-ui-reference-client-proof",
+  "head": "dbb70a1 fix(webchat): prevent stale client context cache",
+  "devServer": {
+    "url": "http://127.0.0.1:4177/",
+    "normalSandboxListen": "EPERM when binding 127.0.0.1:4177",
+    "elevatedListen": "Vite reported ready at http://127.0.0.1:4177/",
+    "elevatedCurl": "HTTP page captured to reports/browser-test-artifacts/http-home.html"
+  },
+  "attempts": [
+    {
+      "name": "in-app-browser",
+      "ok": false,
+      "reachedPage": false,
+      "failureClass": "Browser is not available: iab"
+    },
+    {
+      "name": "project-local-playwright",
+      "ok": false,
+      "reachedPage": false,
+      "failureClass": "Cannot find module playwright"
+    },
+    {
+      "name": "playwright-bundled-chromium",
+      "ok": false,
+      "reachedPage": false,
+      "failureClass": "Executable missing"
+    },
+    {
+      "name": "system-chrome-channel",
+      "ok": false,
+      "reachedPage": false,
+      "failureClass": "SIGABRT / EPERM"
+    },
+    {
+      "name": "system-edge-chromium",
+      "ok": false,
+      "reachedPage": false,
+      "failureClass": "No local Edge/Chromium app found; /Applications only matched Google Chrome.app"
+    }
+  ],
+  "anyBrowserRenderedPage": false,
+  "anyInteractionTestExecuted": false,
+  "browserNetworkCaptured": false,
+  "conclusion": "Environment Blocked"
+}
