@@ -1,0 +1,26 @@
+{
+  "name": "openai-agents-ts-runtime",
+  "version": "1.0.0",
+  "description": "OpenAI Agents SDK TypeScript runtime spine candidate spike for HAC-Agent.",
+  "main": "dist/tests.js",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.json",
+    "license:scan": "node dist/license-scan.js",
+    "test:runtime": "node dist/tests.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@openai/agents": "0.11.6",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "25.9.3",
+    "tsx": "4.22.4",
+    "typescript": "6.0.3"
+  }
+}
