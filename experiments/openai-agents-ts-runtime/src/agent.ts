@@ -1,17 +1,21 @@
 import { Agent, setTracingDisabled, type RunToolApprovalItem } from "@openai/agents";
 import { prepareRefundTool } from "./tool.js";
 
-export const DEFAULT_MODEL_NOTE = "SDK default model when OPENAI_MODEL is absent";
+export const FIXED_TEST_MODEL = "gpt-5.4-mini";
 
 export function disableTracingExport(): void {
   setTracingDisabled(true);
+}
+
+export function getConfiguredModel(): string {
+  return process.env.OPENAI_DEFAULT_MODEL || FIXED_TEST_MODEL;
 }
 
 export function createRefundAgent(model?: string): Agent {
   return new Agent({
     name: "HAC Runtime Spine Candidate",
     instructions:
-      "You are a minimal runtime proof agent. When the user asks to prepare a refund, call the prepare_refund tool exactly once with a numeric amount and reason. Do not use hosted tools, MCP, handoffs, conversations sessions, or external data.",
+      "You are a minimal runtime proof agent. For the fixed validation task, call the prepare_refund tool exactly once with amount 12.34 and reason delayed delivery. Do not use hosted tools, MCP, handoffs, conversations sessions, web search, external data, or any other tools.",
     tools: [prepareRefundTool],
     ...(model ? { model } : {})
   });

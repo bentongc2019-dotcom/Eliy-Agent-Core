@@ -1,13 +1,16 @@
 # OpenAI Agents TypeScript Runtime Spine Candidate
 
 Task: CP-HAC-OPENAI-AGENTS-TS-RUNTIME-SPIKE-01
-Date: 2026-06-15T18:28:58.509Z
+Date: 2026-06-15T19:36:59.511Z
 
 ## 1. Branch, HEAD, Git Status
 
 Current branch at report generation: spike/openai-agents-ts-runtime
-Current HEAD at report generation: dbb70a1 fix(webchat): prevent stale client context cache
-Git status at report generation: ?? experiments/
+Current HEAD at report generation: c6fe840 test(openai-agents): add runtime spine candidate spike
+Git status at report generation: M experiments/openai-agents-ts-runtime/reports/runtime-results.md
+ M experiments/openai-agents-ts-runtime/src/agent.ts
+ M experiments/openai-agents-ts-runtime/src/serialize-child.ts
+ M experiments/openai-agents-ts-runtime/src/tests.ts
 Formal baseline: dbb70a1 fix(webchat): prevent stale client context cache
 Experiment branch: spike/openai-agents-ts-runtime
 Formal Eliy business code modified: No
@@ -32,8 +35,8 @@ OPENAI_API_KEY: No
 
 ## 5. Model
 
-OPENAI_MODEL present: No
-Model used: SDK default model when OPENAI_MODEL is absent
+OPENAI_DEFAULT_MODEL present: No
+Model used: gpt-5.4-mini
 
 ## 6. Test A-D Results
 

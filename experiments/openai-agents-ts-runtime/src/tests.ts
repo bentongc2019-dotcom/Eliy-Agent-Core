@@ -3,12 +3,12 @@ import { execFileSync } from "node:child_process";
 import { access, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { run } from "@openai/agents";
-import { approvalIdentity, createRefundAgent, DEFAULT_MODEL_NOTE, disableTracingExport } from "./agent.js";
+import { approvalIdentity, createRefundAgent, disableTracingExport, getConfiguredModel } from "./agent.js";
 import { getRuntimeNetworkRecords, installRuntimeNetworkLogger, persistRuntimeNetworkRecords } from "./network-log.js";
 import { ensureDirs, logsDir, reportsDir, stateDir, writeJson } from "./storage.js";
 import { getToolExecutionCount, resetToolExecutions } from "./tool.js";
 
-type TestStatus = "Passed" | "Failed" | "Credential Blocked";
+type TestStatus = "Passed" | "Failed" | "Credential Blocked" | "Service Access Blocked";
 
 type RuntimeTestResult = {
   test: string;
@@ -18,6 +18,17 @@ type RuntimeTestResult = {
 
 function hasCredential(): boolean {
   return Boolean(process.env.OPENAI_API_KEY);
+}
+
+function classifyAccessBlocker(error: unknown): "Credential Blocked" | "Service Access Blocked" | "OpenAI Runtime Candidate Failed" {
+  const text = error instanceof Error ? `${error.message}\n${error.stack ?? ""}` : String(error);
+  if (/\b401\b|invalid_api_key|Incorrect API key|authentication/i.test(text)) {
+    return "Credential Blocked";
+  }
+  if (/\b403\b|\b429\b|quota|billing|insufficient_quota|rate limit|model.*not.*access|permission/i.test(text)) {
+    return "Service Access Blocked";
+  }
+  return "OpenAI Runtime Candidate Failed";
 }
 
 function markdownCell(value: unknown): string {
@@ -56,7 +67,7 @@ async function runChild(statePath: string, decision: "approve" | "reject"): Prom
 }
 
 async function writeRuntimeReports(finalConclusion: string, results: RuntimeTestResult[]): Promise<void> {
-  const model = process.env.OPENAI_MODEL || DEFAULT_MODEL_NOTE;
+  const model = getConfiguredModel();
   const networkRecords = getRuntimeNetworkRecords();
   await persistRuntimeNetworkRecords();
   await writeJson(join(reportsDir, "runtime-network-records.json"), networkRecords);
@@ -71,7 +82,8 @@ Conclusion: ${finalConclusion}
 |---|---|---|
 ${results.map((r) => `| ${markdownCell(r.test)} | ${r.status} | ${markdownCell(JSON.stringify(r.evidence))} |`).join("\n")}
 
-Model: ${model}
+OPENAI_DEFAULT_MODEL present: ${process.env.OPENAI_DEFAULT_MODEL ? "Yes" : "No"}
+Model configured: ${model}
 Tracing export disabled: Yes, via setTracingDisabled(true)
 Hosted Tools used: No
 OpenAI Conversations hosted Session used: No
@@ -167,9 +179,9 @@ async function writeFinalReport(finalConclusion: string, results: RuntimeTestRes
     devDependencies: Record<string, string>;
   };
   const executionCount = await getToolExecutionCount();
-  const model = process.env.OPENAI_MODEL || DEFAULT_MODEL_NOTE;
+  const model = getConfiguredModel();
   const credential = hasCredential() ? "Yes" : "No";
-  const envModel = process.env.OPENAI_MODEL ? "Yes" : "No";
+  const envModel = process.env.OPENAI_DEFAULT_MODEL ? "Yes" : "No";
   const runtimeTable = results.map((r) => `| ${markdownCell(r.test)} | ${r.status} | ${markdownCell(JSON.stringify(r.evidence))} |`).join("\n");
   const git = gitInfo();
 
@@ -207,7 +219,7 @@ OPENAI_API_KEY: ${credential}
 
 ## 5. Model
 
-OPENAI_MODEL present: ${envModel}
+OPENAI_DEFAULT_MODEL present: ${envModel}
 Model used: ${model}
 
 ## 6. Test A-D Results
@@ -332,9 +344,9 @@ async function runRealRuntimeTests(): Promise<void> {
   installRuntimeNetworkLogger();
   await resetToolExecutions();
 
-  const model = process.env.OPENAI_MODEL || undefined;
+  const model = getConfiguredModel();
   const agent = createRefundAgent(model);
-  const prompt = "Prepare a mock refund for amount 42.5 because the customer was double charged. Call prepare_refund.";
+  const prompt = "为一笔因交付延误产生的订单准备退款：金额 12.34，原因是 delayed delivery。请使用 prepare_refund 工具处理。";
   const results: RuntimeTestResult[] = [];
 
   const interrupted = await run(agent, prompt, { maxTurns: 5 });
@@ -427,6 +439,19 @@ async function main(): Promise<void> {
 }
 
 main().catch(async (error) => {
+  const conclusion = classifyAccessBlocker(error);
+  const results: RuntimeTestResult[] = [
+    {
+      test: "Test A-D | Native model runtime",
+      status: conclusion === "OpenAI Runtime Candidate Failed" ? "Failed" : conclusion,
+      evidence: {
+        conclusion,
+        reason: error instanceof Error ? error.message : String(error)
+      }
+    }
+  ];
+  await writeRuntimeReports(conclusion, results);
+  await writeFinalReport(conclusion, results);
   await writeJson(join(logsDir, "runtime-error.json"), {
     message: error instanceof Error ? error.message : String(error),
     stack: error instanceof Error ? error.stack : undefined

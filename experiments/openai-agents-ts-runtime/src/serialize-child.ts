@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { run, RunState } from "@openai/agents";
-import { createRefundAgent, disableTracingExport } from "./agent.js";
+import { createRefundAgent, disableTracingExport, getConfiguredModel } from "./agent.js";
 import { installRuntimeNetworkLogger, persistRuntimeNetworkRecords } from "./network-log.js";
 import { ensureDirs, logsDir, writeJson } from "./storage.js";
 import { getToolExecutionCount } from "./tool.js";
@@ -16,7 +16,7 @@ async function main(): Promise<void> {
     throw new Error("Usage: tsx src/serialize-child.ts <statePath> <approve|reject>");
   }
 
-  const model = process.env.OPENAI_MODEL || undefined;
+  const model = getConfiguredModel();
   const agent = createRefundAgent(model);
   const serializedState = await readFile(statePath, "utf8");
   const state = await RunState.fromString(agent, serializedState);
