@@ -1,0 +1,62 @@
+name: assistant-ui reference client proof
+
+on:
+  push:
+    branches:
+      - spike/assistant-ui-reference-client-proof
+
+permissions:
+  contents: read
+
+jobs:
+  browser-proof:
+    runs-on: ubuntu-24.04
+
+    defaults:
+      run:
+        working-directory: experiments/assistant-ui-reference-client-proof
+
+    env:
+      CI: true
+      PLAYWRIGHT_WORKERS: 1
+      PLAYWRIGHT_RETRIES: 0
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '25.9.0'
+          cache: npm
+          cache-dependency-path: experiments/assistant-ui-reference-client-proof/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Browser proof tests
+        run: npm run test:browser
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: assistant-ui-reference-client-proof-artifacts
+          path: |
+            experiments/assistant-ui-reference-client-proof/playwright-report/
+            experiments/assistant-ui-reference-client-proof/test-results/
+            experiments/assistant-ui-reference-client-proof/reports/
+            experiments/assistant-ui-reference-client-proof/screenshots/
+            experiments/assistant-ui-reference-client-proof/traces/
+            experiments/assistant-ui-reference-client-proof/videos/
+          if-no-files-found: warn
