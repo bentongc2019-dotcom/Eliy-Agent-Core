@@ -1,0 +1,9 @@
+Generated: 2026-06-15T11:16:49.204Z
+
+Attempt: System Chrome channel
+Executable: /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+Reached page render: No
+Failure class: SIGABRT / EPERM
+
+Error summary:
+browserType.launch: Target page, context or browser has been closed. Browser process launched, then exited with signal SIGABRT. Playwright cleanup also reported kill EPERM.

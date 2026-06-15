@@ -1,0 +1,3 @@
+Generated: 2026-06-15T11:16:49.204Z
+
+Browser environment blocked. In-app browser was unavailable, project-local Playwright was not installed, MCP Playwright lacked its bundled Chromium executable, and system Chrome failed before page rendering with SIGABRT / EPERM. Edge/Chromium was not present locally. No browser interaction step executed.
