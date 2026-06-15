@@ -7,7 +7,7 @@ Allowed runtime remote service:
 
 | URL / Domain | Method | Purpose | Local / Remote | Credential Present | Required | Allowed / Blocked | Evidence |
 |---|---|---|---|---|---|---|---|
-| None observed | n/a | Runtime path did not call network | n/a | No | n/a | n/a | reports/deepseek-provider-runtime-network-records.json |
+| api.deepseek.com | POST | Configured OpenAI-compatible Model API | Remote | Yes, value not logged | Yes | Allowed | reports/deepseek-provider-runtime-network-records.json |
 
 Forbidden runtime services:
 - Assistant Cloud: Not observed.
@@ -18,5 +18,5 @@ Forbidden runtime services:
 - Other Provider: Not observed.
 - Undeclared telemetry: Not observed by fetch instrumentation.
 
-API request count from fetch instrumentation: 0
+API request count from fetch instrumentation: 1
 Token usage: SDK result did not provide / no runtime call completed

@@ -15,6 +15,27 @@ export type DeepSeekProviderConfig = {
   runtimeAllowedDomain: string;
 };
 
+export function createDeepSeekThinkingDisabledFetch(fetchImpl: typeof fetch = globalThis.fetch): typeof fetch {
+  return async (input, init) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    const isChatCompletions = url.includes("/chat/completions");
+    if (!isChatCompletions || typeof init?.body !== "string") {
+      return fetchImpl(input, init);
+    }
+
+    const body = JSON.parse(init.body) as Record<string, unknown>;
+    const patchedBody = {
+      ...body,
+      thinking: { type: "disabled" }
+    };
+
+    return fetchImpl(input, {
+      ...init,
+      body: JSON.stringify(patchedBody)
+    });
+  };
+}
+
 export function getDeepSeekProviderConfig(): DeepSeekProviderConfig {
   const baseURL = process.env.DEEPSEEK_BASE_URL || DEEPSEEK_DEFAULT_BASE_URL;
   const model = process.env.DEEPSEEK_MODEL || DEEPSEEK_DEFAULT_MODEL;
@@ -33,7 +54,8 @@ export function configureDeepSeekProvider(): DeepSeekProviderConfig {
 
   const client = new OpenAI({
     apiKey: process.env.DEEPSEEK_API_KEY || "missing-deepseek-api-key",
-    baseURL: config.baseURL
+    baseURL: config.baseURL,
+    fetch: createDeepSeekThinkingDisabledFetch()
   });
 
   setDefaultOpenAIClient(client as unknown as Parameters<typeof setDefaultOpenAIClient>[0]);
@@ -47,6 +69,7 @@ export function createDeepSeekClient(): OpenAI {
   const config = getDeepSeekProviderConfig();
   return new OpenAI({
     apiKey: process.env.DEEPSEEK_API_KEY || "missing-deepseek-api-key",
-    baseURL: config.baseURL
+    baseURL: config.baseURL,
+    fetch: createDeepSeekThinkingDisabledFetch()
   });
 }

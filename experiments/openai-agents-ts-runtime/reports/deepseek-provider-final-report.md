@@ -1,26 +1,14 @@
 # DeepSeek Provider Compatibility Final Report
 
 Task: CP-HAC-OPENAI-AGENTS-TS-DEEPSEEK-COMPATIBILITY-SPIKE-01
-Date: 2026-06-15T20:37:41.919Z
+Date: 2026-06-15T20:43:47.481Z
 
 ## 1. Branch / HEAD / Git Status
 
 Branch: spike/openai-agents-ts-deepseek-provider
 Baseline Commit: 92da792 test(openai-agents): record native runtime acceptance pass
-Current HEAD at report generation: 92da792 test(openai-agents): record native runtime acceptance pass
-Git status at report generation: M experiments/openai-agents-ts-runtime/package-lock.json
- M experiments/openai-agents-ts-runtime/package.json
- M experiments/openai-agents-ts-runtime/src/network-log.ts
-?? experiments/openai-agents-ts-runtime/reports/deepseek-provider-final-report.md
-?? experiments/openai-agents-ts-runtime/reports/deepseek-provider-modify-observation.md
-?? experiments/openai-agents-ts-runtime/reports/deepseek-provider-network-requests.md
-?? experiments/openai-agents-ts-runtime/reports/deepseek-provider-package-delta.md
-?? experiments/openai-agents-ts-runtime/reports/deepseek-provider-runtime-events-map.md
-?? experiments/openai-agents-ts-runtime/reports/deepseek-provider-runtime-network-records.json
-?? experiments/openai-agents-ts-runtime/reports/deepseek-provider-runtime-results.md
-?? experiments/openai-agents-ts-runtime/src/deepseek-provider.ts
-?? experiments/openai-agents-ts-runtime/src/deepseek-serialize-child.ts
-?? experiments/openai-agents-ts-runtime/src/deepseek-tests.ts
+Current HEAD at report generation: 06ce7f3 test(openai-agents): add deepseek provider compatibility spike
+Git status at report generation: clean
 
 ## 2. SDK and Dependencies
 
@@ -36,21 +24,21 @@ Runtime: OpenAI Agents SDK TypeScript
 Provider: DeepSeek OpenAI-compatible Chat Completions
 Base URL: https://api.deepseek.com
 Model: deepseek-v4-flash
-API key present: NOT_SET
+API key present: SET
 
 ## 4. API Connectivity
 
-Status: Credential Blocked
+Status: Failed
 HTTP Status: Not available
-Error Type: DEEPSEEK_API_KEY missing
+Error Type: 400 Thinking mode does not support this tool_choice
 Request ID: Not available
-Tool Calling: Not Run
+Tool Calling: Failed
 
 ## 5. Test Results
 
 | Test | Result | Evidence |
 |---|---|---|
-| Test A-D \| DeepSeek runtime | Credential Blocked | {"reason":"DEEPSEEK_API_KEY missing; no API request attempted."} |
+| Test A-D | Not Run | Credential or service blocked before runtime tests |
 
 ## 6. Tool Execution Counts
 
@@ -73,8 +61,8 @@ After approve: Not run
 
 | Item | OpenAI native model | DeepSeek V4 Flash |
 |---|---|---|
-| Tool Call produced | Passed | Credential Blocked |
-| Interruption | Passed | Credential Blocked |
+| Tool Call produced | Passed | Not Run |
+| Interruption | Passed | Not Run |
 | Reject | Passed | Not Run |
 | Approve | Passed | Not Run |
 | Same RunState Resume | Passed | Not proven |
@@ -110,7 +98,7 @@ Second RunState used: No
 
 ## 12. API Requests and Token Usage
 
-API request count from fetch instrumentation: 0
+API request count from fetch instrumentation: 1
 Token usage: SDK result did not provide / no runtime call completed
 
 ## 13. Modify Observation
@@ -119,7 +107,7 @@ See reports/deepseek-provider-modify-observation.md.
 
 ## 14. Conclusion
 
-Credential Blocked
+DeepSeek Provider Compatibility Failed
 
 ## 15. Recommendation
 
