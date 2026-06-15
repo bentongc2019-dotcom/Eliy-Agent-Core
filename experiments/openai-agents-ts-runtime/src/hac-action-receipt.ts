@@ -1,7 +1,7 @@
 export type HacActionReceipt = {
   toolCallId: string;
   toolName: string;
-  humanDecision: "approved" | "rejected";
+  humanDecision: "approved" | "rejected" | "not_required" | "pending" | "blocked";
   executionStatus: "not_executed" | "succeeded" | "failed";
   authoritativeMessage: string;
 };
@@ -32,7 +32,7 @@ const COMPLETION_CLAIM_PATTERN =
 export function createHacActionReceipt(args: {
   toolCallId: string;
   toolName: string;
-  humanDecision: "approved" | "rejected";
+  humanDecision: "approved" | "rejected" | "not_required" | "pending" | "blocked";
   runtimeOutcome: HacRuntimeExecutionOutcome;
 }): HacActionReceipt {
   if (args.humanDecision === "rejected") {
@@ -45,30 +45,58 @@ export function createHacActionReceipt(args: {
     };
   }
 
-  if (args.runtimeOutcome.status === "succeeded") {
+  if (args.humanDecision === "pending") {
     return {
       toolCallId: args.toolCallId,
       toolName: args.toolName,
-      humanDecision: "approved",
+      humanDecision: "pending",
+      executionStatus: "not_executed",
+      authoritativeMessage: "该行动需要用户判断，当前仅提出候选方案，尚未执行。"
+    };
+  }
+
+  if (args.humanDecision === "blocked") {
+    return {
+      toolCallId: args.toolCallId,
+      toolName: args.toolName,
+      humanDecision: "blocked",
+      executionStatus: "not_executed",
+      authoritativeMessage: "该行动已被阻止，未进入普通审批路径，也未执行。"
+    };
+  }
+
+  if (args.runtimeOutcome.status === "succeeded") {
+    const prefix =
+      args.humanDecision === "not_required"
+        ? `无需人工授权，${args.toolName} 已成功执行。`
+        : `用户已批准，${args.toolName} 已成功执行。`;
+    return {
+      toolCallId: args.toolCallId,
+      toolName: args.toolName,
+      humanDecision: args.humanDecision,
       executionStatus: "succeeded",
-      authoritativeMessage: `用户已批准，${args.toolName} 已成功执行。${args.runtimeOutcome.resultMessage}`
+      authoritativeMessage: `${prefix}${args.runtimeOutcome.resultMessage}`
     };
   }
 
   if (args.runtimeOutcome.status === "failed") {
+    const prefix =
+      args.humanDecision === "not_required"
+        ? `无需人工授权，但 ${args.toolName} 执行失败：`
+        : `用户已批准，但 ${args.toolName} 执行失败：`;
     return {
       toolCallId: args.toolCallId,
       toolName: args.toolName,
-      humanDecision: "approved",
+      humanDecision: args.humanDecision,
       executionStatus: "failed",
-      authoritativeMessage: `用户已批准，但 ${args.toolName} 执行失败：${args.runtimeOutcome.errorMessage}`
+      authoritativeMessage: `${prefix}${args.runtimeOutcome.errorMessage}`
     };
   }
 
   return {
     toolCallId: args.toolCallId,
     toolName: args.toolName,
-    humanDecision: "approved",
+    humanDecision: args.humanDecision,
     executionStatus: "failed",
     authoritativeMessage: `用户已批准，但 ${args.toolName} 未返回可确认的执行结果。`
   };

@@ -78,7 +78,13 @@ function mdCell(value: unknown): string {
 }
 
 async function assertGateWired(test: string, toolCallId: string): Promise<void> {
-  const gate = evaluateHacGate(TOOL_NAME);
+  const gate = evaluateHacGate({
+    actionId: toolCallId,
+    actionType: TOOL_NAME,
+    hasExternalSideEffect: true,
+    requiresHumanValueJudgment: false,
+    prohibited: false
+  });
   record(test, "gate_evaluated", toolCallId, `${gate.policyVersion}: ${gate.reason}`);
   assert(gate.requiresHumanApproval, "HAC Gate must require human approval for prepare_refund.");
 

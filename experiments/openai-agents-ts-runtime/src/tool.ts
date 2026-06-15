@@ -55,7 +55,14 @@ export const prepareRefundTool = tool({
     "Prepare a mock refund proposal. This spike tool never issues a real refund and only writes a local execution log.",
   parameters: PrepareRefundInput,
   strict: true,
-  needsApproval: async () => evaluateHacGate("prepare_refund").requiresHumanApproval,
+  needsApproval: async (_context, _input, callId) =>
+    evaluateHacGate({
+      actionId: callId ?? "prepare_refund",
+      actionType: "prepare_refund",
+      hasExternalSideEffect: true,
+      requiresHumanValueJudgment: false,
+      prohibited: false
+    }).requiresHumanApproval,
   execute: async (input, _context, details) => {
     const args = PrepareRefundInput.parse(input);
     await recordToolExecution({
