@@ -8,7 +8,8 @@ Scope: assistant-ui Commercialization Gate × Reference Client Prototype Validat
 ## 1. Repository State
 
 - Current branch: `spike/assistant-ui-reference-client-proof`
-- Current HEAD at report generation: `dbb70a1 fix(webchat): prevent stale client context cache`
+- Current HEAD at report generation: `254ee01 test(assistant-ui): add reference client proof`
+- Git status at report correction: `clean`
 - Started from clean baseline branch: `fix/new-chat-context-isolation-l1` at `dbb70a1 fix(webchat): prevent stale client context cache`
 - CopilotKit spike retained separately: `spike/copilotkit-open-core-boundary-proof`
 - CopilotKit status: Gate B Failed for CopilotKit 1.59.5
