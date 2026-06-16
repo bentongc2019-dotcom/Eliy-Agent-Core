@@ -11,10 +11,18 @@ export const PrepareRefundInput = z.object({
 
 export type PrepareRefundArgs = z.infer<typeof PrepareRefundInput>;
 
+export const SendReleaseStatusUpdateInput = z.object({
+  audience: z.string(),
+  status: z.string(),
+  message: z.string()
+});
+
+export type SendReleaseStatusUpdateArgs = z.infer<typeof SendReleaseStatusUpdateInput>;
+
 export type ToolExecutionRecord = {
-  toolName: "prepare_refund";
+  toolName: "prepare_refund" | "send_release_status_update";
   callId?: string;
-  arguments: PrepareRefundArgs;
+  arguments: PrepareRefundArgs | SendReleaseStatusUpdateArgs;
   timestamp: string;
   currentTurn?: unknown;
   resumeState?: string;
@@ -30,6 +38,13 @@ export async function resetToolExecutions(): Promise<void> {
 export async function getToolExecutionCount(): Promise<number> {
   const existing = await readJson<ToolExecutionRecord[]>(executionLogPath).catch(() => []);
   return existing.length;
+}
+
+export async function getToolExecutionCountByName(
+  toolName: ToolExecutionRecord["toolName"]
+): Promise<number> {
+  const existing = await readJson<ToolExecutionRecord[]>(executionLogPath).catch(() => []);
+  return existing.filter((record) => record.toolName === toolName).length;
 }
 
 export async function recordToolExecution(record: ToolExecutionRecord): Promise<void> {
@@ -78,6 +93,39 @@ export const prepareRefundTool = tool({
       ok: true,
       effect: "mock-only",
       message: `Mock refund prepared for ${args.amount}: ${args.reason}`
+    };
+  }
+});
+
+export const sendReleaseStatusUpdateTool = tool({
+  name: "send_release_status_update",
+  description:
+    "Send a mock release status update to a predefined external audience. This spike tool never sends a real message and only writes a local execution log.",
+  parameters: SendReleaseStatusUpdateInput,
+  strict: true,
+  needsApproval: async (_context, _input, callId) =>
+    evaluateHacGate({
+      actionId: callId ?? "send_release_status_update",
+      actionType: "send_release_status_update",
+      hasExternalSideEffect: true,
+      requiresHumanValueJudgment: false,
+      prohibited: false
+    }).requiresHumanApproval,
+  execute: async (input, _context, details) => {
+    const args = SendReleaseStatusUpdateInput.parse(input);
+    await recordToolExecution({
+      toolName: "send_release_status_update",
+      callId: details?.toolCall?.callId,
+      arguments: args,
+      timestamp: nowIso(),
+      currentTurn: undefined,
+      resumeState: details?.resumeState,
+      fromApproveResume: Boolean(details?.resumeState)
+    });
+    return {
+      ok: true,
+      effect: "mock-only",
+      message: `Mock release status update prepared for ${args.audience}: ${args.status}`
     };
   }
 });

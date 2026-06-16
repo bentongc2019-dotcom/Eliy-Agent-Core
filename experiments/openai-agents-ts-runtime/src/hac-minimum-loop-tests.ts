@@ -5,19 +5,22 @@ import { join } from "node:path";
 import { createHacActionReceipt } from "./hac-action-receipt.js";
 import { createInteractionPreferenceCandidate, confirmIntentCandidate } from "./human-intent-contract.js";
 import {
-  addResponseDraftEvidence,
   advanceLoop,
   applyConfirmedIntentPreference,
-  authorizeRefundPath,
   completeWithVerification,
   createInitialOperationalState,
   event,
   proposeNextAction,
-  provideDelayDays,
-  readComplaintMaterials,
-  selectCompensation,
   type LoopEvent
 } from "./loop-controller.js";
+import {
+  addResponseDraftEvidence,
+  authorizeRefundPath,
+  createInitialComplaintIntent,
+  provideDelayDays,
+  readComplaintMaterials,
+  selectCompensation
+} from "./hac-scenario-fixtures.js";
 import { loadOperationalState, saveOperationalState, type OperationalState } from "./operational-state.js";
 import { addActionReceipt, addHumanDecision } from "./operational-state.js";
 import { stateDir, reportsDir, ensureDirs, nowIso } from "./storage.js";
@@ -63,7 +66,7 @@ function modelCredentialStatus(): "SET" | "NOT_SET" {
 }
 
 async function createStateAfterMaterials(loopId: string): Promise<OperationalState> {
-  let state = createInitialOperationalState(loopId);
+  let state = createInitialOperationalState(loopId, nowIso(), createInitialComplaintIntent());
   record([event(state, "intent_confirmed", `intent version=${state.intent.version}`)]);
   const first = advanceLoop(state);
   record(first.events);
@@ -97,7 +100,8 @@ async function runMainApprovalPath(): Promise<{
   record(compensationStep.events);
   assert(compensationStep.proposal.kind === "ask_human", "Compensation judgment must ask human.");
   assert(
-    compensationStep.proposal.purpose.includes("关键假设"),
+    compensationStep.proposal.purpose.includes("tradeoffs") &&
+      compensationStep.proposal.purpose.includes("key assumptions"),
     "Guided preference must increase rationale, option differences, and key assumption detail."
   );
   state = selectCompensation(compensationStep.state, "用户选择退款 12.34，并要求先准备客户回应草稿。");
@@ -136,7 +140,7 @@ async function runMainApprovalPath(): Promise<{
     state,
     proactiveEvidence: missingInfoStep.proposal.proactiveReason ?? "",
     scaffoldingEvidence: compensationStep.proposal.purpose,
-    ownershipEvidence: state.humanDecisions.find((decision) => decision.kind === "compensation_selected")?.content ?? "",
+    ownershipEvidence: state.humanDecisions.find((decision) => decision.label === "compensation_choice")?.content ?? "",
     toolEvidence: `beforeApproval=${approval.beforeApprovalCount}; afterApprove=${approval.afterDecisionCount}`
   };
 }
@@ -203,14 +207,21 @@ async function runBranchBNoRefundPath(): Promise<ScenarioResult> {
   state = provideDelayDays(advanceLoop(state).state, 2);
   state = selectCompensation(
     state,
-    "用户拒绝退款，要求只提供解释与改善承诺，不调用 prepare_refund。"
+    "用户拒绝退款，要求只提供解释与改善承诺，不调用 prepare_refund。",
+    false
   );
   state = addHumanDecision(state, {
     id: "decision-refund-rejected-branch-b",
-    kind: "refund_rejected",
+    kind: "action_rejected",
+    label: "external_action_decision",
+    actionIntent: {
+      externalActionType: "prepare_refund",
+      requiresAuthorization: true
+    },
     content: "用户明确拒绝退款，选择解释与改善承诺路径。",
     timestamp: nowIso(),
-    explicit: true
+    explicit: true,
+    evidenceRefs: ["criterion:任何退款行动必须经过明确批准"]
   });
   const next = advanceLoop(state);
   record(next.events);
@@ -246,7 +257,7 @@ async function runBranchBNoRefundPath(): Promise<ScenarioResult> {
 }
 
 async function runNoProgressStop(): Promise<ScenarioResult> {
-  let state = createInitialOperationalState("loop-no-progress");
+  let state = createInitialOperationalState("loop-no-progress", nowIso(), createInitialComplaintIntent());
   state = readComplaintMaterials(state);
   const first = advanceLoop(state).state;
   const second = advanceLoop(first).state;
@@ -260,7 +271,7 @@ async function runNoProgressStop(): Promise<ScenarioResult> {
 }
 
 async function runHumanPauseTakeover(): Promise<ScenarioResult> {
-  let state = createInitialOperationalState("loop-human-stop");
+  let state = createInitialOperationalState("loop-human-stop", nowIso(), createInitialComplaintIntent());
   state = {
     ...state,
     humanDecisions: [

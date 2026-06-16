@@ -1,13 +1,10 @@
-import { createHacActionReceipt } from "./hac-action-receipt.js";
-import { decideHacAction } from "./hac-decision-model.js";
-import { createInitialComplaintIntent, type HumanIntentContract } from "./human-intent-contract.js";
+import type { HumanIntentContract } from "./human-intent-contract.js";
 import { DEFAULT_LOOP_BOUNDS, advanceLoopBounds, buildProgressSignature, createLoopBoundsState, exceededLoopBounds } from "./loop-bounds.js";
 import type { GovernorResult } from "./hac-governor.js";
 import { evaluateHacGovernor } from "./hac-governor.js";
 import { verifyMinimumLoopOutcome } from "./independent-verifier.js";
-import type { EvidenceItem, HumanDecision, LoopActionProposal, OperationalState } from "./operational-state.js";
-import { addActionReceipt, addEvidence, addHumanDecision } from "./operational-state.js";
-import { getToolExecutionCount, prepareRefundTool, resetToolExecutions } from "./tool.js";
+import type { HumanDecision, LoopActionProposal, OperationalState } from "./operational-state.js";
+import { addHumanDecision } from "./operational-state.js";
 import { nowIso } from "./storage.js";
 
 export type LoopEventName =
@@ -40,8 +37,24 @@ export type LoopStepResult = {
   events: LoopEvent[];
 };
 
-export function createInitialOperationalState(loopId: string, now = nowIso()): OperationalState {
-  const intent = createInitialComplaintIntent();
+function createGenericIntent(): HumanIntentContract {
+  return {
+    version: 1,
+    goal: "Complete the confirmed task within the delegated scope.",
+    successCriteria: ["Confirmed task outcome has verifiable evidence"],
+    delegatedScope: ["Organize evidence", "Identify missing information", "Propose the next candidate action"],
+    nonDelegableJudgments: ["Any judgment explicitly reserved by the human"],
+    stopConditions: ["Human pauses or takes over", "Loop bounds are reached", "Required evidence is unavailable"],
+    interactionPreference: "concise",
+    confirmedByHuman: true
+  };
+}
+
+export function createInitialOperationalState(
+  loopId: string,
+  now = nowIso(),
+  intent: HumanIntentContract = createGenericIntent()
+): OperationalState {
   return {
     loopId,
     intent,
@@ -54,9 +67,10 @@ export function createInitialOperationalState(loopId: string, now = nowIso()): O
       {
         id: "decision-intent-confirmed",
         kind: "intent_confirmed",
-        content: "Human confirmed initial complaint handling goal and boundaries.",
+        content: "Human confirmed the initial goal, success criteria, delegated scope, and non-delegable judgments.",
         timestamp: now,
-        explicit: true
+        explicit: true,
+        evidenceRefs: ["intent:confirmed"]
       }
     ],
     actionReceipts: [],
@@ -75,44 +89,24 @@ export function event(state: OperationalState, type: LoopEventName, detail: stri
   };
 }
 
-export function readComplaintMaterials(state: OperationalState): OperationalState {
-  const items: EvidenceItem[] = [
-    {
-      id: "fact-complaint-delayed-delivery",
-      kind: "fact",
-      content: "客户投诉内容确认存在交付延误。",
-      source: "customer_complaint_material",
-      status: "confirmed"
-    },
-    {
-      id: "fact-delivery-responsibility",
-      kind: "fact",
-      content: "商家需要在回应中明确承认交付延误责任。",
-      source: "human_intent_contract",
-      status: "confirmed"
-    },
-    {
-      id: "inference-relationship-risk",
-      kind: "inference",
-      content: "如果回应回避责任，客户关系修复概率会下降。",
-      source: "loop_reasoning",
-      status: "unverified"
-    },
-    {
-      id: "assumption-delay-duration-unknown",
-      kind: "assumption",
-      content: "交付延误天数尚未确认，补偿力度可能受影响。",
-      source: "missing_complaint_detail",
-      status: "unverified"
-    }
-  ];
+function unresolvedHumanJudgment(state: OperationalState): string | undefined {
+  const hasExplicitJudgment = state.humanDecisions.some(
+    (decision) => decision.kind === "judgment_made" && decision.explicit
+  );
+  return hasExplicitJudgment ? undefined : state.intent.nonDelegableJudgments[0];
+}
 
-  const next = items.reduce((current, item) => addEvidence(current, item), state);
-  return {
-    ...next,
-    openQuestions: ["delivery_delay_days"],
-    currentStep: "complaint_materials_read"
-  };
+function pendingAuthorizedAction(state: OperationalState): HumanDecision | undefined {
+  return state.humanDecisions.find((decision) => {
+    if (decision.kind !== "judgment_made" || !decision.actionIntent?.requiresAuthorization) {
+      return false;
+    }
+    const actionType = decision.actionIntent.externalActionType;
+    if (!actionType) {
+      return false;
+    }
+    return !state.actionReceipts.some((receipt) => receipt.toolName === actionType);
+  });
 }
 
 export function proposeNextAction(state: OperationalState): LoopActionProposal {
@@ -128,11 +122,11 @@ export function proposeNextAction(state: OperationalState): LoopActionProposal {
     };
   }
 
-  if (!state.facts.some((item) => item.id === "fact-complaint-delayed-delivery")) {
+  if (state.facts.length === 0) {
     return {
       kind: "reason",
-      purpose: "读取客户投诉资料并区分事实、推断和假设。",
-      expectedEvidence: ["fact:complaint", "inference:relationship-risk", "assumption:missing-delay-duration"],
+      purpose: `Inspect the current task materials and separate facts, inferences, assumptions, and missing evidence: ${state.intent.goal}`,
+      expectedEvidence: ["evidence:task-materials", "evidence:missing-critical-detail"],
       mayChangeGoal: false,
       mayChangeSuccessCriteria: false,
       touchesNonDelegableJudgment: false,
@@ -140,65 +134,54 @@ export function proposeNextAction(state: OperationalState): LoopActionProposal {
     };
   }
 
-  if (state.openQuestions.includes("delivery_delay_days")) {
+  if (state.openQuestions.length > 0) {
+    const question = state.openQuestions[0] ?? "critical_missing_fact";
     return {
       kind: "ask_human",
-      purpose: "确认交付延误天数，避免在关键信息不足时决定补偿力度。",
-      expectedEvidence: ["human_input:delivery_delay_days"],
+      purpose: "Resolve the current blocking open question before continuing.",
+      expectedEvidence: [`human_input:${question}`],
       mayChangeGoal: false,
       mayChangeSuccessCriteria: false,
       touchesNonDelegableJudgment: false,
       outsideDelegatedScope: false,
-      proactiveReason: "延误天数会影响补偿方案强度；继续形成最终方案会让假设替代事实。"
+      proactiveReason:
+        "The current open question is marked as required evidence for the next decision; continuing would let an assumption stand in for a confirmed fact."
     };
   }
 
-  const compensationDecision = state.humanDecisions.find(
-    (decision) => decision.kind === "compensation_selected"
-  );
-  if (!compensationDecision) {
+  const pendingAction = pendingAuthorizedAction(state);
+  if (pendingAction?.actionIntent?.externalActionType) {
+    return {
+      kind: "invoke_tool",
+      purpose: "Execute the authorized external action candidate through the existing action control path.",
+      expectedEvidence: [`action_receipt:${pendingAction.actionIntent.externalActionType}`],
+      mayChangeGoal: false,
+      mayChangeSuccessCriteria: false,
+      touchesNonDelegableJudgment: false,
+      outsideDelegatedScope: false
+    };
+  }
+
+  const missingJudgment = unresolvedHumanJudgment(state);
+  if (missingJudgment) {
     return {
       kind: "ask_human",
       purpose:
         state.intent.interactionPreference === "guided"
-          ? "提出退款、优惠券、解释与改善承诺等候选方案，并说明成本、客户关系影响和关键假设差异。"
-          : "提出两个以上补偿候选方案，等待人选择。",
-      expectedEvidence: ["human_decision:compensation_selected"],
+          ? "Present options, tradeoffs, key assumptions, and expected consequences for the reserved human judgment."
+          : "Present options for the reserved human judgment and wait for the human decision.",
+      expectedEvidence: [`judgment:${missingJudgment}`],
       mayChangeGoal: false,
       mayChangeSuccessCriteria: false,
       touchesNonDelegableJudgment: true,
       outsideDelegatedScope: false,
-      proactiveReason: "补偿选择属于 Human Intent Contract 中的 nonDelegableJudgment。"
-    };
-  }
-
-  if (compensationDecision.content.includes("只提供解释与改善承诺")) {
-    return {
-      kind: "complete",
-      purpose: "准备不含退款的解释与改善承诺回应。",
-      expectedEvidence: ["fact:response-draft", "verification:success-criteria"],
-      mayChangeGoal: false,
-      mayChangeSuccessCriteria: false,
-      touchesNonDelegableJudgment: false,
-      outsideDelegatedScope: false
-    };
-  }
-
-  if (!state.actionReceipts.some((receipt) => receipt.toolName === "prepare_refund")) {
-    return {
-      kind: "invoke_tool",
-      purpose: "根据人类选择的退款方案准备退款。",
-      expectedEvidence: ["action_receipt:prepare_refund"],
-      mayChangeGoal: false,
-      mayChangeSuccessCriteria: false,
-      touchesNonDelegableJudgment: false,
-      outsideDelegatedScope: false
+      proactiveReason: "The next step touches a non-delegable judgment in the confirmed Human Intent Contract."
     };
   }
 
   return {
     kind: "complete",
-    purpose: "对照成功标准完成独立验证，并将结果交还给人。",
+    purpose: "Run independent verification against the confirmed success criteria and return the result to the human.",
     expectedEvidence: ["verification:success-criteria"],
     mayChangeGoal: false,
     mayChangeSuccessCriteria: false,
@@ -277,30 +260,6 @@ export function advanceLoop(state: OperationalState): LoopStepResult {
   };
 }
 
-export function provideDelayDays(state: OperationalState, days: number): OperationalState {
-  const decision: HumanDecision = {
-    id: "decision-delay-days",
-    kind: "information_provided",
-    content: `用户确认交付延误 ${days} 天。`,
-    timestamp: nowIso(),
-    explicit: true
-  };
-  return addEvidence(
-    {
-      ...addHumanDecision(state, decision),
-      status: "running",
-      openQuestions: state.openQuestions.filter((question) => question !== "delivery_delay_days")
-    },
-    {
-      id: "fact-delay-days",
-      kind: "fact",
-      content: `交付延误 ${days} 天。`,
-      source: "human_input",
-      status: "confirmed"
-    }
-  );
-}
-
 export function applyConfirmedIntentPreference(
   state: OperationalState,
   intent: HumanIntentContract
@@ -310,123 +269,12 @@ export function applyConfirmedIntentPreference(
     {
       id: "decision-preference-guided",
       kind: "preference_changed",
-      content: `用户明确将互动偏好调整为 ${intent.interactionPreference}。`,
+      content: `Human explicitly changed interaction preference to ${intent.interactionPreference}.`,
       timestamp: nowIso(),
-      explicit: true
+      explicit: true,
+      evidenceRefs: ["intent:preference_changed"]
     }
   );
-}
-
-export function selectCompensation(state: OperationalState, content: string): OperationalState {
-  return addHumanDecision(
-    { ...state, status: "running" },
-    {
-      id: `decision-compensation-${state.humanDecisions.length + 1}`,
-      kind: "compensation_selected",
-      content,
-      timestamp: nowIso(),
-      explicit: true
-    }
-  );
-}
-
-export async function authorizeRefundPath(state: OperationalState, approve: boolean): Promise<{
-  state: OperationalState;
-  beforeApprovalCount: number;
-  afterDecisionCount: number;
-  receiptMessage: string;
-}> {
-  await resetToolExecutions();
-  const facts = {
-    actionId: "loop-prepare-refund",
-    actionType: "prepare_refund",
-    hasExternalSideEffect: true,
-    requiresHumanValueJudgment: false,
-    prohibited: false
-  };
-  const decision = decideHacAction(facts);
-  if (decision.mode !== "AUTHORIZE") {
-    throw new Error("prepare_refund must be AUTHORIZE.");
-  }
-  const approvalRequired = await prepareRefundTool.needsApproval(
-    {} as never,
-    { amount: 12.34, reason: "delayed delivery" },
-    facts.actionId
-  );
-  if (!approvalRequired) {
-    throw new Error("prepare_refund must require approval before execution.");
-  }
-  const beforeApprovalCount = await getToolExecutionCount();
-
-  if (!approve) {
-    const receipt = createHacActionReceipt({
-      toolCallId: facts.actionId,
-      toolName: "prepare_refund",
-      humanDecision: "rejected",
-      runtimeOutcome: { status: "not_executed" }
-    });
-    return {
-      state: addActionReceipt(addHumanDecision(state, {
-        id: "decision-refund-rejected",
-        kind: "refund_rejected",
-        content: "用户拒绝退款行动。",
-        timestamp: nowIso(),
-        explicit: true
-      }), receipt),
-      beforeApprovalCount,
-      afterDecisionCount: await getToolExecutionCount(),
-      receiptMessage: receipt.authoritativeMessage
-    };
-  }
-
-  const result = await prepareRefundTool.invoke(
-    {} as never,
-    JSON.stringify({ amount: 12.34, reason: "delayed delivery" }),
-    {
-      toolCall: {
-        type: "function_call",
-        callId: facts.actionId,
-        name: "prepare_refund",
-        arguments: JSON.stringify({ amount: 12.34, reason: "delayed delivery" })
-      } as never,
-      resumeState: "minimum-loop-approved-runstate"
-    }
-  );
-  const resultMessage =
-    typeof result === "string"
-      ? result
-      : typeof result === "object" && result !== null && "message" in result
-        ? String((result as { message: unknown }).message)
-        : JSON.stringify(result);
-  const receipt = createHacActionReceipt({
-    toolCallId: facts.actionId,
-    toolName: "prepare_refund",
-    humanDecision: "approved",
-    runtimeOutcome: { status: "succeeded", resultMessage }
-  });
-  const withReceipt = addActionReceipt(addHumanDecision(state, {
-    id: "decision-refund-approved",
-    kind: "refund_approved",
-    content: "用户明确批准退款准备行动。",
-    timestamp: nowIso(),
-    explicit: true
-  }), receipt);
-  return {
-    state: withReceipt,
-    beforeApprovalCount,
-    afterDecisionCount: await getToolExecutionCount(),
-    receiptMessage: receipt.authoritativeMessage
-  };
-}
-
-export function addResponseDraftEvidence(state: OperationalState, content: string): OperationalState {
-  return addEvidence(state, {
-    id: `fact-response-draft-${state.facts.length + 1}`,
-    kind: "fact",
-    content: `可执行回应：${content}`,
-    source: "loop_output",
-    status: "confirmed"
-  });
 }
 
 export function completeWithVerification(state: OperationalState): OperationalState {

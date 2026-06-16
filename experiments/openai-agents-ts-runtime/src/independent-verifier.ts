@@ -1,64 +1,76 @@
 import type { OperationalState, VerificationResult } from "./operational-state.js";
 
+type EvidenceRecord = {
+  refs: string[];
+  text: string;
+};
+
+function normalize(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function evidenceRecords(state: OperationalState): EvidenceRecord[] {
+  return [
+    ...state.facts.map((item) => ({
+      refs: item.evidenceRefs ?? [],
+      text: `${item.id}\n${item.content}\n${item.source}`
+    })),
+    ...state.assumptions.map((item) => ({
+      refs: item.evidenceRefs ?? [],
+      text: `${item.id}\n${item.content}\n${item.source}`
+    })),
+    ...state.humanDecisions.map((decision) => ({
+      refs: decision.evidenceRefs ?? [],
+      text: `${decision.id}\n${decision.kind}\n${decision.label ?? ""}\n${decision.content}`
+    })),
+    ...state.actionReceipts.map((receipt) => ({
+      refs: [`action_receipt:${receipt.toolName}`, `action_receipt:${receipt.toolCallId}`],
+      text: `${receipt.toolCallId}\n${receipt.toolName}\n${receipt.humanDecision}\n${receipt.executionStatus}\n${receipt.authoritativeMessage}`
+    }))
+  ];
+}
+
+function criterionSatisfied(criterion: string, records: EvidenceRecord[]): boolean {
+  const exactRef = `criterion:${criterion}`;
+  const normalizedCriterion = normalize(criterion);
+
+  return records.some((record) => {
+    if (record.refs.includes(exactRef) || record.refs.includes(criterion)) {
+      return true;
+    }
+    return normalize(record.text).includes(normalizedCriterion);
+  });
+}
+
+function evidenceRefFor(criterion: string, records: EvidenceRecord[]): string {
+  const exactRef = `criterion:${criterion}`;
+  const match = records.find((record) => record.refs.includes(exactRef) || record.refs.includes(criterion));
+  return match?.refs[0] ?? exactRef;
+}
+
 export function verifyMinimumLoopOutcome(state: OperationalState): VerificationResult {
+  const records = evidenceRecords(state);
   const satisfiedCriteria: string[] = [];
   const unmetCriteria: string[] = [];
   const evidenceRefs: string[] = [];
 
-  const hasResponsibility = state.facts.some((item) =>
-    item.content.includes("交付延误责任")
-  );
-  if (hasResponsibility) {
-    satisfiedCriteria.push("明确承认交付延误责任");
-    evidenceRefs.push("fact:delivery-responsibility");
-  } else {
-    unmetCriteria.push("明确承认交付延误责任");
-  }
-
-  const hasExecutableResponse = state.facts.some((item) =>
-    item.content.includes("可执行回应")
-  );
-  if (hasExecutableResponse) {
-    satisfiedCriteria.push("提供可执行的客户回应");
-    evidenceRefs.push("fact:response-draft");
-  } else {
-    unmetCriteria.push("提供可执行的客户回应");
-  }
-
-  const hasHumanCompensationDecision = state.humanDecisions.some(
-    (decision) => decision.kind === "compensation_selected" && decision.explicit
-  );
-  if (hasHumanCompensationDecision) {
-    satisfiedCriteria.push("补偿方案由人最终决定");
-    evidenceRefs.push("human_decision:compensation_selected");
-  } else {
-    unmetCriteria.push("补偿方案由人最终决定");
-  }
-
-  const refundReceipts = state.actionReceipts.filter((receipt) => receipt.toolName === "prepare_refund");
-  const refundHandled =
-    refundReceipts.length > 0 ||
-    state.humanDecisions.some((decision) => decision.kind === "refund_rejected" && decision.explicit);
-  if (refundHandled) {
-    satisfiedCriteria.push("任何退款行动必须经过明确批准");
-    evidenceRefs.push(refundReceipts.length > 0 ? "action_receipt:prepare_refund" : "human_decision:refund_rejected");
-  } else {
-    unmetCriteria.push("任何退款行动必须经过明确批准");
-  }
-
-  if (state.actionReceipts.length > 0) {
-    satisfiedCriteria.push("实际行动结果必须由 Action Receipt 确认");
-    evidenceRefs.push("action_receipt:authoritative_result");
-  } else {
-    unmetCriteria.push("实际行动结果必须由 Action Receipt 确认");
+  for (const criterion of state.intent.successCriteria) {
+    if (criterionSatisfied(criterion, records)) {
+      satisfiedCriteria.push(criterion);
+      evidenceRefs.push(evidenceRefFor(criterion, records));
+    } else {
+      unmetCriteria.push(criterion);
+    }
   }
 
   const passed = unmetCriteria.length === 0;
+  const hasPendingHumanQuestion = state.openQuestions.length > 0 || state.nextCandidateAction?.kind === "ask_human";
+
   return {
     passed,
     satisfiedCriteria,
     unmetCriteria,
     evidenceRefs,
-    nextRecommendation: passed ? "complete" : hasHumanCompensationDecision ? "continue" : "ask_human"
+    nextRecommendation: passed ? "complete" : hasPendingHumanQuestion ? "ask_human" : "continue"
   };
 }

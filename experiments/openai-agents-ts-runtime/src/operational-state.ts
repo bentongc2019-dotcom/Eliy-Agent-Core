@@ -12,6 +12,7 @@ export type EvidenceItem = {
   content: string;
   source: string;
   status: "unverified" | "confirmed" | "contested";
+  evidenceRefs?: string[];
 };
 
 export type HumanDecision = {
@@ -20,12 +21,20 @@ export type HumanDecision = {
     | "intent_confirmed"
     | "information_provided"
     | "preference_changed"
-    | "compensation_selected"
-    | "refund_approved"
-    | "refund_rejected"
+    | "judgment_made"
+    | "action_approved"
+    | "action_rejected"
     | "pause"
     | "redirect"
     | "takeover";
+  label?: string;
+  actionIntent?: {
+    actionType?: string;
+    externalActionType?: string;
+    requiresAuthorization?: boolean;
+  };
+  payload?: Record<string, unknown>;
+  evidenceRefs?: string[];
   content: string;
   timestamp: string;
   explicit: boolean;
