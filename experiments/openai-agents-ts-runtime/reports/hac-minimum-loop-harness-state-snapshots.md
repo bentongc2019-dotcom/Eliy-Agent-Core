@@ -1,7 +1,7 @@
 # HAC Minimum Loop Harness State Snapshots
 
 Task: CP-HAC-MINIMUM-LOOP-HARNESS-VERTICAL-SLICE-01
-Generated: 2026-06-16T01:10:39.465Z
+Generated: 2026-06-16T01:14:54.898Z
 
 ## Main Path Final State Summary
 
@@ -92,35 +92,35 @@ Generated: 2026-06-16T01:10:39.465Z
       "id": "decision-intent-confirmed",
       "kind": "intent_confirmed",
       "content": "Human confirmed initial complaint handling goal and boundaries.",
-      "timestamp": "2026-06-16T01:10:39.263Z",
+      "timestamp": "2026-06-16T01:14:54.717Z",
       "explicit": true
     },
     {
       "id": "decision-delay-days",
       "kind": "information_provided",
       "content": "用户确认交付延误 5 天。",
-      "timestamp": "2026-06-16T01:10:39.264Z",
+      "timestamp": "2026-06-16T01:14:54.718Z",
       "explicit": true
     },
     {
       "id": "decision-preference-guided",
       "kind": "preference_changed",
       "content": "用户明确将互动偏好调整为 guided。",
-      "timestamp": "2026-06-16T01:10:39.264Z",
+      "timestamp": "2026-06-16T01:14:54.718Z",
       "explicit": true
     },
     {
       "id": "decision-compensation-4",
       "kind": "compensation_selected",
       "content": "用户选择退款 12.34，并要求先准备客户回应草稿。",
-      "timestamp": "2026-06-16T01:10:39.264Z",
+      "timestamp": "2026-06-16T01:14:54.718Z",
       "explicit": true
     },
     {
       "id": "decision-refund-approved",
       "kind": "refund_approved",
       "content": "用户明确批准退款准备行动。",
-      "timestamp": "2026-06-16T01:10:39.267Z",
+      "timestamp": "2026-06-16T01:14:54.721Z",
       "explicit": true
     }
   ],
@@ -157,11 +157,13 @@ Generated: 2026-06-16T01:10:39.465Z
 
 ## Cross-process Restore
 
+This restore snapshot is a separate persistence-continuity scenario from the main approval path. It intentionally records the saved state version before and after restore (`1 -> 1`) and must not be read as the main path final intent version (`2`).
+
 ```json
 {
-  "oldPid": 56741,
-  "newPid": 56742,
-  "stateHash": "5068791d3e3aa4abf266244466e58c749606b834ea63023564e73e0037b9d4c8",
+  "oldPid": 56888,
+  "newPid": 56889,
+  "stateHash": "5e8c55fe163043862b99c2daaf6700864cb25a924416cf27f40f2c875406900a",
   "stateBytes": 3479,
   "intentVersionBefore": 1,
   "intentVersionAfter": 1,

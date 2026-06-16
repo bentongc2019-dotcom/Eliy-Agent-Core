@@ -1,7 +1,7 @@
 # HAC Minimum Loop Harness Final Report
 
 Task: CP-HAC-MINIMUM-LOOP-HARNESS-VERTICAL-SLICE-01
-Generated: 2026-06-16T01:10:39.465Z
+Generated: 2026-06-16T01:14:54.899Z
 
 ## Baseline
 
@@ -13,13 +13,16 @@ Generated: 2026-06-16T01:10:39.465Z
 
 ## Credential Status
 
-DeepSeek API key in current shell: NOT_SET
+DeepSeek API key in current shell: SET
 
-The harness code is model-provider compatible, but this run did not perform a live DeepSeek model call when credential status is NOT_SET. Structural loop evidence was still generated without writing any key or .env file.
+DeepSeek credential status was SET for this run. The run completed with Minimum HAC Loop Harness Passed, and no key value was written to reports.
 
 ## Human Intent Contract
 
-Version after explicit preference change: 2
+Main path final intent version after explicit preference change: 2
+Cross-process restore scenario intent version before/after restore: 1 -> 1
+
+These are separate scenario snapshots: the main approval path validates versioned preference change to v2, while the cross-process restore scenario validates persistence continuity for its saved v1 state.
 
 ```json
 {
@@ -65,7 +68,7 @@ Version after explicit preference change: 2
 | Scenario | Result | Evidence |
 |---|---|---|
 | Main vertical path A \| refund approved | Passed | status=completed; verifier=true; receipt=用户已批准，prepare_refund 已成功执行。Mock refund prepared for 12.34: delayed delivery |
-| Cross-process Operational State restore | Passed | {"oldPid":56741,"newPid":56742,"stateHash":"5068791d3e3aa4abf266244466e58c749606b834ea63023564e73e0037b9d4c8","stateBytes":3479,"intentVersionBefore":1,"intentVersionAfter":1,"iterationBefore":2,"iterationAfter":2,"nextActionBefore":"ask_human","nextActionAfter":"ask_human","replayedFullHistory":false} |
+| Cross-process Operational State restore | Passed | {"oldPid":56888,"newPid":56889,"stateHash":"5e8c55fe163043862b99c2daaf6700864cb25a924416cf27f40f2c875406900a","stateBytes":3479,"intentVersionBefore":1,"intentVersionAfter":1,"iterationBefore":2,"iterationAfter":2,"nextActionBefore":"ask_human","nextActionAfter":"ask_human","replayedFullHistory":false} |
 | Branch path B \| no refund explanation and improvement | Passed | status=completed; prepare_refund_called=false; verifier=true |
 | No progress stop | Passed | status=stopped; stopReason=no_progress; noProgressCount=2 |
 | Human pause / redirect / takeover boundary | Passed | status=stopped; stopReason=human_takeover |
@@ -83,7 +86,7 @@ Version after explicit preference change: 2
 9. External action authorization: Passed; beforeApproval=0; afterApprove=1
 10. Action Receipt authoritative: Passed; 用户已批准，prepare_refund 已成功执行。Mock refund prepared for 12.34: delayed delivery
 11. Independent Verifier rejects Agent self-claim alone: Passed; verifier used state evidence and receipts.
-12. Cross-process Operational State restore: Passed; oldPid=56741, newPid=56742, hash=5068791d3e3aa4abf266244466e58c749606b834ea63023564e73e0037b9d4c8.
+12. Cross-process Operational State restore: Passed; oldPid=56888, newPid=56889, hash=5e8c55fe163043862b99c2daaf6700864cb25a924416cf27f40f2c875406900a.
 13. Branching paths from human decisions: Passed; refund approval path and no-refund explanation path diverged from state.
 14. Bounds/no-progress stop: Passed.
 15. Human pause/redirect/takeover: Passed.
@@ -92,10 +95,10 @@ Version after explicit preference change: 2
 18. Second Agent Runtime: Not introduced.
 19. Gateway/Skill/Sub-agent/Memory/UI: Not introduced.
 
-## Current Minimal Real Gap
+## Current Minimal Gap
 
-The current Codex shell has DEEPSEEK_API_KEY=NOT_SET, so live DeepSeek model-driven proposal evidence was not produced in this run. The vertical loop harness and evidence contract are implemented and structurally verified; live model execution must be rerun in a terminal with DeepSeek credentials to upgrade from Credential Blocked.
+No credential blocker remains in this report. The remaining implementation gap is productization: this is still a local CLI spike, not Gateway, UI, Memory, Skill, Workspace, or database integration.
 
 ## Final Conclusion
 
-Credential Blocked
+Minimum HAC Loop Harness Passed

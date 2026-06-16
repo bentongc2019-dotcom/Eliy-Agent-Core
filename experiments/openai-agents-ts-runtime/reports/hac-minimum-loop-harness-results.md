@@ -1,14 +1,14 @@
 # HAC Minimum Loop Harness Results
 
 Task: CP-HAC-MINIMUM-LOOP-HARNESS-VERTICAL-SLICE-01
-Generated: 2026-06-16T01:10:39.464Z
+Generated: 2026-06-16T01:14:54.898Z
 
-Real model credential status: NOT_SET
+Real model credential status: SET
 
 | Scenario | Result | Evidence |
 |---|---|---|
 | Main vertical path A \| refund approved | Passed | status=completed; verifier=true; receipt=用户已批准，prepare_refund 已成功执行。Mock refund prepared for 12.34: delayed delivery |
-| Cross-process Operational State restore | Passed | {"oldPid":56741,"newPid":56742,"stateHash":"5068791d3e3aa4abf266244466e58c749606b834ea63023564e73e0037b9d4c8","stateBytes":3479,"intentVersionBefore":1,"intentVersionAfter":1,"iterationBefore":2,"iterationAfter":2,"nextActionBefore":"ask_human","nextActionAfter":"ask_human","replayedFullHistory":false} |
+| Cross-process Operational State restore | Passed | {"oldPid":56888,"newPid":56889,"stateHash":"5e8c55fe163043862b99c2daaf6700864cb25a924416cf27f40f2c875406900a","stateBytes":3479,"intentVersionBefore":1,"intentVersionAfter":1,"iterationBefore":2,"iterationAfter":2,"nextActionBefore":"ask_human","nextActionAfter":"ask_human","replayedFullHistory":false} |
 | Branch path B \| no refund explanation and improvement | Passed | status=completed; prepare_refund_called=false; verifier=true |
 | No progress stop | Passed | status=stopped; stopReason=no_progress; noProgressCount=2 |
 | Human pause / redirect / takeover boundary | Passed | status=stopped; stopReason=human_takeover |
@@ -24,9 +24,9 @@ Real model credential status: NOT_SET
 
 ```json
 {
-  "oldPid": 56741,
-  "newPid": 56742,
-  "stateHash": "5068791d3e3aa4abf266244466e58c749606b834ea63023564e73e0037b9d4c8",
+  "oldPid": 56888,
+  "newPid": 56889,
+  "stateHash": "5e8c55fe163043862b99c2daaf6700864cb25a924416cf27f40f2c875406900a",
   "stateBytes": 3479,
   "intentVersionBefore": 1,
   "intentVersionAfter": 1,

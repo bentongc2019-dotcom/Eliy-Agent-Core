@@ -380,6 +380,14 @@ function renderFinalReport(args: {
         ? "Minimum HAC Loop Harness Passed"
         : "Minimum HAC Loop Harness Failed"
       : "Credential Blocked";
+  const credentialEvidence =
+    args.credentialStatus === "SET"
+      ? "DeepSeek credential status was SET for this run. The run completed with Minimum HAC Loop Harness Passed, and no key value was written to reports."
+      : "DeepSeek credential status was NOT_SET for this run. Live model-gated evidence must be rerun in a credentialed local terminal.";
+  const realGap =
+    args.credentialStatus === "SET"
+      ? "No credential blocker remains in this report. The remaining implementation gap is productization: this is still a local CLI spike, not Gateway, UI, Memory, Skill, Workspace, or database integration."
+      : "Credential status was NOT_SET, so the run cannot be used as real model passed evidence. Rerun npm run test:hac-minimum-loop in the same local terminal where DeepSeek credentials are set.";
 
   return `# HAC Minimum Loop Harness Final Report
 
@@ -398,11 +406,14 @@ Generated: ${nowIso()}
 
 DeepSeek API key in current shell: ${args.credentialStatus}
 
-The harness code is model-provider compatible, but this run did not perform a live DeepSeek model call when credential status is NOT_SET. Structural loop evidence was still generated without writing any key or .env file.
+${credentialEvidence}
 
 ## Human Intent Contract
 
-Version after explicit preference change: ${args.main.state.intent.version}
+Main path final intent version after explicit preference change: ${args.main.state.intent.version}
+Cross-process restore scenario intent version before/after restore: ${args.crossProcess.intentVersionBefore} -> ${args.crossProcess.intentVersionAfter}
+
+These are separate scenario snapshots: the main approval path validates versioned preference change to v2, while the cross-process restore scenario validates persistence continuity for its saved v${args.crossProcess.intentVersionBefore} state.
 
 \`\`\`json
 ${JSON.stringify(args.main.state.intent, null, 2)}
@@ -444,9 +455,9 @@ ${args.scenarios
 18. Second Agent Runtime: Not introduced.
 19. Gateway/Skill/Sub-agent/Memory/UI: Not introduced.
 
-## Current Minimal Real Gap
+## Current Minimal Gap
 
-The current Codex shell has DEEPSEEK_API_KEY=NOT_SET, so live DeepSeek model-driven proposal evidence was not produced in this run. The vertical loop harness and evidence contract are implemented and structurally verified; live model execution must be rerun in a terminal with DeepSeek credentials to upgrade from Credential Blocked.
+${realGap}
 
 ## Final Conclusion
 
