@@ -1,0 +1,39 @@
+{
+  "result": "Live comparison failed",
+  "model": "deepseek-v4-flash",
+  "requestCount": 2,
+  "candidateA": {
+    "mode": "candidate-a",
+    "requestCount": 1,
+    "mentionsCorrected": true,
+    "mentionsOld": true,
+    "answer": "根据当前状态视图，我作为候选A的回应如下：\n\n**Rollback marker:** `ROLLBACK_NOT_RELIABLE`\n\n**判断：No-Go**\n\n**理由：**\n1. **阻断级缺陷未清零**：事实`fact-release-blocker-count`确认存在2个阻断级缺陷，这通常不符合发布标准。\n2. **回滚不可靠**：已确认的`ROLLBACK_NOT_RELIABLE`表明如果发布后出现问题，无法安全回滚，这将导致无法接受的风险。\n3. **关键测试覆盖率信息缺失**：用户提到“关键路径测试覆盖率86%”，但该信息未作为事实在状态中确认，且86%的覆盖率对于关键路径而言可能不足。\n4. **客户信任风险**：推理`inference-customer-trust-risk`指出，带着未知阻断缺陷发布将增加客户信任风险，这在缺乏可靠回滚能力的情况下尤为严重。\n\n**建议：**\n- 首要行动：修复2个阻断级缺陷。\n- 修复后重新评估回滚准备情况，确保达到`ROLLBACK_READY`状态。\n- 在缺陷修复和回滚能力确认前，**不可发送对外通知**（符合非委托判断中“是否发送对外状态通知”的要求）。\n\n当前动作：**提请人工确认No-Go决定**，并明确后续修复和测试计划。",
+    "usage": {
+      "prompt_tokens": 1070,
+      "completion_tokens": 282,
+      "total_tokens": 1352,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "prompt_cache_hit_tokens": 0,
+      "prompt_cache_miss_tokens": 1070
+    }
+  },
+  "candidateB": {
+    "mode": "candidate-b",
+    "requestCount": 1,
+    "mentionsCorrected": true,
+    "mentionsOld": false,
+    "answer": "{\n  \"rollbackMarker\": \"ROLLBACK_NOT_RELIABLE\",\n  \"decision\": \"No-Go\"\n}",
+    "usage": {
+      "prompt_tokens": 825,
+      "completion_tokens": 25,
+      "total_tokens": 850,
+      "prompt_tokens_details": {
+        "cached_tokens": 0
+      },
+      "prompt_cache_hit_tokens": 0,
+      "prompt_cache_miss_tokens": 825
+    }
+  }
+}

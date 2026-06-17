@@ -10,6 +10,8 @@
     "test:deepseek": "node dist/deepseek-tests.js",
     "test:hac-candidate-b": "node dist/hac-candidate-b-tests.js",
     "test:hac-candidate-b-live": "node dist/hac-candidate-b-live-check.js",
+    "test:hac-candidate-a-b-gate2": "node dist/hac-candidate-a-b-gate2-tests.js",
+    "test:hac-candidate-a-b-gate2-live": "node dist/hac-candidate-a-b-gate2-live-check.js",
     "test:hac-loop-cross-task-generalization": "node dist/hac-loop-cross-task-generalization-tests.js",
     "test:hac-decision-model": "node dist/hac-decision-model-tests.js",
     "test:hac-minimum-loop": "node dist/hac-minimum-loop-tests.js",
