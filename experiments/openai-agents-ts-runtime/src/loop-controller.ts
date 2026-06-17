@@ -57,6 +57,8 @@ export function createInitialOperationalState(
 ): OperationalState {
   return {
     loopId,
+    version: 1,
+    updatedAt: now,
     intent,
     iteration: 0,
     status: "running",

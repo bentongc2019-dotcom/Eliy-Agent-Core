@@ -85,6 +85,8 @@ export function createProductLaunchState(loopId: string): OperationalState {
   const now = nowIso();
   return {
     loopId,
+    version: 1,
+    updatedAt: now,
     intent: createProductLaunchIntent(),
     iteration: 0,
     status: "running",

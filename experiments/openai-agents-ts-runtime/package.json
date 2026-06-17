@@ -8,6 +8,8 @@
     "build": "tsc -p tsconfig.json",
     "license:scan": "node dist/license-scan.js",
     "test:deepseek": "node dist/deepseek-tests.js",
+    "test:hac-candidate-b": "node dist/hac-candidate-b-tests.js",
+    "test:hac-candidate-b-live": "node dist/hac-candidate-b-live-check.js",
     "test:hac-loop-cross-task-generalization": "node dist/hac-loop-cross-task-generalization-tests.js",
     "test:hac-decision-model": "node dist/hac-decision-model-tests.js",
     "test:hac-minimum-loop": "node dist/hac-minimum-loop-tests.js",

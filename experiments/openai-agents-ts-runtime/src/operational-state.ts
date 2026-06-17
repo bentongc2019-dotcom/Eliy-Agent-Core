@@ -61,6 +61,8 @@ export type VerificationResult = {
 
 export type OperationalState = {
   loopId: string;
+  version: number;
+  updatedAt: string;
   intent: HumanIntentContract;
   iteration: number;
   status: "running" | "waiting_human" | "completed" | "stopped" | "failed";
@@ -113,5 +115,10 @@ export async function saveOperationalState(path: string, state: OperationalState
 }
 
 export async function loadOperationalState(path: string): Promise<OperationalState> {
-  return JSON.parse(await readFile(path, "utf8")) as OperationalState;
+  const parsed = JSON.parse(await readFile(path, "utf8")) as OperationalState;
+  return {
+    ...parsed,
+    version: typeof parsed.version === "number" ? parsed.version : 1,
+    updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : new Date(0).toISOString()
+  };
 }
