@@ -1,0 +1,41 @@
+{
+  "sourcePath": "/Users/rich1350/Documents/Eliy-Agent-Core/experiments/openai-agents-ts-runtime/reports/runs/candidate-a-b-gate2-live-1781674377493/live-comparison.json",
+  "rawScriptResult": "Live comparison failed",
+  "model": "deepseek-v4-flash",
+  "originalApiRequestCount": 2,
+  "additionalApiRequests": 0,
+  "additionalModelTokens": 0,
+  "candidateA": {
+    "candidate": "candidate-a",
+    "authoritativeFactDetected": "ROLLBACK_NOT_RELIABLE",
+    "supersededFactDetected": null,
+    "remediationTargetDetected": "ROLLBACK_READY",
+    "decisionDetected": "No-Go",
+    "usesLatestFact": true,
+    "evaluationResult": "Passed",
+    "evaluationReasons": [
+      "Current authoritative marker detected as ROLLBACK_NOT_RELIABLE.",
+      "Old marker ROLLBACK_READY appears as remediation or future target.",
+      "Decision detected as No-Go."
+    ]
+  },
+  "candidateB": {
+    "candidate": "candidate-b",
+    "authoritativeFactDetected": "ROLLBACK_NOT_RELIABLE",
+    "supersededFactDetected": null,
+    "remediationTargetDetected": null,
+    "decisionDetected": "No-Go",
+    "usesLatestFact": true,
+    "evaluationResult": "Passed",
+    "evaluationReasons": [
+      "Current authoritative marker detected as ROLLBACK_NOT_RELIABLE.",
+      "Decision detected as No-Go."
+    ]
+  },
+  "finalOfflineEvaluation": "Gate 2 Evidence Integrity Passed",
+  "tokenUsageFromStoredRun": {
+    "promptTokens": 1895,
+    "completionTokens": 307,
+    "totalTokens": 2202
+  }
+}

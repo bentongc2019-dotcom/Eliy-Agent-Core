@@ -6,6 +6,7 @@ import { createProductLaunchState, provideLaunchFacts, readProductLaunchMaterial
 import { loadOperationalState, saveOperationalState } from "./operational-state.js";
 import { reportsDir, ensureDirs, nowIso, stateDir, writeJson } from "./storage.js";
 import { applyStateTransition } from "./state-transition.js";
+import { evaluateGate2Answer } from "./hac-gate2-evaluator.js";
 
 type LiveResult = {
   mode: "candidate-a" | "candidate-b";
@@ -14,6 +15,7 @@ type LiveResult = {
   mentionsOld: boolean;
   answer: string;
   usage: unknown;
+  evaluation: ReturnType<typeof evaluateGate2Answer>;
 };
 
 function sanitize(value: unknown): string {
@@ -43,13 +45,21 @@ async function askModel(mode: "candidate-a" | "candidate-b", stateView: unknown)
     ]
   });
   const answer = response.choices[0]?.message?.content ?? "";
+  const evaluation = evaluateGate2Answer({
+    candidate: mode,
+    answer,
+    currentMarker: corrected,
+    oldMarker: old,
+    expectedDecision: "No-Go"
+  });
   return {
     mode,
     requestCount: 1,
     mentionsCorrected: answer.includes(corrected),
     mentionsOld: answer.includes(old),
     answer,
-    usage: response.usage ?? null
+    usage: response.usage ?? null,
+    evaluation
   };
 }
 
@@ -121,10 +131,8 @@ async function runLive(): Promise<void> {
   const resultA = await askModel("candidate-a", loadedA);
   const resultB = await askModel("candidate-b", createAgentStateSnapshot(loadedB));
   const passed =
-    resultA.mentionsCorrected &&
-    !resultA.mentionsOld &&
-    resultB.mentionsCorrected &&
-    !resultB.mentionsOld;
+    resultA.evaluation.evaluationResult === "Passed" &&
+    resultB.evaluation.evaluationResult === "Passed";
   await writeJson(join(runDir, "live-comparison.json"), {
     result: passed ? "Live comparison passed" : "Live comparison failed",
     model: config.model,
