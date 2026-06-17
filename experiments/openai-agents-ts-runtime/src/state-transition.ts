@@ -1,6 +1,7 @@
 import type { HacActionReceipt } from "./hac-action-receipt.js";
 import type { HumanIntentContract } from "./human-intent-contract.js";
 import type { EvidenceItem, OperationalState } from "./operational-state.js";
+import type { ReframeProposal } from "./reframe-proposal.js";
 
 export type StateTransitionActor = "human" | "agent" | "runtime" | "system";
 
@@ -40,6 +41,22 @@ export type StateTransitionOperation =
       activatedAt: string;
     }
   | {
+      type: "propose_reframe";
+      proposal: ReframeProposal;
+    }
+  | {
+      type: "confirm_reframe";
+      proposalId: string;
+    }
+  | {
+      type: "reject_reframe";
+      proposalId: string;
+    }
+  | {
+      type: "defer_reframe";
+      proposalId: string;
+    }
+  | {
       type: "update_intent";
       intent: HumanIntentContract;
     };
@@ -69,7 +86,14 @@ export type StateTransitionErrorCode =
   | "VERSION_CONFLICT"
   | "FACT_NOT_FOUND"
   | "INTENT_PROTECTED"
-  | "EVIDENCE_REQUIRED";
+  | "EVIDENCE_REQUIRED"
+  | "REFRAME_REQUIRES_SHARED_STATE"
+  | "PENDING_REFRAME_EXISTS"
+  | "REFRAME_PROPOSAL_VERSION_MISMATCH"
+  | "REFRAME_PROPOSAL_NOT_FOUND"
+  | "STALE_REFRAME_PROPOSAL"
+  | "REFRAME_ASSUMPTION_NOT_FOUND"
+  | "REFRAME_ASSUMPTION_MISMATCH";
 
 export type StateTransitionResult =
   | {
@@ -101,6 +125,23 @@ function cloneState(state: OperationalState): OperationalState {
 
 function sameReceipt(left: HacActionReceipt, right: HacActionReceipt): boolean {
   return left.toolCallId === right.toolCallId && left.toolName === right.toolName;
+}
+
+function reframeDecisionLabel(operation: StateTransitionOperation["type"]): string | undefined {
+  if (operation === "confirm_reframe") {
+    return "reframe_confirm";
+  }
+  if (operation === "reject_reframe") {
+    return "reframe_reject";
+  }
+  if (operation === "defer_reframe") {
+    return "reframe_defer";
+  }
+  return undefined;
+}
+
+function completedReframeDecisionExists(state: OperationalState, proposalId: string): boolean {
+  return state.humanDecisions.some((decision) => decision.payload?.proposalId === proposalId);
 }
 
 function commit(
@@ -272,6 +313,176 @@ export function applyStateTransition(
       reasons: Array.from(new Set(transition.operation.reasons)),
       activatedAt: transition.operation.activatedAt
     };
+    return commit(currentState, transition, nextState);
+  }
+
+  if (transition.operation.type === "propose_reframe") {
+    if (currentState.stateMode !== "shared-state") {
+      return {
+        ok: false,
+        state: currentState,
+        error: {
+          code: "REFRAME_REQUIRES_SHARED_STATE",
+          message: "Reframe proposal requires shared-state mode."
+        }
+      };
+    }
+    if (currentState.pendingReframeProposal) {
+      return {
+        ok: false,
+        state: currentState,
+        error: {
+          code: "PENDING_REFRAME_EXISTS",
+          message: "A reframe proposal is already pending."
+        }
+      };
+    }
+    if (transition.operation.proposal.basedOnStateVersion !== currentState.version) {
+      return {
+        ok: false,
+        state: currentState,
+        error: {
+          code: "REFRAME_PROPOSAL_VERSION_MISMATCH",
+          message: "Proposal basedOnStateVersion must match current State version."
+        }
+      };
+    }
+
+    nextState.pendingReframeProposal = transition.operation.proposal;
+    return commit(currentState, transition, nextState);
+  }
+
+  if (
+    transition.operation.type === "confirm_reframe" ||
+    transition.operation.type === "reject_reframe" ||
+    transition.operation.type === "defer_reframe"
+  ) {
+    const operation = transition.operation;
+    const noOpRecord: AppliedTransitionRecord = {
+      transitionId: transition.transitionId,
+      actor: transition.actor,
+      operation: transition.operation.type,
+      reason: transition.reason,
+      evidenceRefs: [...transition.evidenceRefs],
+      timestamp: transition.timestamp,
+      versionBefore: currentState.version,
+      versionAfter: currentState.version
+    };
+
+    if (!currentState.pendingReframeProposal) {
+      if (completedReframeDecisionExists(currentState, operation.proposalId)) {
+        return {
+          ok: true,
+          applied: false,
+          idempotent: true,
+          state: currentState,
+          transition: noOpRecord
+        };
+      }
+      return {
+        ok: false,
+        state: currentState,
+        error: {
+          code: "REFRAME_PROPOSAL_NOT_FOUND",
+          message: `Reframe proposal ${operation.proposalId} was not found.`
+        }
+      };
+    }
+
+    const proposal = currentState.pendingReframeProposal;
+    if (proposal.proposalId !== operation.proposalId) {
+      return {
+        ok: false,
+        state: currentState,
+        error: {
+          code: "REFRAME_PROPOSAL_NOT_FOUND",
+          message: `Pending proposal ${proposal.proposalId} does not match ${operation.proposalId}.`
+        }
+      };
+    }
+
+    if (currentState.version !== proposal.basedOnStateVersion + 1) {
+      return {
+        ok: false,
+        state: currentState,
+        error: {
+          code: "STALE_REFRAME_PROPOSAL",
+          message: "Reframe proposal is stale because State changed after proposal creation."
+        }
+      };
+    }
+
+    const decisionLabel = reframeDecisionLabel(operation.type);
+    if (!decisionLabel) {
+      return {
+        ok: false,
+        state: currentState,
+        error: {
+          code: "REFRAME_PROPOSAL_NOT_FOUND",
+          message: "Unsupported reframe decision."
+        }
+      };
+    }
+
+    if (operation.type === "confirm_reframe") {
+      const assumptionIndex = nextState.assumptions.findIndex((item) => item.content === proposal.currentFrame);
+      if (assumptionIndex < 0) {
+        return {
+          ok: false,
+          state: currentState,
+          error: {
+            code: "REFRAME_ASSUMPTION_NOT_FOUND",
+            message: "Current assumption frame was not found."
+          }
+        };
+      }
+      const assumption = nextState.assumptions[assumptionIndex]!;
+      if (assumption.content !== proposal.currentFrame) {
+        return {
+          ok: false,
+          state: currentState,
+          error: {
+            code: "REFRAME_ASSUMPTION_MISMATCH",
+            message: "Current assumption no longer matches proposal currentFrame."
+          }
+        };
+      }
+      nextState.assumptions[assumptionIndex] = {
+        ...assumption,
+        content: proposal.proposedFrame,
+        status: "unverified",
+        evidenceRefs: Array.from(
+          new Set([
+            ...(assumption.evidenceRefs ?? []),
+            ...proposal.evidenceRefs,
+            ...transition.evidenceRefs,
+            `reframe:${proposal.proposalId}`,
+            `previous_frame:${proposal.currentFrame}`
+          ])
+        )
+      };
+    }
+
+    nextState.humanDecisions = [
+      ...nextState.humanDecisions,
+      {
+        id: `decision-${operation.type}-${proposal.proposalId}`,
+        kind: "judgment_made",
+        label: decisionLabel,
+        content: `Human ${operation.type.replace("_reframe", "")}ed reframe proposal ${proposal.proposalId}.`,
+        timestamp: transition.timestamp,
+        explicit: true,
+        evidenceRefs: Array.from(new Set([...proposal.evidenceRefs, ...transition.evidenceRefs])),
+        payload: {
+          proposalId: proposal.proposalId,
+          target: proposal.target,
+          currentFrame: proposal.currentFrame,
+          proposedFrame: proposal.proposedFrame,
+          triggerReasons: proposal.triggerReasons
+        }
+      }
+    ];
+    delete nextState.pendingReframeProposal;
     return commit(currentState, transition, nextState);
   }
 

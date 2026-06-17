@@ -6,6 +6,7 @@ import type { HacActionReceipt } from "./hac-action-receipt.js";
 import type { HacStateMode } from "./hac-shared-state-activation-policy.js";
 import type { HumanIntentContract } from "./human-intent-contract.js";
 import type { LoopBoundsState } from "./loop-bounds.js";
+import type { ReframeProposal } from "./reframe-proposal.js";
 
 export type EvidenceItem = {
   id: string;
@@ -78,6 +79,7 @@ export type OperationalState = {
   openQuestions: string[];
   humanDecisions: HumanDecision[];
   actionReceipts: HacActionReceipt[];
+  pendingReframeProposal?: ReframeProposal;
   currentStep?: string;
   nextCandidateAction?: LoopActionProposal;
   lastVerification?: VerificationResult;
