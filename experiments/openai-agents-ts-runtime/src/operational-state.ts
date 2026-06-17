@@ -3,6 +3,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { mkdir } from "node:fs/promises";
 import type { HacActionReceipt } from "./hac-action-receipt.js";
+import type { HacStateMode } from "./hac-shared-state-activation-policy.js";
 import type { HumanIntentContract } from "./human-intent-contract.js";
 import type { LoopBoundsState } from "./loop-bounds.js";
 
@@ -63,6 +64,12 @@ export type OperationalState = {
   loopId: string;
   version: number;
   updatedAt: string;
+  stateMode: HacStateMode;
+  sharedStateActivation?: {
+    source: "preflight" | "runtime" | "human";
+    reasons: string[];
+    activatedAt: string;
+  };
   intent: HumanIntentContract;
   iteration: number;
   status: "running" | "waiting_human" | "completed" | "stopped" | "failed";
@@ -119,6 +126,7 @@ export async function loadOperationalState(path: string): Promise<OperationalSta
   return {
     ...parsed,
     version: typeof parsed.version === "number" ? parsed.version : 1,
-    updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : new Date(0).toISOString()
+    updatedAt: typeof parsed.updatedAt === "string" ? parsed.updatedAt : new Date(0).toISOString(),
+    stateMode: parsed.stateMode === "shared-state" ? "shared-state" : "minimum-loop"
   };
 }

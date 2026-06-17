@@ -34,6 +34,12 @@ export type StateTransitionOperation =
       stopReason?: string;
     }
   | {
+      type: "activate_shared_state";
+      source: "preflight" | "runtime" | "human";
+      reasons: string[];
+      activatedAt: string;
+    }
+  | {
       type: "update_intent";
       intent: HumanIntentContract;
     };
@@ -236,6 +242,36 @@ export function applyStateTransition(
     if (operation.status) {
       nextState.status = operation.status;
     }
+    return commit(currentState, transition, nextState);
+  }
+
+  if (transition.operation.type === "activate_shared_state") {
+    const noOpRecord: AppliedTransitionRecord = {
+      transitionId: transition.transitionId,
+      actor: transition.actor,
+      operation: transition.operation.type,
+      reason: transition.reason,
+      evidenceRefs: [...transition.evidenceRefs],
+      timestamp: transition.timestamp,
+      versionBefore: currentState.version,
+      versionAfter: currentState.version
+    };
+    if (currentState.stateMode === "shared-state") {
+      return {
+        ok: true,
+        applied: false,
+        idempotent: true,
+        state: currentState,
+        transition: noOpRecord
+      };
+    }
+
+    nextState.stateMode = "shared-state";
+    nextState.sharedStateActivation = {
+      source: transition.operation.source,
+      reasons: Array.from(new Set(transition.operation.reasons)),
+      activatedAt: transition.operation.activatedAt
+    };
     return commit(currentState, transition, nextState);
   }
 

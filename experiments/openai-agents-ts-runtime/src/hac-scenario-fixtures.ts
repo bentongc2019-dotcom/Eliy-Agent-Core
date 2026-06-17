@@ -87,6 +87,7 @@ export function createProductLaunchState(loopId: string): OperationalState {
     loopId,
     version: 1,
     updatedAt: now,
+    stateMode: "minimum-loop",
     intent: createProductLaunchIntent(),
     iteration: 0,
     status: "running",

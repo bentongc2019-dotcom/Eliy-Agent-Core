@@ -59,6 +59,7 @@ export function createInitialOperationalState(
     loopId,
     version: 1,
     updatedAt: now,
+    stateMode: "minimum-loop",
     intent,
     iteration: 0,
     status: "running",
