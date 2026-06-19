@@ -747,6 +747,139 @@ html, body {
   background: rgba(155, 140, 255, 0.1);
 }
 
+/* === Gate 2 Adapter Panels === */
+.gate2-panel,
+.gate2-error-banner,
+.gate2-legacy-fallback {
+  margin-top: 0.8rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(155, 140, 255, 0.24);
+  background: rgba(10, 14, 26, 0.72);
+  padding: 0.9rem 1rem;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.gate2-error-banner {
+  border-color: rgba(248, 113, 113, 0.35);
+  background: rgba(37, 15, 18, 0.88);
+}
+
+.gate2-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.gate2-panel-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: 0.2px;
+}
+
+.gate2-panel-pill,
+.gate2-trace-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 999px;
+  padding: 0.18rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border: 1px solid rgba(155, 140, 255, 0.25);
+  background: rgba(155, 140, 255, 0.08);
+  color: var(--color-eliy);
+}
+
+.gate2-trace-chip {
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.gate2-panel-body {
+  display: grid;
+  gap: 0.4rem;
+  line-height: 1.55;
+  color: var(--color-text-muted);
+  font-size: 0.86rem;
+}
+
+.gate2-panel-body code,
+.gate2-error-list code {
+  font-size: 0.76rem;
+}
+
+.gate2-summary {
+  margin: 0;
+  color: var(--color-text);
+}
+
+.gate2-meta,
+.gate2-muted {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.gate2-actions {
+  display: flex;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.gate2-action-btn,
+.gate2-inline-btn {
+  padding: 0.42rem 0.8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(155, 140, 255, 0.22);
+  background: rgba(155, 140, 255, 0.08);
+  color: var(--color-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.gate2-action-btn.confirm {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+.gate2-action-btn.reject {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.25);
+}
+
+.gate2-action-btn.defer {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.25);
+}
+
+.gate2-panel-status {
+  margin-top: 0.6rem;
+  font-size: 0.78rem;
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.gate2-error-list {
+  margin: 0 0 0.65rem 1rem;
+  padding: 0;
+  color: #fda4af;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.gate2-legacy-fallback {
+  border-style: dashed;
+  color: var(--color-text-muted);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 /* 打字动画 */
 .typing-indicator {
   display: flex;
@@ -1214,6 +1347,31 @@ body[data-theme="light"] .card-actions {
 }
 body[data-theme="light"] .card-actions .card-action-tip {
   color: #4b5563 !important;
+}
+
+body[data-theme="light"] .gate2-panel,
+body[data-theme="light"] .gate2-error-banner,
+body[data-theme="light"] .gate2-legacy-fallback {
+  background: #ffffff;
+  border-color: #e5e7eb;
+}
+
+body[data-theme="light"] .gate2-error-banner {
+  background: #fff1f2;
+  border-color: #fecdd3;
+}
+
+body[data-theme="light"] .gate2-panel-title,
+body[data-theme="light"] .gate2-meta,
+body[data-theme="light"] .gate2-muted,
+body[data-theme="light"] .gate2-legacy-fallback {
+  color: #374151;
+}
+
+body[data-theme="light"] .gate2-panel-pill,
+body[data-theme="light"] .gate2-trace-chip {
+  background: rgba(155, 140, 255, 0.12);
+  border-color: rgba(155, 140, 255, 0.25);
 }
 
 /* 亮色：下拉菜单 */

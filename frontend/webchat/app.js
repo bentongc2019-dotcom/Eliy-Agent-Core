@@ -13,6 +13,9 @@ const state = {
   isSfocusMode: false,
   currentConversation: null,
   serverContextInitialized: false,
+  userId: null,
+  authSessionId: null,
+  lastSubmittedUserText: ''
 };
 
 const RECENT_CONVERSATIONS_KEY = 'ELIY_RECENT_CONVERSATIONS';
@@ -63,11 +66,16 @@ document.addEventListener('DOMContentLoaded', () => {
 function initUserContext() {
   const token = localStorage.getItem('ELIY_AUTH_TOKEN');
   const name = localStorage.getItem('ELIY_USER_NAME') || '用户';
+  const userId = localStorage.getItem('ELIY_USER_ID') || `user_${name || 'guest'}`;
+  const authSessionId = localStorage.getItem('ELIY_AUTH_SESSION_ID') || `auth_${Date.now()}`;
   
   if (!token) {
     window.location.replace('./login.html');
     return;
   }
+
+  state.userId = userId;
+  state.authSessionId = authSessionId;
   
   // 设置侧边栏底部的登录账户展示
   $('#userNameText').textContent = name;
@@ -93,6 +101,8 @@ function setupEventHandlers() {
 
     localStorage.removeItem('ELIY_AUTH_TOKEN');
     localStorage.removeItem('ELIY_USER_NAME');
+    localStorage.removeItem('ELIY_USER_ID');
+    localStorage.removeItem('ELIY_AUTH_SESSION_ID');
     window.location.href = './login.html';
   });
 
@@ -214,6 +224,230 @@ function applyTheme(theme) {
   if (icon) icon.textContent = theme === 'dark' ? '🌙' : '☀️';
 }
 
+function getGate2Adapter() {
+  return window.EliyGate2Adapter || null;
+}
+
+function normalizeGate2Envelope(rawEnvelope = {}, context = {}) {
+  const adapter = getGate2Adapter();
+  if (adapter?.normalizeChatResponseEnvelope) {
+    return adapter.normalizeChatResponseEnvelope(rawEnvelope, context);
+  }
+
+  return {
+    reply: String(rawEnvelope.reply || ''),
+    gate2: rawEnvelope.gate2 || null,
+    legacy_artifact: rawEnvelope.legacy_artifact || rawEnvelope.artifact || null,
+    errors: Array.isArray(rawEnvelope.errors) ? rawEnvelope.errors : [],
+    trace_id: rawEnvelope.trace_id || context.trace_id || null,
+    run_id: rawEnvelope.run_id || context.run_id || null,
+    message_id: rawEnvelope.message_id || context.message_id || null,
+    conversation_id: rawEnvelope.conversation_id || context.conversation_id || null,
+    user_id: rawEnvelope.user_id || context.user_id || null,
+    auth_session_id: rawEnvelope.auth_session_id || context.auth_session_id || null
+  };
+}
+
+function createLocalMessageId(prefix = 'msg') {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createLocalRunId() {
+  return `run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createLocalTraceId(runId) {
+  return `trace_${runId || Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function renderGate2ErrorBanner(bubble, errors, onRetry, originalUserText) {
+  if (!errors || errors.length === 0) return;
+  const banner = document.createElement('div');
+  banner.className = 'gate2-error-banner';
+
+  const retryable = errors.some(err => err.retryable);
+  const traceId = errors.find(err => err.trace_id)?.trace_id || '';
+  const errorItems = errors.map(err => `<li><code>${escapeHTML(err.code)}</code> ${escapeHTML(err.message)}</li>`).join('');
+
+  banner.innerHTML = `
+    <div class="gate2-panel-header">
+      <span class="gate2-panel-title">错误</span>
+      ${traceId ? `<span class="gate2-trace-chip" data-trace-id="${escapeHTML(traceId)}">${escapeHTML(traceId)}</span>` : ''}
+    </div>
+    <ul class="gate2-error-list">${errorItems}</ul>
+    ${retryable ? `<button class="gate2-inline-btn" type="button" id="gate2RetryBtn">重试</button>` : ''}
+  `;
+  bubble.appendChild(banner);
+
+  const retryBtn = banner.querySelector('#gate2RetryBtn');
+  if (retryBtn && typeof onRetry === 'function') {
+    retryBtn.addEventListener('click', () => onRetry(originalUserText));
+  }
+}
+
+function renderGate2TraceChip(bubble, traceId) {
+  if (!traceId) return;
+  const chip = document.createElement('button');
+  chip.type = 'button';
+  chip.className = 'gate2-trace-chip';
+  chip.textContent = traceId;
+  chip.title = '点击复制 trace_id';
+  chip.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(traceId);
+      setStatus('trace_id 已复制', true);
+    } catch (err) {
+      console.warn('[Gate2] trace_id copy failed:', err);
+    }
+  });
+  bubble.appendChild(chip);
+}
+
+function renderGate2ConfirmationPanel(bubble, request, traceId, onAction) {
+  if (!request) return;
+  const panel = document.createElement('div');
+  panel.className = 'gate2-panel gate2-confirmation-panel';
+  const summary = request.summary || '需要用户确认';
+  const proposalId = request.proposal_id || 'unknown';
+
+  panel.innerHTML = `
+    <div class="gate2-panel-header">
+      <span class="gate2-panel-title">需要确认</span>
+      ${traceId ? `<span class="gate2-trace-chip" data-trace-id="${escapeHTML(traceId)}">${escapeHTML(traceId)}</span>` : ''}
+    </div>
+    <div class="gate2-panel-body">
+      <p class="gate2-summary">${escapeHTML(summary)}</p>
+      <p class="gate2-meta">proposal: <code>${escapeHTML(proposalId)}</code></p>
+      <div class="gate2-actions">
+        <button type="button" class="gate2-action-btn confirm" data-action="confirm">确认</button>
+        <button type="button" class="gate2-action-btn reject" data-action="reject">拒绝</button>
+        <button type="button" class="gate2-action-btn defer" data-action="defer">延后</button>
+      </div>
+    </div>
+  `;
+
+  panel.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.getAttribute('data-action');
+      const statusLine = document.createElement('div');
+      statusLine.className = 'gate2-panel-status';
+      statusLine.textContent = `已记录 ${action}（占位，尚未接入后端确认端点）`;
+      panel.appendChild(statusLine);
+      if (typeof onAction === 'function') onAction(action, request);
+    });
+  });
+
+  bubble.appendChild(panel);
+}
+
+function renderGate2PendingChangePanel(bubble, patch) {
+  if (!patch) return;
+  const panel = document.createElement('div');
+  panel.className = 'gate2-panel gate2-pending-panel';
+  const proposedValue = typeof patch.proposed_value === 'string'
+    ? patch.proposed_value
+    : JSON.stringify(patch.proposed_value);
+
+  panel.innerHTML = `
+    <div class="gate2-panel-header">
+      <span class="gate2-panel-title">候选变更（未生效）</span>
+      <span class="gate2-panel-pill">pending</span>
+    </div>
+    <div class="gate2-panel-body">
+      <p><strong>目标路径：</strong><code>${escapeHTML(patch.target_path || 'unknown')}</code></p>
+      <p><strong>提议值：</strong>${escapeHTML(String(proposedValue || ''))}</p>
+      <p><strong>风险等级：</strong>${escapeHTML(patch.risk_level || 'unknown')}</p>
+      <p class="gate2-muted">在确认前，原状态保持不变。</p>
+    </div>
+  `;
+
+  bubble.appendChild(panel);
+}
+
+function renderGate2ReframeCandidatePanel(bubble, candidate) {
+  if (!candidate) return;
+  const panel = document.createElement('div');
+  panel.className = 'gate2-panel gate2-candidate-panel';
+  panel.innerHTML = `
+    <div class="gate2-panel-header">
+      <span class="gate2-panel-title">候选重构（假设层）</span>
+      <span class="gate2-panel-pill">candidate</span>
+    </div>
+    <div class="gate2-panel-body">
+      <p><strong>当前假设：</strong>${escapeHTML(candidate.current_assumption || '')}</p>
+      <p><strong>新证据：</strong>${escapeHTML((candidate.new_evidence || []).join('；') || '无')}</p>
+      <p><strong>冲突：</strong>${escapeHTML(candidate.conflict || '')}</p>
+      <p><strong>候选重构：</strong>${escapeHTML(candidate.candidate_reframe || '')}</p>
+      <p class="gate2-muted">这只是候选假设调整，不表示目标已被改写。</p>
+    </div>
+  `;
+
+  bubble.appendChild(panel);
+}
+
+function renderLegacyArtifactFallback(parentDiv, envelope, originalUserText) {
+  const bubble = parentDiv.querySelector('.bubble');
+  if (!bubble) return;
+
+  const badge = document.createElement('div');
+  badge.className = 'gate2-legacy-fallback';
+  badge.textContent = 'Legacy artifact fallback';
+  bubble.appendChild(badge);
+
+  const artifact = envelope.legacy_artifact || envelope.artifact || null;
+  if (artifact) {
+    detectAndRenderArtifact(parentDiv, envelope.reply || '', originalUserText, artifact);
+  }
+}
+
+function renderGate2Envelope(parentDiv, envelope, options = {}) {
+  const bubble = parentDiv.querySelector('.bubble');
+  if (!bubble) return;
+
+  const adapter = getGate2Adapter();
+  const plan = adapter?.buildGate2RenderPlan ? adapter.buildGate2RenderPlan(envelope) : envelope;
+  const traceId = plan.trace_id || envelope.trace_id || '';
+  const gate2 = plan.gate2 || envelope.gate2 || null;
+  const errors = plan.errors || envelope.errors || [];
+  const originalUserText = options.originalUserText || '';
+
+  if (errors.length > 0) {
+    renderGate2ErrorBanner(bubble, errors, options.onRetry, originalUserText);
+  }
+
+  if (gate2 && (gate2.requires_confirmation || gate2.confirmation_request)) {
+    renderGate2ConfirmationPanel(bubble, gate2.confirmation_request || {
+      confirmation_type: 'approval',
+      summary: '需要确认',
+      options: ['confirm', 'reject', 'defer'],
+      default_action: 'confirm',
+      proposal_id: null,
+      evidence_refs: []
+    }, traceId, options.onGate2Action);
+  }
+
+  if (gate2 && gate2.proposed_state_patch) {
+    renderGate2PendingChangePanel(bubble, gate2.proposed_state_patch);
+  }
+
+  if (gate2 && gate2.reframe_candidate) {
+    renderGate2ReframeCandidatePanel(bubble, gate2.reframe_candidate);
+  }
+
+  if (traceId) {
+    renderGate2TraceChip(bubble, traceId);
+  }
+
+  if (!gate2 && (plan.legacy_artifact || envelope.legacy_artifact || envelope.artifact)) {
+    renderLegacyArtifactFallback(parentDiv, envelope, originalUserText);
+  }
+}
+
+function renderGate2MessageAdapter(parentDiv, rawEnvelope, options = {}) {
+  const envelope = normalizeGate2Envelope(rawEnvelope, options.binding || {});
+  return renderGate2Envelope(parentDiv, envelope, options);
+}
+
 // === 开始新对话会话 ===
 function startNewSession() {
   if (state.isStreaming) return;
@@ -300,11 +534,19 @@ function submitMessage(directText = '') {
     fileInput.value = '';
   }
 
-  appendMessage('user', finalMessageText, false, { persist: true });
+  const userMessageId = createLocalMessageId('msg_user');
+  state.lastSubmittedUserText = finalMessageText;
+  appendMessage('user', finalMessageText, false, {
+    persist: true,
+    messageId: userMessageId,
+    userId: state.userId,
+    authSessionId: state.authSessionId,
+    conversationId: getCurrentConversationId()
+  });
   userInput.value = '';
   userInput.style.height = 'auto';
 
-  simulateEliyResponse(finalMessageText);
+  simulateEliyResponse(finalMessageText, { userMessageId });
 }
 
 // === 渲染消息气泡 ===
@@ -320,7 +562,22 @@ function appendMessage(role, content, isHTML = false, options = {}) {
   msgList.scrollTop = msgList.scrollHeight;
   state.messageCount++;
   if (options.persist) {
-    persistConversationMessage({ role, content, isHTML, artifact: options.artifact || null });
+    persistConversationMessage({
+      role,
+      content,
+      isHTML,
+      artifact: options.artifact || null,
+      legacy_artifact: options.legacy_artifact || null,
+      gate2: options.gate2 || null,
+      errors: options.errors || [],
+      messageId: options.messageId || null,
+      runId: options.runId || null,
+      traceId: options.traceId || null,
+      userId: options.userId || state.userId || null,
+      authSessionId: options.authSessionId || state.authSessionId || null,
+      conversationId: options.conversationId || getCurrentConversationId(),
+      originalUserText: options.originalUserText || null
+    });
   }
   return div;
 }
@@ -356,6 +613,16 @@ function persistConversationMessage(message) {
     content: message.content,
     isHTML: !!message.isHTML,
     artifact: message.artifact || null,
+    legacy_artifact: message.legacy_artifact || message.artifact || null,
+    gate2: message.gate2 || null,
+    errors: Array.isArray(message.errors) ? message.errors : [],
+    messageId: message.messageId || null,
+    runId: message.runId || null,
+    traceId: message.traceId || null,
+    userId: message.userId || state.userId || null,
+    authSessionId: message.authSessionId || state.authSessionId || null,
+    conversationId: message.conversationId || state.currentConversation?.id || state.sessionId || null,
+    originalUserText: message.originalUserText || null,
     createdAt: now
   };
 
@@ -432,8 +699,35 @@ function loadConversation(conversationId) {
   } else {
     state.currentConversation.messages.forEach(message => {
       const messageDiv = appendMessage(message.role, message.content, !!message.isHTML);
-      if (message.role === 'assistant' && message.artifact) {
-        detectAndRenderArtifact(messageDiv, message.content, '', message.artifact);
+      if (message.role === 'assistant') {
+        const storedEnvelope = normalizeGate2Envelope({
+          reply: message.content,
+          gate2: message.gate2 || null,
+          legacy_artifact: message.legacy_artifact || message.artifact || null,
+          errors: message.errors || [],
+          trace_id: message.traceId || message.trace_id || null,
+          run_id: message.runId || null,
+          message_id: message.messageId || null,
+          conversation_id: message.conversationId || conversationId,
+          user_id: message.userId || state.userId || null,
+          auth_session_id: message.authSessionId || state.authSessionId || null
+        }, {
+          trace_id: message.traceId || null,
+          run_id: message.runId || null,
+          message_id: message.messageId || null,
+          conversation_id: message.conversationId || conversationId,
+          user_id: message.userId || state.userId || null,
+          auth_session_id: message.authSessionId || state.authSessionId || null
+        });
+
+        if (storedEnvelope.gate2 || storedEnvelope.errors.length > 0 || storedEnvelope.trace_id || storedEnvelope.legacy_artifact) {
+          renderGate2Envelope(messageDiv, storedEnvelope, {
+            originalUserText: '',
+            onRetry: () => simulateEliyResponse(message.originalUserText || message.content || '')
+          });
+        } else if (message.artifact) {
+          detectAndRenderArtifact(messageDiv, message.content, '', message.artifact);
+        }
       }
     });
   }
@@ -581,14 +875,20 @@ function buildConservativeActionCardFallback(title = '', assistantText = '', ori
 }
 
 // === 模拟智能体响应流 ===
-async function simulateEliyResponse(userText) {
+async function simulateEliyResponse(userText, context = {}) {
   state.isStreaming = true;
   setStatus('思考中...', false);
 
   const typingDiv = appendMessage('assistant', '<div class="typing-indicator"><span></span><span></span><span></span></div>', true);
+  const userMessageId = context.userMessageId || createLocalMessageId('msg_user');
+  const assistantMessageId = createLocalMessageId('msg_assistant');
+  const runId = createLocalRunId();
+  const traceId = createLocalTraceId(runId);
 
   let response = '';
-  let artifactPayload = null;
+  let legacyArtifactPayload = null;
+  let gate2Payload = null;
+  let errors = [];
   const contextScope = getServerContextScope();
   const conversationId = getCurrentConversationId();
   console.info('[Client Context]', {
@@ -609,23 +909,67 @@ async function simulateEliyResponse(userText) {
         activeSkill: getActiveSkill(),
         contextScope,
         conversationId,
+        userId: state.userId,
+        authSessionId: state.authSessionId,
+        messageId: userMessageId,
+        runId,
+        traceId,
         history: [{ role: 'user', content: userText }]
       })
     });
     if (res.ok) {
       const data = await res.json();
-      response = data.reply;
-      artifactPayload = data.artifact || null;
+      const envelope = normalizeGate2Envelope(data, {
+        trace_id: traceId,
+        run_id: runId,
+        message_id: assistantMessageId,
+        conversation_id: conversationId,
+        user_id: state.userId,
+        auth_session_id: state.authSessionId
+      });
+      response = envelope.reply;
+      legacyArtifactPayload = envelope.legacy_artifact || null;
+      gate2Payload = envelope.gate2 || null;
+      errors = envelope.errors || [];
       updateSkillObserver(data.debug_meta || null);
     } else {
-      throw new Error('API return non-200 status');
+      const errorData = await res.json().catch(() => null);
+      if (errorData && typeof errorData === 'object') {
+        const envelope = normalizeGate2Envelope(errorData, {
+          trace_id: traceId,
+          run_id: runId,
+          message_id: assistantMessageId,
+          conversation_id: conversationId,
+          user_id: state.userId,
+          auth_session_id: state.authSessionId
+        });
+        response = envelope.reply;
+        legacyArtifactPayload = envelope.legacy_artifact || null;
+        gate2Payload = envelope.gate2 || null;
+        errors = envelope.errors.length > 0 ? envelope.errors : [{
+          code: 'CHAT_API_NON_200',
+          message: `API returned ${res.status}`,
+          retryable: true,
+          trace_id: envelope.trace_id || traceId
+        }];
+        updateSkillObserver(errorData.debug_meta || null);
+      } else {
+        const errorText = await res.text().catch(() => '');
+        throw new Error(`API return non-200 status${errorText ? `: ${errorText}` : ''}`);
+      }
     }
   } catch (e) {
     console.warn('[API] 后端离线，采用 Mock 模式', e);
+    errors = [{
+      code: 'CHAT_BACKEND_FALLBACK',
+      message: e instanceof Error ? e.message : String(e),
+      retryable: true,
+      trace_id: traceId
+    }];
     // 前端 fallback 逻辑
     if (userText.includes('请基于当前成果生成一张下一步行动卡') || userText.includes('生成行动卡') || userText.includes('转成行动卡')) {
       response = `好的，我已基于当前成果为你生成了下一步行动卡草稿。`;
-      artifactPayload = {
+      legacyArtifactPayload = {
         schema_version: "0.1",
         type: "next_action_card",
         title: "下一步行动卡｜整理获客成本关键数据",
@@ -642,7 +986,7 @@ async function simulateEliyResponse(userText) {
       };
     } else if (userText.includes('整理成成果卡') || userText.includes('整理成待办') || userText.includes('整理成果') || userText.includes('当前成果') || userText.includes('待办事项版本') || userText.includes('形成当前成果')) {
       response = `我先根据你已提供的信息整理一个当前版本；缺失的信息放在待补充项里。`;
-      artifactPayload = {
+      legacyArtifactPayload = {
         schema_version: "0.1",
         type: "current_result_card",
         title: "当前成果卡｜待办事项草稿",
@@ -668,7 +1012,7 @@ async function simulateEliyResponse(userText) {
       };
     } else {
       response = `我先根据你已提供的信息整理一个当前版本；缺失的信息放在待补充项里。请描述一下你当前面临的核心误区或拗力。`;
-      artifactPayload = null;
+      legacyArtifactPayload = null;
     }
   }
 
@@ -701,10 +1045,16 @@ async function simulateEliyResponse(userText) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        artifact: artifactPayload,
+        artifact: legacyArtifactPayload,
+        legacy_artifact: legacyArtifactPayload,
         activeSkill: getActiveSkill(),
         contextScope,
-        conversationId
+        conversationId,
+        userId: state.userId,
+        authSessionId: state.authSessionId,
+        messageId: assistantMessageId,
+        runId,
+        traceId
       })
     });
     markServerContextInitialized();
@@ -712,14 +1062,52 @@ async function simulateEliyResponse(userText) {
     console.warn('[Recorder] 后台归档失败:', e);
   }
 
-  // 直接从回复文本中检查并抽取渲染“成果卡”或“行动卡”
-  detectAndRenderArtifact(typingDiv, response, userText, artifactPayload);
+  // 先渲染 Gate 2/legacy envelope，再保留旧 artifact fallback
+  const envelope = normalizeGate2Envelope({
+    reply: response,
+    gate2: gate2Payload,
+    legacy_artifact: legacyArtifactPayload,
+    errors,
+    trace_id: traceId,
+    run_id: runId,
+    message_id: assistantMessageId,
+    conversation_id: conversationId,
+    user_id: state.userId,
+    auth_session_id: state.authSessionId
+  });
+  renderGate2MessageAdapter(typingDiv, envelope, {
+    originalUserText: userText,
+    onRetry: simulateEliyResponse,
+    binding: {
+      trace_id: traceId,
+      run_id: runId,
+      message_id: assistantMessageId,
+      conversation_id: conversationId,
+      user_id: state.userId,
+      auth_session_id: state.authSessionId
+    }
+  });
+
+  // 兼容旧的 artifact 文本识别路径：仅在没有 gate2 且没有 legacy artifact 时才会继续补渲染
+  if (!gate2Payload && !legacyArtifactPayload) {
+    detectAndRenderArtifact(typingDiv, response, userText, null);
+  }
   persistConversationMessage({
     role: 'assistant',
     content: response,
     isHTML: false,
-    artifact: artifactPayload
-  });
+    artifact: legacyArtifactPayload,
+    legacy_artifact: legacyArtifactPayload,
+      gate2: gate2Payload,
+      errors,
+      messageId: assistantMessageId,
+      runId,
+      traceId,
+      userId: state.userId,
+      authSessionId: state.authSessionId,
+      conversationId,
+      originalUserText: state.lastSubmittedUserText || userText
+    });
 }
 
 // === 直接从回复文本中检测成果卡/行动卡 (无文件系统依赖) ===

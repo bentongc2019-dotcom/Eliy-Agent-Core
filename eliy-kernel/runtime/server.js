@@ -111,6 +111,11 @@ async function handleChat(req, res) {
     const contextScope = normalizeContextScope(body.contextScope);
     const isNewConversationContext = contextScope === 'new_conversation';
     const conversationId = typeof body.conversationId === 'string' ? body.conversationId : 'none';
+    const userId = typeof body.userId === 'string' ? body.userId : 'anonymous';
+    const authSessionId = typeof body.authSessionId === 'string' ? body.authSessionId : 'anonymous';
+    const messageId = typeof body.messageId === 'string' ? body.messageId : `msg_${Date.now()}`;
+    const runId = typeof body.runId === 'string' ? body.runId : `run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const traceId = typeof body.traceId === 'string' ? body.traceId : `trace_${runId}_${Math.random().toString(36).slice(2, 6)}`;
 
     const mode = process.env.CANDIDATE_GENERATION_MODE || 'generic_fallback';
     console.log(`[API /api/chat] 当前候选生成模式 CANDIDATE_GENERATION_MODE: ${mode}`);
@@ -160,6 +165,8 @@ async function handleChat(req, res) {
     let reply = '';
     let cleanReply = '';
     let artifact = clientArtifact;
+    let errors = [];
+    let responseStatus = 200;
 
     if (mode === 'real_llm') {
       const apiKey = process.env.DEEPSEEK_API_KEY;
@@ -167,6 +174,13 @@ async function handleChat(req, res) {
         reply = `Real LLM call failed.\nReason: DEEPSEEK_API_KEY is not configured.\nFallback not used in this test.`;
         cleanReply = reply;
         console.error('[API /api/chat] 真实 LLM 调用失败：未配置 API Key，且根据测试约束不使用 fallback');
+        errors = [{
+          code: 'DEEPSEEK_API_KEY_MISSING',
+          message: 'DEEPSEEK_API_KEY is not configured.',
+          retryable: true,
+          trace_id: traceId
+        }];
+        responseStatus = 500;
       } else {
         console.log('[API /api/chat] 模式为 real_llm，发起真实 LLM 调用...');
         try {
@@ -324,6 +338,13 @@ async function handleChat(req, res) {
           reply = `Real LLM call failed.\nReason: ${err.message}\nFallback not used in this test.`;
           cleanReply = reply;
           console.error('[API /api/chat] 真实 LLM 调用失败，不使用 fallback:', err.message);
+          errors = [{
+            code: 'DEEPSEEK_REAL_LLM_ERROR',
+            message: err.message,
+            retryable: true,
+            trace_id: traceId
+          }];
+          responseStatus = 500;
         }
       }
     } else {
@@ -391,27 +412,63 @@ async function handleChat(req, res) {
       }
     }
 
-    // 写入本轮 user input + assistant response 到 transcripts/latest-transcript.md
-    const transcriptContent = `# Latest Transcript - Eliy v0.3.2-test\n\n**User**: ${userText}\n\n**Assistant**: ${cleanReply || reply}\n`;
-    writeKernelFile('transcripts/latest-transcript.md', transcriptContent);
-    console.log('[API /api/chat] 成功落盘 transcripts/latest-transcript.md');
-
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      reply: cleanReply || reply,
-      artifact: artifact,
+    const replyText = cleanReply || reply;
+    const legacyArtifact = artifact || null;
+    const responseEnvelope = {
+      reply: replyText,
+      gate2: null,
+      legacy_artifact: legacyArtifact,
+      artifact: legacyArtifact,
+      errors,
+      trace_id: traceId,
+      run_id: runId,
+      message_id: messageId,
+      conversation_id: conversationId,
+      user_id: userId,
+      auth_session_id: authSessionId,
       debug_meta: {
         activeSkillReceived,
         sfocusInjected: isSfocusTriggered,
         triggerSource,
         skillModeObserved,
         contextScope,
-        conversationId
+        conversationId,
+        runId,
+        traceId,
+        messageId,
+        userId,
+        authSessionId
       }
-    }));
+    };
+
+    // 写入本轮 user input + assistant response 到 transcripts/latest-transcript.md
+    const transcriptContent = `# Latest Transcript - Eliy v0.3.2-test\n\n**User**: ${userText}\n\n**Assistant**: ${replyText}\n`;
+    writeKernelFile('transcripts/latest-transcript.md', transcriptContent);
+    console.log('[API /api/chat] 成功落盘 transcripts/latest-transcript.md');
+
+    res.writeHead(responseStatus, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(responseEnvelope));
   } catch (err) {
+    const fallbackTraceId = `trace_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: err.message }));
+    res.end(JSON.stringify({
+      reply: '',
+      gate2: null,
+      legacy_artifact: null,
+      artifact: null,
+      errors: [{
+        code: 'CHAT_HANDLER_ERROR',
+        message: err.message,
+        retryable: true,
+        trace_id: fallbackTraceId
+      }],
+      trace_id: fallbackTraceId,
+      run_id: `run_${Date.now()}`,
+      message_id: `msg_${Date.now()}`,
+      conversation_id: 'none',
+      user_id: 'anonymous',
+      auth_session_id: 'anonymous'
+    }));
   }
 }
 

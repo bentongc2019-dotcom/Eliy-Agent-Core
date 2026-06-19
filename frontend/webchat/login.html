@@ -277,6 +277,8 @@
         // 保存凭证
         localStorage.setItem('ELIY_AUTH_TOKEN', 'mock-local-token-xyz');
         localStorage.setItem('ELIY_USER_NAME', '内测管理员');
+        localStorage.setItem('ELIY_USER_ID', email);
+        localStorage.setItem('ELIY_AUTH_SESSION_ID', `auth_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
         
         showAlert('登录成功，正在跳转...', 'success');
         setTimeout(() => {

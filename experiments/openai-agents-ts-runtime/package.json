@@ -15,6 +15,7 @@
     "test:hac-candidate-a-b-gate2-evaluator": "node dist/hac-candidate-a-b-gate2-evaluator-tests.js",
     "test:hac-candidate-a-b-gate2-offline-replay": "node dist/hac-candidate-a-b-gate2-offline-replay.js",
     "test:hac-agent-c1-gate2-minimum-integration": "node dist/hac-agent-c1-gate2-minimum-integration-tests.js",
+    "test:eliy-beta2-gate2-ui-adapter-minimum": "node dist/eliy-beta2-gate2-ui-adapter-minimum-tests.js",
     "test:hac-shared-state-activation-policy": "node dist/hac-shared-state-activation-policy-tests.js",
     "test:hac-conditional-shared-state-harness-integration": "node dist/hac-conditional-shared-state-harness-integration-tests.js",
     "test:hac-candidate-c1": "node dist/hac-candidate-c1-tests.js",
