@@ -13,6 +13,8 @@ const state = {
   isSfocusMode: false,
   currentConversation: null,
   serverContextInitialized: false,
+  conversationSource: 'unknown',
+  serverConversations: [],
   userId: null,
   authSessionId: null,
   lastSubmittedUserText: ''
@@ -43,44 +45,40 @@ const backendSkillMode = $('#backendSkillMode');
 const skillTriggerSource = $('#skillTriggerSource');
 
 // === 初始化入口 ===
-document.addEventListener('DOMContentLoaded', () => {
-  // 1. 生成会话 ID 并读取本地用户信息进行重定向守卫
+document.addEventListener('DOMContentLoaded', async () => {
   state.sessionId = 'sess_' + Date.now();
-  initUserContext();
 
-  // 2. 恢复存储的主题偏好
   initTheme();
-
-  // 3. 绑定页面上的交互事件监听
   setupEventHandlers();
-
-  // 4. 开启自适应高度输入区
   setupAutoResize();
 
-  // 5. 初始化浏览器本地最近对话
-  startNewSession();
-  renderRecentConversations();
+  await initUserContext();
+  await bootstrapConversationState();
 });
 
 // === 用户上下文与安全拦截守卫 ===
-function initUserContext() {
-  const token = localStorage.getItem('ELIY_AUTH_TOKEN');
-  const name = localStorage.getItem('ELIY_USER_NAME') || '用户';
-  const userId = localStorage.getItem('ELIY_USER_ID') || `user_${name || 'guest'}`;
-  const authSessionId = localStorage.getItem('ELIY_AUTH_SESSION_ID') || `auth_${Date.now()}`;
-  
-  if (!token) {
-    window.location.replace('./login.html');
-    return;
-  }
+async function initUserContext() {
+  try {
+    const me = await apiJson('/api/auth/me', { method: 'GET' });
+    const user = me.user || {};
+    const session = me.auth_session || {};
+    state.userId = user.user_id || null;
+    state.authSessionId = session.auth_session_id || null;
+    const name = user.display_name || user.email_or_login_id || '用户';
 
-  state.userId = userId;
-  state.authSessionId = authSessionId;
-  
-  // 设置侧边栏底部的登录账户展示
-  $('#userNameText').textContent = name;
-  const firstChar = name.trim().charAt(0).toUpperCase();
-  $('#userAvatar').textContent = firstChar;
+    localStorage.setItem('ELIY_USER_NAME', name);
+    if (state.userId) localStorage.setItem('ELIY_USER_ID', state.userId);
+    if (state.authSessionId) localStorage.setItem('ELIY_AUTH_SESSION_ID', state.authSessionId);
+
+    $('#userNameText').textContent = name;
+    const firstChar = name.trim().charAt(0).toUpperCase();
+    $('#userAvatar').textContent = firstChar || 'U';
+    return true;
+  } catch (error) {
+    console.warn('[Auth] 登录态恢复失败，跳转登录页:', error);
+    window.location.replace('./login.html');
+    return false;
+  }
 }
 
 // === 前端交互事件绑定 ===
@@ -95,10 +93,15 @@ function setupEventHandlers() {
   });
 
   // 登出逻辑：二次确认后才清理登录态
-  $('#logoutBtn').addEventListener('click', () => {
+  $('#logoutBtn').addEventListener('click', async () => {
     const confirmed = window.confirm('确定要退出 Eliy 内测登录吗？当前聊天上下文可能会中断。');
     if (!confirmed) return;
 
+    try {
+      await apiJson('/api/auth/logout', { method: 'POST' });
+    } catch (error) {
+      console.warn('[Auth] 服务端登出失败，仍执行本地清理:', error);
+    }
     localStorage.removeItem('ELIY_AUTH_TOKEN');
     localStorage.removeItem('ELIY_USER_NAME');
     localStorage.removeItem('ELIY_USER_ID');
@@ -131,7 +134,7 @@ function setupEventHandlers() {
 
   // 新建对话逻辑
   newChatBtn.addEventListener('click', () => {
-    startNewSession();
+    void startNewSession();
     closeSidebar();
   });
 
@@ -222,6 +225,89 @@ function applyTheme(theme) {
   document.body.setAttribute('data-theme', theme);
   const icon = $('#themeIcon');
   if (icon) icon.textContent = theme === 'dark' ? '🌙' : '☀️';
+}
+
+async function apiJson(url, options = {}) {
+  const response = await fetch(url, {
+    credentials: 'same-origin',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    },
+    ...options
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(`Request failed: ${response.status}`);
+    error.status = response.status;
+    error.payload = payload;
+    throw error;
+  }
+  return payload;
+}
+
+function normalizeConversationList(list = []) {
+  return list
+    .map(item => ({
+      id: item.conversation_id || item.id,
+      title: item.title || '新对话',
+      updatedAt: Date.parse(item.updated_at || item.updatedAt || new Date().toISOString()),
+      serverContextInitialized: true,
+      status: item.status || 'active',
+      messages: Array.isArray(item.messages) ? item.messages : []
+    }))
+    .filter(item => !!item.id)
+    .sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+function isAuthErrorPayload(payload) {
+  return Array.isArray(payload?.errors) && payload.errors.some(err => String(err?.code || '').startsWith('AUTH_'));
+}
+
+function redirectToLogin() {
+  localStorage.removeItem('ELIY_AUTH_TOKEN');
+  localStorage.removeItem('ELIY_USER_NAME');
+  localStorage.removeItem('ELIY_USER_ID');
+  localStorage.removeItem('ELIY_AUTH_SESSION_ID');
+  window.location.replace('./login.html');
+}
+
+async function fetchConversationListFromServer() {
+  try {
+    const data = await apiJson('/api/conversations', { method: 'GET' });
+    const conversations = normalizeConversationList(data.conversations || []);
+    state.conversationSource = 'server';
+    state.serverConversations = conversations;
+    setRecentConversations(conversations);
+    return conversations;
+  } catch (error) {
+    if (error?.status === 401 && isAuthErrorPayload(error.payload)) {
+      redirectToLogin();
+      return [];
+    }
+    console.warn('[Conversation] 服务端列表读取失败，回退本地缓存:', error);
+    state.conversationSource = 'local';
+    const conversations = getRecentConversations();
+    renderRecentConversations();
+    return conversations;
+  }
+}
+
+async function fetchConversationMessagesFromServer(conversationId) {
+  const data = await apiJson(`/api/conversations/${encodeURIComponent(conversationId)}/messages`, { method: 'GET' });
+  return {
+    conversation: data.conversation || null,
+    messages: Array.isArray(data.messages) ? data.messages : []
+  };
+}
+
+async function bootstrapConversationState() {
+  const conversations = await fetchConversationListFromServer();
+  if (conversations.length > 0) {
+    await loadConversation(conversations[0].id);
+    return;
+  }
+  await startNewSession();
 }
 
 function getGate2Adapter() {
@@ -449,29 +535,57 @@ function renderGate2MessageAdapter(parentDiv, rawEnvelope, options = {}) {
 }
 
 // === 开始新对话会话 ===
-function startNewSession() {
+async function startNewSession() {
   if (state.isStreaming) return;
-  state.sessionId = createConversationId();
+
+  let conversation = null;
+  try {
+    const payload = await apiJson('/api/conversations', {
+      method: 'POST',
+      body: JSON.stringify({ title: '新对话' })
+    });
+    conversation = payload.conversation || null;
+    if (conversation) {
+      state.conversationSource = 'server';
+      const normalized = normalizeConversationList([conversation])[0];
+      state.serverConversations = [normalized, ...state.serverConversations.filter(item => item.id !== normalized.id)];
+      setRecentConversations(state.serverConversations);
+    }
+  } catch (error) {
+    console.warn('[Conversation] 服务端新建会话失败，回退本地模式:', error);
+    state.conversationSource = 'local';
+    conversation = null;
+  }
+
+  const conversationId = conversation?.conversation_id || createConversationId();
+  state.sessionId = conversationId;
   state.messageCount = 0;
   state.isSfocusMode = false;
   state.serverContextInitialized = false;
   state.currentConversation = {
-    id: state.sessionId,
-    title: '新对话',
-    updatedAt: Date.now(),
+    id: conversationId,
+    title: conversation?.title || '新对话',
+    updatedAt: conversation?.updated_at ? Date.parse(conversation.updated_at) : Date.now(),
     messages: [],
     serverContextInitialized: false
   };
-  
+
+  if (state.conversationSource !== 'server') {
+    const conversations = getRecentConversations().filter(item => item.id !== state.currentConversation.id);
+    conversations.unshift(state.currentConversation);
+    setRecentConversations(conversations);
+  }
+
   sfocusSkillBtn.classList.remove('active');
   updateSkillObserver();
   const activeHistory = historyList.querySelector('.history-item.active');
   if (activeHistory) activeHistory.classList.remove('active');
 
-  // 重置消息区为初始对话词
   msgList.innerHTML = '';
   appendMessage('assistant', getWelcomeMessageHTML(), true);
   renderRecentConversations();
+
+  return state.currentConversation;
 }
 
 // === S'FOCUS Skill 激活与步骤引导修正 ===
@@ -587,6 +701,9 @@ function createConversationId() {
 }
 
 function getRecentConversations() {
+  if (state.conversationSource === 'server' && Array.isArray(state.serverConversations)) {
+    return [...state.serverConversations];
+  }
   try {
     const raw = localStorage.getItem(RECENT_CONVERSATIONS_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
@@ -601,6 +718,7 @@ function setRecentConversations(conversations) {
   const next = conversations
     .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
     .slice(0, MAX_RECENT_CONVERSATIONS);
+  state.serverConversations = [...next];
   localStorage.setItem(RECENT_CONVERSATIONS_KEY, JSON.stringify(next));
 }
 
@@ -678,18 +796,51 @@ function renderRecentConversations() {
   });
 }
 
-function loadConversation(conversationId) {
-  const conversation = getRecentConversations().find(item => item.id === conversationId);
-  if (!conversation) return;
+async function loadConversation(conversationId) {
+  let conversation = null;
+  let messages = [];
 
-  state.sessionId = conversation.id;
+  if (state.conversationSource === 'server') {
+    try {
+      const payload = await fetchConversationMessagesFromServer(conversationId);
+      conversation = payload.conversation;
+      messages = payload.messages;
+    } catch (error) {
+      if (error?.status === 401 && isAuthErrorPayload(error.payload)) {
+        redirectToLogin();
+        return;
+      }
+      console.warn('[Conversation] 读取服务端消息失败，回退本地缓存:', error);
+      state.conversationSource = 'local';
+    }
+  }
+
+  if (!conversation) {
+    const localConversation = getRecentConversations().find(item => item.id === conversationId);
+    if (!localConversation) return;
+    conversation = {
+      conversation_id: localConversation.id,
+      user_id: state.userId,
+      title: localConversation.title,
+      created_at: new Date(localConversation.updatedAt || Date.now()).toISOString(),
+      updated_at: new Date(localConversation.updatedAt || Date.now()).toISOString(),
+      status: 'active'
+    };
+    messages = Array.isArray(localConversation.messages) ? localConversation.messages : [];
+  }
+
+  state.sessionId = conversation.conversation_id || conversationId;
   state.messageCount = 0;
   state.isSfocusMode = false;
-  state.serverContextInitialized = !!conversation.serverContextInitialized;
+  state.serverContextInitialized = true;
   state.currentConversation = {
-    ...conversation,
-    messages: Array.isArray(conversation.messages) ? conversation.messages : []
+    id: conversation.conversation_id || conversationId,
+    title: conversation.title || '新对话',
+    updatedAt: Date.parse(conversation.updated_at || new Date().toISOString()),
+    messages: Array.isArray(messages) ? messages : [],
+    serverContextInitialized: true
   };
+
   sfocusSkillBtn.classList.remove('active');
   updateSkillObserver();
   msgList.innerHTML = '';
@@ -733,6 +884,7 @@ function loadConversation(conversationId) {
   }
 
   renderRecentConversations();
+  return state.currentConversation;
 }
 
 function getWelcomeMessageHTML() {
@@ -881,7 +1033,7 @@ async function simulateEliyResponse(userText, context = {}) {
 
   const typingDiv = appendMessage('assistant', '<div class="typing-indicator"><span></span><span></span><span></span></div>', true);
   const userMessageId = context.userMessageId || createLocalMessageId('msg_user');
-  const assistantMessageId = createLocalMessageId('msg_assistant');
+  let assistantMessageId = createLocalMessageId('msg_assistant');
   const runId = createLocalRunId();
   const traceId = createLocalTraceId(runId);
 
@@ -931,10 +1083,15 @@ async function simulateEliyResponse(userText, context = {}) {
       legacyArtifactPayload = envelope.legacy_artifact || null;
       gate2Payload = envelope.gate2 || null;
       errors = envelope.errors || [];
+      assistantMessageId = envelope.message_id || assistantMessageId;
       updateSkillObserver(data.debug_meta || null);
     } else {
       const errorData = await res.json().catch(() => null);
       if (errorData && typeof errorData === 'object') {
+        if (res.status === 401 && isAuthErrorPayload(errorData)) {
+          redirectToLogin();
+          return;
+        }
         const envelope = normalizeGate2Envelope(errorData, {
           trace_id: traceId,
           run_id: runId,
@@ -952,6 +1109,7 @@ async function simulateEliyResponse(userText, context = {}) {
           retryable: true,
           trace_id: envelope.trace_id || traceId
         }];
+        assistantMessageId = envelope.message_id || assistantMessageId;
         updateSkillObserver(errorData.debug_meta || null);
       } else {
         const errorText = await res.text().catch(() => '');
@@ -959,6 +1117,10 @@ async function simulateEliyResponse(userText, context = {}) {
       }
     }
   } catch (e) {
+    if (e?.status === 401 && isAuthErrorPayload(e.payload)) {
+      redirectToLogin();
+      return;
+    }
     console.warn('[API] 后端离线，采用 Mock 模式', e);
     errors = [{
       code: 'CHAT_BACKEND_FALLBACK',

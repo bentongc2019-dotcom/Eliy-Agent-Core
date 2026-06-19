@@ -2,6 +2,12 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import {
+  clearSessionCookie,
+  createAccountStore,
+  createSessionCookie,
+  parseAccountStoreCookies
+} from './account-store.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,6 +37,13 @@ function loadEnv() {
 loadEnv();
 
 const PORT = parseInt(process.env.PORT, 10) || 3001;
+const accountStore = createAccountStore({
+  baseDir: process.env.ELIY_ACCOUNT_STORAGE_DIR || path.join(ROOT_DIR, 'eliy-kernel', 'runtime', '.eliy-data'),
+  allowlist: process.env.ELIY_ALLOWLIST || 'beta-user@example.com',
+  inviteCodes: process.env.ELIY_INVITE_CODES || 'BETA-INVITE',
+  sessionTtlMs: Number(process.env.ELIY_SESSION_TTL_MS || 7 * 24 * 60 * 60 * 1000),
+  runtimeLabel: 'eliy-kernel/runtime/server.js'
+});
 
 // === 2. Mime Type 映射 ===
 const MIME_TYPES = {
@@ -62,7 +75,19 @@ const server = http.createServer(async (req, res) => {
   const pathname = url.pathname;
 
   // --- API 路由分发 ---
-  if (pathname === '/api/chat' && req.method === 'POST') {
+  if (pathname === '/api/auth/login' && req.method === 'POST') {
+    await handleAuthLogin(req, res);
+  } else if (pathname === '/api/auth/me' && req.method === 'GET') {
+    await handleAuthMe(req, res);
+  } else if (pathname === '/api/auth/logout' && req.method === 'POST') {
+    await handleAuthLogout(req, res);
+  } else if (pathname === '/api/conversations' && req.method === 'GET') {
+    await handleConversationList(req, res);
+  } else if (pathname === '/api/conversations' && req.method === 'POST') {
+    await handleConversationCreate(req, res);
+  } else if (pathname.startsWith('/api/conversations/')) {
+    await handleConversationResource(req, res, pathname);
+  } else if (pathname === '/api/chat' && req.method === 'POST') {
     await handleChat(req, res);
   } else if (pathname === '/api/record' && req.method === 'POST') {
     await handleRecord(req, res);
@@ -104,18 +129,51 @@ const server = http.createServer(async (req, res) => {
 async function handleChat(req, res) {
   try {
     const body = await parseJsonBody(req);
+    const auth = getAuthContext(req);
+    if (!auth.ok) {
+      sendJson(res, 401, auth.error);
+      return;
+    }
+
     const userText = body.text || '';
     const model = process.env.DEEPSEEK_MODEL || body.model || 'deepseek-v4-flash';
     const clientArtifact = body.artifact || null;
     const activeSkillReceived = body.activeSkill === 'sfocus' ? 'sfocus' : 'default';
-    const contextScope = normalizeContextScope(body.contextScope);
-    const isNewConversationContext = contextScope === 'new_conversation';
-    const conversationId = typeof body.conversationId === 'string' ? body.conversationId : 'none';
-    const userId = typeof body.userId === 'string' ? body.userId : 'anonymous';
-    const authSessionId = typeof body.authSessionId === 'string' ? body.authSessionId : 'anonymous';
-    const messageId = typeof body.messageId === 'string' ? body.messageId : `msg_${Date.now()}`;
+    let contextScope = normalizeContextScope(body.contextScope);
+    let conversationId = typeof body.conversationId === 'string' ? body.conversationId : 'none';
+    const userId = auth.user.user_id;
+    const authSessionId = auth.session.auth_session_id;
+    const userMessageId = typeof body.messageId === 'string' ? body.messageId : `msg_user_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const runId = typeof body.runId === 'string' ? body.runId : `run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const traceId = typeof body.traceId === 'string' ? body.traceId : `trace_${runId}_${Math.random().toString(36).slice(2, 6)}`;
+    const isNewConversationContext = contextScope === 'new_conversation' || conversationId === 'none' || !conversationId;
+    const requestedNewConversation = isNewConversationContext;
+    const conversation = accountStore.ensureConversationForChat(
+      userId,
+      conversationId,
+      userText
+    );
+    if (!conversation) {
+      sendJson(res, 404, conversationNotFoundEnvelope(conversationId));
+      return;
+    }
+    conversationId = conversation.conversation_id;
+    if (requestedNewConversation) {
+      contextScope = 'new_conversation';
+    } else {
+      contextScope = 'existing_conversation';
+    }
+
+    accountStore.appendMessage({
+      conversation_id: conversationId,
+      user_id: userId,
+      role: 'user',
+      content: userText,
+      message_id: userMessageId,
+      run_id: null,
+      trace_id: null,
+      status: 'sent'
+    });
 
     const mode = process.env.CANDIDATE_GENERATION_MODE || 'generic_fallback';
     console.log(`[API /api/chat] 当前候选生成模式 CANDIDATE_GENERATION_MODE: ${mode}`);
@@ -167,6 +225,9 @@ async function handleChat(req, res) {
     let artifact = clientArtifact;
     let errors = [];
     let responseStatus = 200;
+    let assistantMessageId = typeof body.assistantMessageId === 'string'
+      ? body.assistantMessageId
+      : `msg_assistant_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
     if (mode === 'real_llm') {
       const apiKey = process.env.DEEPSEEK_API_KEY;
@@ -414,6 +475,41 @@ async function handleChat(req, res) {
 
     const replyText = cleanReply || reply;
     const legacyArtifact = artifact || null;
+    const evalSummary = {
+      mode,
+      contextScope,
+      has_gate2: false,
+      legacy_artifact: !!legacyArtifact,
+      error_count: errors.length,
+      skill_triggered: isSfocusTriggered
+    };
+    accountStore.appendMessage({
+      conversation_id: conversationId,
+      user_id: userId,
+      role: 'assistant',
+      content: replyText,
+      message_id: assistantMessageId,
+      run_id: runId,
+      trace_id: traceId,
+      status: responseStatus === 200 ? 'sent' : 'failed',
+      raw_envelope_summary: {
+        gate2: null,
+        legacy_artifact: legacyArtifact,
+        errors
+      },
+      error_summary: errors.length > 0 ? errors : null
+    });
+    accountStore.recordRunTrace({
+      run_id: runId,
+      trace_id: traceId,
+      conversation_id: conversationId,
+      message_id: assistantMessageId,
+      user_id: userId,
+      model_or_runtime: model,
+      eval_summary: evalSummary,
+      error_summary: errors.length > 0 ? errors : null
+    });
+
     const responseEnvelope = {
       reply: replyText,
       gate2: null,
@@ -422,7 +518,8 @@ async function handleChat(req, res) {
       errors,
       trace_id: traceId,
       run_id: runId,
-      message_id: messageId,
+      message_id: assistantMessageId,
+      user_message_id: userMessageId,
       conversation_id: conversationId,
       user_id: userId,
       auth_session_id: authSessionId,
@@ -435,7 +532,8 @@ async function handleChat(req, res) {
         conversationId,
         runId,
         traceId,
-        messageId,
+        messageId: assistantMessageId,
+        userMessageId,
         userId,
         authSessionId
       }
@@ -1167,6 +1265,231 @@ function parseJsonBody(req) {
       }
     });
   });
+}
+
+function sendJson(res, statusCode, payload, extraHeaders = {}) {
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json',
+    ...extraHeaders
+  });
+  res.end(JSON.stringify(payload));
+}
+
+function authErrorEnvelope(code, message, retryable = false, traceId = null) {
+  const error = {
+    code,
+    message,
+    retryable
+  };
+  if (traceId) error.trace_id = traceId;
+  return {
+    reply: '',
+    gate2: null,
+    legacy_artifact: null,
+    errors: [error],
+    trace_id: traceId || null
+  };
+}
+
+function conversationNotFoundEnvelope(conversationId) {
+  return {
+    reply: '',
+    gate2: null,
+    legacy_artifact: null,
+    errors: [{
+      code: 'CONVERSATION_NOT_FOUND',
+      message: `Conversation ${conversationId} not found for current user.`,
+      retryable: false
+    }]
+  };
+}
+
+function getAuthContext(req) {
+  return accountStore.authenticateRequest(req);
+}
+
+function parseConversationPath(pathname) {
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments[0] !== 'api' || segments[1] !== 'conversations') return null;
+  const conversationId = segments[2] || null;
+  const subresource = segments[3] || null;
+  return { conversationId, subresource };
+}
+
+async function handleAuthLogin(req, res) {
+  try {
+    const body = await parseJsonBody(req);
+    const result = accountStore.login({
+      email_or_login_id: body.email_or_login_id || body.email || body.userId || '',
+      invite_code: body.invite_code || body.inviteCode || body.password || '',
+      display_name: body.display_name || body.displayName || '',
+      device_info: {
+        user_agent: req.headers['user-agent'] || '',
+        accept_language: req.headers['accept-language'] || '',
+        ip: req.socket.remoteAddress || ''
+      }
+    });
+
+    if (!result.ok) {
+      sendJson(res, 403, {
+        errors: [result.error]
+      });
+      return;
+    }
+
+    res.setHeader('Set-Cookie', result.cookie);
+    sendJson(res, 200, {
+      user: result.user,
+      auth_session: {
+        auth_session_id: result.session.auth_session_id,
+        expires_at: result.session.expires_at,
+        status: result.session.status
+      }
+    });
+  } catch (err) {
+    sendJson(res, 500, {
+      errors: [{
+        code: 'AUTH_LOGIN_ERROR',
+        message: err instanceof Error ? err.message : 'Login failed.',
+        retryable: true
+      }]
+    });
+  }
+}
+
+async function handleAuthMe(req, res) {
+  const result = getAuthContext(req);
+  if (!result.ok) {
+    sendJson(res, 401, result.error);
+    return;
+  }
+  sendJson(res, 200, {
+    user: result.user,
+    auth_session: result.session
+  });
+}
+
+async function handleAuthLogout(req, res) {
+  const sessionInfo = accountStore.getSessionFromRequest(req);
+  if (sessionInfo?.session?.auth_session_id) {
+    accountStore.revokeSession(sessionInfo.session.auth_session_id);
+  }
+  res.setHeader('Set-Cookie', clearSessionCookie());
+  sendJson(res, 200, { success: true });
+}
+
+async function handleConversationList(req, res) {
+  const auth = getAuthContext(req);
+  if (!auth.ok) {
+    sendJson(res, 401, auth.error);
+    return;
+  }
+
+  sendJson(res, 200, {
+    user: auth.user,
+    conversations: accountStore.listConversations(auth.user.user_id)
+  });
+}
+
+async function handleConversationCreate(req, res) {
+  const auth = getAuthContext(req);
+  if (!auth.ok) {
+    sendJson(res, 401, auth.error);
+    return;
+  }
+
+  try {
+    const body = await parseJsonBody(req);
+    const conversation = accountStore.createConversation(auth.user.user_id, {
+      title: body.title || '新对话'
+    });
+    sendJson(res, 201, { conversation });
+  } catch (err) {
+    sendJson(res, 500, {
+      errors: [{
+        code: 'CONVERSATION_CREATE_ERROR',
+        message: err instanceof Error ? err.message : 'Conversation creation failed.',
+        retryable: true
+      }]
+    });
+  }
+}
+
+async function handleConversationResource(req, res, pathname) {
+  const auth = getAuthContext(req);
+  if (!auth.ok) {
+    sendJson(res, 401, auth.error);
+    return;
+  }
+
+  const parsed = parseConversationPath(pathname);
+  if (!parsed?.conversationId) {
+    sendJson(res, 404, { errors: [{ code: 'NOT_FOUND', message: 'Conversation endpoint not found.', retryable: false }] });
+    return;
+  }
+
+  if (parsed.subresource === 'messages' && req.method === 'GET') {
+    const conversation = accountStore.getConversation(auth.user.user_id, parsed.conversationId);
+    if (!conversation) {
+      sendJson(res, 404, conversationNotFoundEnvelope(parsed.conversationId));
+      return;
+    }
+    sendJson(res, 200, {
+      conversation,
+      messages: accountStore.listMessages(auth.user.user_id, parsed.conversationId)
+    });
+    return;
+  }
+
+  if (parsed.subresource && parsed.subresource !== 'messages') {
+    sendJson(res, 404, { errors: [{ code: 'NOT_FOUND', message: 'Conversation subresource not found.', retryable: false }] });
+    return;
+  }
+
+  if (req.method === 'PATCH') {
+    const body = await parseJsonBody(req);
+    let updated = null;
+    if (typeof body.title === 'string') {
+      updated = accountStore.renameConversation(auth.user.user_id, parsed.conversationId, body.title);
+    }
+    if (body.status === 'archived') {
+      updated = accountStore.archiveConversation(auth.user.user_id, parsed.conversationId);
+    }
+    if (body.status === 'deleted') {
+      updated = accountStore.deleteConversation(auth.user.user_id, parsed.conversationId);
+    }
+    if (!updated) {
+      sendJson(res, 400, { errors: [{ code: 'INVALID_CONVERSATION_UPDATE', message: 'No supported update payload.', retryable: false }] });
+      return;
+    }
+    sendJson(res, 200, { conversation: updated });
+    return;
+  }
+
+  if (req.method === 'DELETE') {
+    const deleted = accountStore.deleteConversation(auth.user.user_id, parsed.conversationId);
+    if (!deleted) {
+      sendJson(res, 404, conversationNotFoundEnvelope(parsed.conversationId));
+      return;
+    }
+    sendJson(res, 200, { conversation: deleted });
+    return;
+  }
+
+  if (req.method === 'GET') {
+    const conversation = accountStore.getConversation(auth.user.user_id, parsed.conversationId);
+    if (!conversation) {
+      sendJson(res, 404, conversationNotFoundEnvelope(parsed.conversationId));
+      return;
+    }
+    sendJson(res, 200, {
+      conversation,
+      messages: accountStore.listMessages(auth.user.user_id, parsed.conversationId)
+    });
+    return;
+  }
+
+  sendJson(res, 405, { errors: [{ code: 'METHOD_NOT_ALLOWED', message: 'Unsupported conversation operation.', retryable: false }] });
 }
 
 function normalizeContextScope(scope) {

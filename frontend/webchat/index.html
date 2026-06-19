@@ -6,10 +6,17 @@
   <meta name="description" content="Eliy Agent — 商业诊断，帮助创业者看清问题、做出判断">
   <title>Eliy Agent — 商业诊断</title>
   <script>
-    // 登录守卫：未登录时强制跳转至登录页
-    if (!localStorage.getItem('ELIY_AUTH_TOKEN')) {
-      window.location.replace('./login.html');
-    }
+    // 登录守卫：优先依赖服务端 session，失败时跳转至登录页
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
+        if (!res.ok) {
+          window.location.replace('./login.html');
+        }
+      } catch {
+        window.location.replace('./login.html');
+      }
+    })();
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
