@@ -75,6 +75,7 @@ async function spawnServer(tempDir: string) {
       ...process.env,
       PORT: String(port),
       CANDIDATE_GENERATION_MODE: "generic_fallback",
+      ELIY_RUNTIME_DATA_DIR: join(tempDir, "runtime"),
       ELIY_ACCOUNT_STORAGE_DIR: tempDir,
       ELIY_ALLOWLIST: "beta-user@example.com,second-beta@example.com",
       ELIY_INVITE_CODES: "BETA-INVITE",

@@ -1,6 +1,12 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import {
+  normalizeCookieSameSite,
+  parseBooleanEnv,
+  resolveRuntimePaths,
+  validateCookieSettings
+} from './deploy-config.js';
 
 const DEFAULT_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFAULT_ALLOWLIST = ['beta-user@example.com'];
@@ -49,9 +55,15 @@ function normalizeDisplayName(value) {
   return localPart || 'Beta User';
 }
 
-function cookieValue(name, value, extra = '') {
-  const parts = [`${name}=${value}`, 'Path=/', 'SameSite=Lax'];
-  if (extra) parts.push(extra);
+function cookieValue(name, value, extra = {}) {
+  const parts = [`${name}=${value}`, 'Path=/'];
+  const sameSite = extra.sameSite || 'Lax';
+  const secure = Boolean(extra.secure);
+  if (extra.httpOnly !== false) parts.push('HttpOnly');
+  parts.push(`SameSite=${sameSite}`);
+  if (secure) parts.push('Secure');
+  if (Number.isFinite(extra.maxAge)) parts.push(`Max-Age=${Math.max(0, Math.floor(extra.maxAge))}`);
+  if (extra.domain) parts.push(`Domain=${extra.domain}`);
   return parts.join('; ');
 }
 
@@ -134,11 +146,20 @@ function conversationSortValue(item) {
 }
 
 export function createAccountStore(options = {}) {
-  const baseDir = options.baseDir || process.env.ELIY_ACCOUNT_STORAGE_DIR || path.join(process.cwd(), 'eliy-kernel', 'runtime', '.eliy-data');
+  const runtimePaths = resolveRuntimePaths({
+    env: options.env || process.env,
+    rootDir: options.rootDir || process.cwd()
+  });
+  const baseDir = options.baseDir || runtimePaths.accountStorageDir;
   const filePath = options.filePath || path.join(baseDir, 'account-store.json');
-  const allowlist = new Set(parseCsv(options.allowlist ?? process.env.ELIY_ALLOWLIST, DEFAULT_ALLOWLIST).map(normalizeLoginId));
-  const inviteCodes = new Set(parseCsv(options.inviteCodes ?? process.env.ELIY_INVITE_CODES, DEFAULT_INVITE_CODES).map((item) => item.trim()));
-  const sessionTtlMs = Number(options.sessionTtlMs || process.env.ELIY_SESSION_TTL_MS || DEFAULT_SESSION_TTL_MS);
+  const allowlist = new Set((options.allowlist ?? parseCsv(options.env?.ELIY_ALLOWLIST ?? process.env.ELIY_ALLOWLIST, DEFAULT_ALLOWLIST)).map(normalizeLoginId));
+  const inviteCodes = new Set((options.inviteCodes ?? parseCsv(options.env?.ELIY_INVITE_CODES ?? process.env.ELIY_INVITE_CODES, DEFAULT_INVITE_CODES)).map((item) => item.trim()));
+  const sessionTtlMs = Number(options.sessionTtlMs || options.env?.ELIY_SESSION_TTL_MS || process.env.ELIY_SESSION_TTL_MS || DEFAULT_SESSION_TTL_MS);
+  const cookieSecure = typeof options.cookieSecure === 'boolean'
+    ? options.cookieSecure
+    : parseBooleanEnv(options.env?.ELIY_COOKIE_SECURE ?? process.env.ELIY_COOKIE_SECURE, false);
+  const cookieSameSite = normalizeCookieSameSite(options.cookieSameSite || options.env?.ELIY_COOKIE_SAMESITE || process.env.ELIY_COOKIE_SAMESITE || 'Lax');
+  validateCookieSettings({ secure: cookieSecure, sameSite: cookieSameSite });
   const runtimeLabel = options.runtimeLabel || 'eliy-kernel/runtime/server.js';
 
   function loadState() {
@@ -203,11 +224,21 @@ export function createAccountStore(options = {}) {
 
   function buildCookie(sessionId, expiresAt) {
     const maxAge = Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
-    return cookieValue('ELIY_AUTH_SESSION_ID', sessionId, `HttpOnly; Max-Age=${maxAge}`);
+    return cookieValue('ELIY_AUTH_SESSION_ID', sessionId, {
+      httpOnly: true,
+      maxAge,
+      secure: cookieSecure,
+      sameSite: cookieSameSite
+    });
   }
 
   function clearCookie() {
-    return cookieValue('ELIY_AUTH_SESSION_ID', '', 'HttpOnly; Max-Age=0');
+    return cookieValue('ELIY_AUTH_SESSION_ID', '', {
+      httpOnly: true,
+      maxAge: 0,
+      secure: cookieSecure,
+      sameSite: cookieSameSite
+    });
   }
 
   function getSessionFromRequest(req) {
@@ -552,13 +583,31 @@ export function createAccountStore(options = {}) {
   };
 }
 
-export function createSessionCookie(sessionId, expiresAt) {
+export function createSessionCookie(sessionId, expiresAt, cookieOptions = {}) {
   const maxAge = Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000));
-  return cookieValue('ELIY_AUTH_SESSION_ID', sessionId, `HttpOnly; Max-Age=${maxAge}`);
+  const secure = typeof cookieOptions.secure === 'boolean'
+    ? cookieOptions.secure
+    : parseBooleanEnv(process.env.ELIY_COOKIE_SECURE, false);
+  const sameSite = normalizeCookieSameSite(cookieOptions.sameSite || process.env.ELIY_COOKIE_SAMESITE || 'Lax');
+  return cookieValue('ELIY_AUTH_SESSION_ID', sessionId, {
+    httpOnly: true,
+    maxAge,
+    secure,
+    sameSite
+  });
 }
 
-export function clearSessionCookie() {
-  return cookieValue('ELIY_AUTH_SESSION_ID', '', 'HttpOnly; Max-Age=0');
+export function clearSessionCookie(cookieOptions = {}) {
+  const secure = typeof cookieOptions.secure === 'boolean'
+    ? cookieOptions.secure
+    : parseBooleanEnv(process.env.ELIY_COOKIE_SECURE, false);
+  const sameSite = normalizeCookieSameSite(cookieOptions.sameSite || process.env.ELIY_COOKIE_SAMESITE || 'Lax');
+  return cookieValue('ELIY_AUTH_SESSION_ID', '', {
+    httpOnly: true,
+    maxAge: 0,
+    secure,
+    sameSite
+  });
 }
 
 export function parseAccountStoreCookies(header = '') {

@@ -26,6 +26,13 @@ logs/
 # 运行时缓存
 .cache/
 tmp/
+eliy-kernel/runtime/.eliy-data/
+eliy-kernel/runtime-data/
+eliy-kernel/runtime/transcripts/
+eliy-kernel/runtime/memory/
+eliy-kernel/runtime/hlamt/
+experiments/openai-agents-ts-runtime/runtime-data/
+experiments/openai-agents-ts-runtime/.runtime-data/
 
 # Ignore Google Speech secrets
 frontend/webchat/config/google-speech-key.json
