@@ -5,9 +5,12 @@ import { fileURLToPath } from 'url';
 import {
   clearSessionCookie,
   createAccountStore,
-  createSessionCookie,
   parseAccountStoreCookies
 } from './account-store.js';
+import {
+  resolveKernelRuntimePath,
+  resolveRuntimeConfig
+} from './deploy-config.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,12 +39,18 @@ function loadEnv() {
 }
 loadEnv();
 
-const PORT = parseInt(process.env.PORT, 10) || 3001;
+const runtimeConfig = resolveRuntimeConfig({ env: process.env, rootDir: ROOT_DIR });
+const PORT = runtimeConfig.port;
+const HOST = runtimeConfig.host;
 const accountStore = createAccountStore({
-  baseDir: process.env.ELIY_ACCOUNT_STORAGE_DIR || path.join(ROOT_DIR, 'eliy-kernel', 'runtime', '.eliy-data'),
-  allowlist: process.env.ELIY_ALLOWLIST || 'beta-user@example.com',
-  inviteCodes: process.env.ELIY_INVITE_CODES || 'BETA-INVITE',
-  sessionTtlMs: Number(process.env.ELIY_SESSION_TTL_MS || 7 * 24 * 60 * 60 * 1000),
+  env: process.env,
+  rootDir: ROOT_DIR,
+  baseDir: runtimeConfig.paths.accountStorageDir,
+  allowlist: runtimeConfig.allowlist,
+  inviteCodes: runtimeConfig.inviteCodes,
+  sessionTtlMs: runtimeConfig.sessionTtlMs,
+  cookieSecure: runtimeConfig.cookie.secure,
+  cookieSameSite: runtimeConfig.cookie.sameSite,
   runtimeLabel: 'eliy-kernel/runtime/server.js'
 });
 
@@ -1374,7 +1383,7 @@ async function handleAuthLogout(req, res) {
   if (sessionInfo?.session?.auth_session_id) {
     accountStore.revokeSession(sessionInfo.session.auth_session_id);
   }
-  res.setHeader('Set-Cookie', clearSessionCookie());
+  res.setHeader('Set-Cookie', clearSessionCookie(runtimeConfig.cookie));
   sendJson(res, 200, { success: true });
 }
 
@@ -1530,7 +1539,7 @@ function buildNeutralArtifactStatus() {
 }
 
 function readKernelFile(relPath) {
-  const filePath = path.join(ROOT_DIR, 'eliy-kernel', relPath);
+  const filePath = resolveKernelRuntimePath(ROOT_DIR, relPath, runtimeConfig.paths);
   if (fs.existsSync(filePath)) {
     return fs.readFileSync(filePath, 'utf-8');
   }
@@ -1538,7 +1547,7 @@ function readKernelFile(relPath) {
 }
 
 function writeKernelFile(relPath, content) {
-  const filePath = path.join(ROOT_DIR, 'eliy-kernel', relPath);
+  const filePath = resolveKernelRuntimePath(ROOT_DIR, relPath, runtimeConfig.paths);
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -1919,10 +1928,13 @@ function generateMockReply(userText) {
   }
 }
 
-server.listen(PORT, '127.0.0.1', () => {
+server.listen(PORT, HOST, () => {
   console.log(`\n======================================================`);
   console.log(`✨ Eliy v0.3.2-test Local Runtime Service 启动成功！`);
-  console.log(`🌐 访问地址: http://localhost:${PORT}/index.html`);
-  console.log(`🎙 语音版地址: http://localhost:${PORT}/voice.html`);
+  console.log(`🌐 监听地址: ${HOST}:${PORT}`);
+  console.log(`🌐 访问地址: ${runtimeConfig.publicBaseUrl.replace(/\/$/, '')}/index.html`);
+  console.log(`🎙 语音版地址: ${runtimeConfig.publicBaseUrl.replace(/\/$/, '')}/voice.html`);
+  console.log(`🔐 Cookie: HttpOnly; SameSite=${runtimeConfig.cookie.sameSite}; Secure=${runtimeConfig.cookie.secure ? 'true' : 'false'}`);
+  console.log(`📦 Runtime data: ${runtimeConfig.paths.runtimeDataDir || '(repo-local defaults)'}`);
   console.log(`======================================================\n`);
 });
