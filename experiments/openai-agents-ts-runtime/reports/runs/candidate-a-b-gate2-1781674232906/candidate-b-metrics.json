@@ -1,0 +1,117 @@
+{
+  "task1": {
+    "mode": "candidate-b",
+    "task": "customer_complaint",
+    "outcomeIntegrity": {
+      "successCriteriaMet": true,
+      "toolActuallyExecuted": true,
+      "receiptMatchesToolResult": true,
+      "finalUsesLatestFact": true,
+      "severeTruthErrors": 0
+    },
+    "stateFidelity": {
+      "intentKeyFieldsPreservedRate": 1,
+      "factCorrectionPropagationRate": 1,
+      "assumptionFactConfusions": 0,
+      "resumeOmissions": 0,
+      "staleUpdateOverwroteNewState": false,
+      "receiptReplayDuplicatedUpdate": false,
+      "parallelTruthSources": 0
+    },
+    "evidenceTraceability": {
+      "traceableKeyFactsRate": 0.6666666666666666,
+      "evidenceLinkedStateChangeRate": 1,
+      "untraceableKeyClaims": 0,
+      "modelNarrativeAsExecutionFactCount": 0
+    },
+    "humanWorkload": {
+      "repeatedBackgroundExplanations": 0,
+      "repeatedFactCorrections": 0,
+      "manualStateAudits": 0,
+      "contextRecoveryOperations": 0,
+      "majorHumanConfirmations": 1,
+      "extraStateMaintenanceSteps": 1
+    },
+    "systemCost": {
+      "apiRequests": 0,
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "elapsedMs": 0,
+      "stateBytes": 3526,
+      "stateVersion": 2,
+      "transitionCount": 1
+    },
+    "complexityDiscipline": {
+      "singleOperationalState": true,
+      "newStoreIntroduced": false,
+      "schemaExpandedBeyondGate1": false,
+      "runtimeModified": false,
+      "uiMemorySkillOntologyOrMultiAgentAdded": false,
+      "candidateSpecificBusinessLogic": false,
+      "rollbackPreserved": true
+    },
+    "events": [
+      "same_intent_used",
+      "same_receipt_used",
+      "receipt_replay_idempotent"
+    ]
+  },
+  "task2": {
+    "mode": "candidate-b",
+    "task": "product_launch",
+    "outcomeIntegrity": {
+      "successCriteriaMet": true,
+      "toolActuallyExecuted": true,
+      "receiptMatchesToolResult": true,
+      "finalUsesLatestFact": true,
+      "severeTruthErrors": 0
+    },
+    "stateFidelity": {
+      "intentKeyFieldsPreservedRate": 1,
+      "factCorrectionPropagationRate": 1,
+      "assumptionFactConfusions": 0,
+      "resumeOmissions": 0,
+      "staleUpdateOverwroteNewState": false,
+      "receiptReplayDuplicatedUpdate": false,
+      "parallelTruthSources": 0
+    },
+    "evidenceTraceability": {
+      "traceableKeyFactsRate": 0.6,
+      "evidenceLinkedStateChangeRate": 1,
+      "untraceableKeyClaims": 0,
+      "modelNarrativeAsExecutionFactCount": 0
+    },
+    "humanWorkload": {
+      "repeatedBackgroundExplanations": 0,
+      "repeatedFactCorrections": 0,
+      "manualStateAudits": 0,
+      "contextRecoveryOperations": 0,
+      "majorHumanConfirmations": 1,
+      "extraStateMaintenanceSteps": 2
+    },
+    "systemCost": {
+      "apiRequests": 0,
+      "promptTokens": 0,
+      "completionTokens": 0,
+      "elapsedMs": 0,
+      "stateBytes": 5313,
+      "stateVersion": 3,
+      "transitionCount": 2
+    },
+    "complexityDiscipline": {
+      "singleOperationalState": true,
+      "newStoreIntroduced": false,
+      "schemaExpandedBeyondGate1": false,
+      "runtimeModified": false,
+      "uiMemorySkillOntologyOrMultiAgentAdded": false,
+      "candidateSpecificBusinessLogic": false,
+      "rollbackPreserved": true
+    },
+    "events": [
+      "same_launch_intent_used",
+      "versioned_correction_applied",
+      "stale_update_rejected",
+      "receipt_replay_idempotent"
+    ]
+  }
+}

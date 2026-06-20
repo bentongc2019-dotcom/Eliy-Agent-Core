@@ -1,0 +1,17 @@
+{
+  "runId": "candidate-b-live-1781669994268",
+  "timestamp": "2026-06-17T04:19:57.099Z",
+  "branch": "spike/hac-candidate-b-shared-state-minimum",
+  "gitCommit": "7144169",
+  "gitStatusClean": false,
+  "provider": "deepseek-openai-compatible",
+  "model": "deepseek-v4-flash",
+  "testCommand": "npm run test:hac-candidate-b-live",
+  "apiKeyStatus": "SET",
+  "requestCount": 1,
+  "result": "Candidate B Gate 1 Passed",
+  "reportPaths": [
+    "reports/hac-candidate-b-shared-state-minimum-live-report.md",
+    "reports/runs/candidate-b-live-1781669994268/candidate-b-live-run-manifest.json"
+  ]
+}

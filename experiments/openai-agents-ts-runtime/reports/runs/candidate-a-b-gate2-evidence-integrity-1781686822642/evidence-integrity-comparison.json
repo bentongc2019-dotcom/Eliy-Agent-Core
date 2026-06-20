@@ -1,0 +1,19 @@
+{
+  "integrityRunId": "candidate-a-b-gate2-evidence-integrity-1781686822642",
+  "finalConclusion": "Gate 2 Evidence Integrity Passed",
+  "gate2ConclusionConfirmed": "Candidate B Gate 2 Passed — Conditional Upgrade",
+  "deterministicVsLiveSeparation": {
+    "deterministicScope": [
+      "stale update",
+      "receipt replay",
+      "evidence linkage",
+      "recovery operations",
+      "state fidelity"
+    ],
+    "liveScope": [
+      "latest authoritative fact adoption",
+      "decision preservation",
+      "current fact vs future target distinction"
+    ]
+  }
+}

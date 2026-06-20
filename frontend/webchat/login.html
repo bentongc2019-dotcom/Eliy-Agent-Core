@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eliy — 登录</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --navy-900: #1E0F3A;
+      --navy-800: #2D1B4A;
+      --navy-700: #3D2561;
+      --navy-600: #4B2E78;
+      --border: #4B2E78;
+      --text: #FDFBFF;
+      --text-muted: #D1C5E5;
+      --accent: #F5C518;
+      --accent-glow: rgba(245, 197, 24, 0.2);
+      --success: #34d399;
+      --danger: #f87171;
+      --font: 'Inter', sans-serif;
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      height: 100%;
+      font-family: var(--font);
+      background: var(--navy-900);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    body::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 40%, rgba(245, 197, 24, 0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .login-container {
+      width: 100%;
+      max-width: 400px;
+      padding: 1rem;
+      z-index: 10;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 2rem;
+      font-size: 1.6rem;
+      font-weight: 700;
+      animation: fadeIn 0.8s ease;
+    }
+    .logo b {
+      color: var(--text);
+    }
+    .logo small {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: var(--navy-600);
+      padding: 0.15rem 0.6rem;
+      border-radius: 12px;
+      font-weight: 500;
+    }
+    .card {
+      background: rgba(45, 27, 74, 0.6);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(245, 197, 24, 0.3);
+      padding: 2.5rem 2rem;
+      border-radius: 16px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      animation: slideUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    h2 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      text-align: center;
+      color: var(--text);
+      letter-spacing: 0.05em;
+    }
+    .form-group {
+      margin-bottom: 1.25rem;
+      position: relative;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+      font-weight: 500;
+    }
+    .input-wrapper {
+      position: relative;
+    }
+    input {
+      width: 100%;
+      background: var(--navy-900);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.8rem 1rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: all 0.25s ease;
+      font-family: inherit;
+    }
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+    .btn {
+      width: 100%;
+      background: var(--accent);
+      color: var(--navy-900);
+      border: none;
+      padding: 0.85rem;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      margin-top: 0.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(245, 197, 24, 0.2);
+    }
+    .btn:hover {
+      background: #ffd700;
+      transform: scale(1.02);
+      box-shadow: 0 6px 18px rgba(245, 197, 24, 0.35);
+    }
+    .btn:active {
+      transform: scale(0.98);
+    }
+    .btn:disabled {
+      background: var(--navy-700);
+      color: var(--text-muted);
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    .alert {
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      margin-bottom: 1.25rem;
+      display: none;
+      animation: fadeIn 0.3s ease;
+      line-height: 1.4;
+    }
+    .alert-danger {
+      background: rgba(248, 113, 113, 0.15);
+      border: 1px solid var(--danger);
+      color: var(--danger);
+    }
+    .alert-success {
+      background: rgba(52, 211, 153, 0.15);
+      border: 1px solid var(--success);
+      color: var(--success);
+    }
+    .links {
+      margin-top: 1.5rem;
+      text-align: center;
+      font-size: 0.82rem;
+    }
+    .links a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+      transition: color 0.2s;
+    }
+    .links a:hover {
+      color: #ffd700;
+      text-decoration: underline;
+    }
+    .links span {
+      color: var(--text-muted);
+      margin-right: 0.3rem;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="logo">
+      <span style="color:var(--accent)">◆</span>
+      <b>Eliy</b>
+      <small>内测版</small>
+    </div>
+    
+    <div class="card">
+      <h2>内测登录</h2>
+      
+      <div id="alertBox" class="alert alert-danger"></div>
+      
+      <form id="loginForm" onsubmit="handleLoginSubmit(event)">
+        <div class="form-group">
+          <label for="email">内测账号</label>
+          <div class="input-wrapper">
+            <input type="text" id="email" required placeholder="请输入内测账号">
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label for="password">邀请码</label>
+          <div class="input-wrapper">
+            <input type="password" id="password" required placeholder="请输入邀请码">
+          </div>
+        </div>
+        
+        <button type="submit" id="submitBtn" class="btn">立即登录</button>
+      </form>
+      
+      <div class="links">
+        <span>内测账号请联系管理员开通</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showAlert(message, type = 'danger') {
+      const alertBox = document.getElementById('alertBox');
+      alertBox.textContent = message;
+      alertBox.style.display = 'block';
+      alertBox.className = `alert alert-${type}`;
+    }
+
+    function hideAlert() {
+      document.getElementById('alertBox').style.display = 'none';
+    }
+
+    async function fetchJson(url, options = {}) {
+      const res = await fetch(url, {
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(options.headers || {})
+        },
+        ...options
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const error = new Error(`Request failed: ${res.status}`);
+        error.status = res.status;
+        error.payload = payload;
+        throw error;
+      }
+      return payload;
+    }
+
+    async function restoreSessionIfAny() {
+      try {
+        const me = await fetchJson('/api/auth/me', { method: 'GET' });
+        if (me?.user?.user_id) {
+          window.location.replace('./index.html');
+        }
+      } catch {
+        // no-op
+      }
+    }
+
+    async function handleLoginSubmit(event) {
+      event.preventDefault();
+      hideAlert();
+      
+      const email = document.getElementById('email').value.trim();
+      const inviteCode = document.getElementById('password').value.trim();
+      const submitBtn = document.getElementById('submitBtn');
+      
+      submitBtn.disabled = true;
+      submitBtn.textContent = '登录中...';
+
+      try {
+        const data = await fetchJson('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({
+            email_or_login_id: email,
+            invite_code: inviteCode
+          })
+        });
+
+        const user = data.user || {};
+        localStorage.setItem('ELIY_USER_NAME', user.display_name || email || '用户');
+        localStorage.setItem('ELIY_USER_ID', user.user_id || email || '');
+        if (data.auth_session?.auth_session_id) {
+          localStorage.setItem('ELIY_AUTH_SESSION_ID', data.auth_session.auth_session_id);
+        }
+
+        showAlert('登录成功，正在跳转...', 'success');
+        setTimeout(() => {
+          window.location.href = './index.html';
+        }, 500);
+      } catch (error) {
+        const payload = error?.payload || {};
+        const message = payload?.errors?.[0]?.message || '账号或邀请码无效，请联系管理员开通。';
+        showAlert(message);
+        submitBtn.disabled = false;
+        submitBtn.textContent = '立即登录';
+      }
+    }
+
+    restoreSessionIfAny();
+  </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "evaluatorRegressionTests": "Passed",
+  "cases": [
+    "current fact correct and old value absent",
+    "current fact correct and old value explicitly superseded",
+    "current fact correct and old value is future remediation target",
+    "old value used as current authoritative fact",
+    "new and old values both present with unclear old role",
+    "marker correct but final decision conflicts"
+  ]
+}

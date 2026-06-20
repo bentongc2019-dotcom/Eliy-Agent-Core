@@ -1,0 +1,17 @@
+{
+  "runId": "hac-cross-task-1781598709628",
+  "timestamp": "2026-06-16T08:31:49.856Z",
+  "gitCommit": "74ed25c0a32acdbbcdf05deb2e8ad19901907537",
+  "gitStatusClean": false,
+  "branch": "spike/hac-loop-cross-task-generalization",
+  "model": "deepseek-v4-flash",
+  "provider": "DeepSeek OpenAI-compatible API",
+  "providerConfiguration": "DEEPSEEK_API_KEY=NOT_SET; deterministic local verification only",
+  "testCommand": "npm run test:hac-loop-cross-task-generalization",
+  "scenario": "customer_complaint_regression + product_launch_go_no_go",
+  "result": "Minimum HAC Loop Harness Cross-task Generalization Failed",
+  "reportPaths": [
+    "reports/hac-loop-cross-task-generalization-final-report.md",
+    "reports/hac-loop-cross-task-generalization-events.md"
+  ]
+}

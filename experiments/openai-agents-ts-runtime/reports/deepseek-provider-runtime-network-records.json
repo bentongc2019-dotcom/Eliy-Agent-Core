@@ -1,0 +1,11 @@
+[
+  {
+    "phase": "runtime",
+    "method": "POST",
+    "url": "https://api.deepseek.com/chat/completions",
+    "domain": "api.deepseek.com",
+    "allowed": true,
+    "reason": "Configured OpenAI-compatible Model API",
+    "timestamp": "2026-06-15T20:52:04.519Z"
+  }
+]

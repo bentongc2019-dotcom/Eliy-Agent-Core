@@ -2,6 +2,12 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import {
+  clearSessionCookie,
+  createAccountStore,
+  createSessionCookie,
+  parseAccountStoreCookies
+} from './account-store.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,6 +37,13 @@ function loadEnv() {
 loadEnv();
 
 const PORT = parseInt(process.env.PORT, 10) || 3001;
+const accountStore = createAccountStore({
+  baseDir: process.env.ELIY_ACCOUNT_STORAGE_DIR || path.join(ROOT_DIR, 'eliy-kernel', 'runtime', '.eliy-data'),
+  allowlist: process.env.ELIY_ALLOWLIST || 'beta-user@example.com',
+  inviteCodes: process.env.ELIY_INVITE_CODES || 'BETA-INVITE',
+  sessionTtlMs: Number(process.env.ELIY_SESSION_TTL_MS || 7 * 24 * 60 * 60 * 1000),
+  runtimeLabel: 'eliy-kernel/runtime/server.js'
+});
 
 // === 2. Mime Type 映射 ===
 const MIME_TYPES = {
@@ -62,7 +75,19 @@ const server = http.createServer(async (req, res) => {
   const pathname = url.pathname;
 
   // --- API 路由分发 ---
-  if (pathname === '/api/chat' && req.method === 'POST') {
+  if (pathname === '/api/auth/login' && req.method === 'POST') {
+    await handleAuthLogin(req, res);
+  } else if (pathname === '/api/auth/me' && req.method === 'GET') {
+    await handleAuthMe(req, res);
+  } else if (pathname === '/api/auth/logout' && req.method === 'POST') {
+    await handleAuthLogout(req, res);
+  } else if (pathname === '/api/conversations' && req.method === 'GET') {
+    await handleConversationList(req, res);
+  } else if (pathname === '/api/conversations' && req.method === 'POST') {
+    await handleConversationCreate(req, res);
+  } else if (pathname.startsWith('/api/conversations/')) {
+    await handleConversationResource(req, res, pathname);
+  } else if (pathname === '/api/chat' && req.method === 'POST') {
     await handleChat(req, res);
   } else if (pathname === '/api/record' && req.method === 'POST') {
     await handleRecord(req, res);
@@ -86,7 +111,11 @@ const server = http.createServer(async (req, res) => {
 
     if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
       const ext = path.extname(filePath);
-      res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' });
+      const headers = { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' };
+      if (['.html', '.js', '.css'].includes(ext)) {
+        headers['Cache-Control'] = 'no-store, max-age=0';
+      }
+      res.writeHead(200, headers);
       fs.createReadStream(filePath).pipe(res);
     } else {
       res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -100,10 +129,51 @@ const server = http.createServer(async (req, res) => {
 async function handleChat(req, res) {
   try {
     const body = await parseJsonBody(req);
+    const auth = getAuthContext(req);
+    if (!auth.ok) {
+      sendJson(res, 401, auth.error);
+      return;
+    }
+
     const userText = body.text || '';
     const model = process.env.DEEPSEEK_MODEL || body.model || 'deepseek-v4-flash';
+    const clientArtifact = body.artifact || null;
+    const activeSkillReceived = body.activeSkill === 'sfocus' ? 'sfocus' : 'default';
+    let contextScope = normalizeContextScope(body.contextScope);
+    let conversationId = typeof body.conversationId === 'string' ? body.conversationId : 'none';
+    const userId = auth.user.user_id;
+    const authSessionId = auth.session.auth_session_id;
+    const userMessageId = typeof body.messageId === 'string' ? body.messageId : `msg_user_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const runId = typeof body.runId === 'string' ? body.runId : `run_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const traceId = typeof body.traceId === 'string' ? body.traceId : `trace_${runId}_${Math.random().toString(36).slice(2, 6)}`;
+    const isNewConversationContext = contextScope === 'new_conversation' || conversationId === 'none' || !conversationId;
+    const requestedNewConversation = isNewConversationContext;
+    const conversation = accountStore.ensureConversationForChat(
+      userId,
+      conversationId,
+      userText
+    );
+    if (!conversation) {
+      sendJson(res, 404, conversationNotFoundEnvelope(conversationId));
+      return;
+    }
+    conversationId = conversation.conversation_id;
+    if (requestedNewConversation) {
+      contextScope = 'new_conversation';
+    } else {
+      contextScope = 'existing_conversation';
+    }
 
-    console.log(`[API /api/chat] 收到消息: "${userText}" | 模型: ${model}`);
+    accountStore.appendMessage({
+      conversation_id: conversationId,
+      user_id: userId,
+      role: 'user',
+      content: userText,
+      message_id: userMessageId,
+      run_id: null,
+      trace_id: null,
+      status: 'sent'
+    });
 
     const mode = process.env.CANDIDATE_GENERATION_MODE || 'generic_fallback';
     console.log(`[API /api/chat] 当前候选生成模式 CANDIDATE_GENERATION_MODE: ${mode}`);
@@ -112,48 +182,120 @@ async function handleChat(req, res) {
     const flashGuardRules = readKernelFile('runtime/ELIY_V0.3.1_FLASH_RUNTIME_GUARD_RULES.md');
     const hacAgentRules = readKernelFile('hac/HAC_AGENT_RULES.md');
     const frontendRules = readKernelFile('hac/FRONTEND_AGENT_RULES.md');
+    const defaultIdentityStyle = readKernelFile('hac/DEFAULT_IDENTITY_STYLE.md');
     const hlamtFile = readKernelFile('hlamt/HLAMT.md');
-    const stateFile = readKernelFile('memory/STATE.md');
-    const nextContextFile = readKernelFile('memory/NEXT_CONTEXT.md');
+    const stateFile = isNewConversationContext ? buildNeutralStateContext() : readKernelFile('memory/STATE.md');
+    const nextContextFile = isNewConversationContext ? buildNeutralNextContext() : readKernelFile('memory/NEXT_CONTEXT.md');
+
+    const sfocusKeywords = ["S’FOCUS", "SFOCUS", "瓶颈思维", "找瓶颈", "控制投料", "Choke the Release", "TOC learning or practice", "用 Eliy 分析一个经营系统"];
+    const isFrontendSkillTriggered = activeSkillReceived === 'sfocus';
+    const isKeywordTriggered = sfocusKeywords.some(kw => userText.includes(kw));
+    const isNextContextTriggered = !isNewConversationContext && nextContextFile.includes("CURRENT_SKILL: sfocus");
+    const isSfocusTriggered = isFrontendSkillTriggered || isKeywordTriggered || isNextContextTriggered;
+    const triggerSource = isFrontendSkillTriggered
+      ? 'frontend_active_skill'
+      : isKeywordTriggered
+        ? 'keyword'
+        : isNextContextTriggered
+          ? 'next_context'
+          : 'none';
+    const skillModeObserved = (isFrontendSkillTriggered || isKeywordTriggered)
+      ? 'sfocus'
+      : isNextContextTriggered
+        ? 'mixed_or_inferred'
+        : 'default';
+    const artifactStatusText = isNewConversationContext ? buildNeutralArtifactStatus() : readKernelFile('memory/ARTIFACT_STATUS.md');
+    const artifactStatusMatch = artifactStatusText.match(/Status:\s*([^\n]+)/);
+    const currentArtifactStatus = artifactStatusMatch ? artifactStatusMatch[1].trim() : 'unknown';
+    const textPreview = userText.replace(/\s+/g, ' ').slice(0, 20);
+    console.log(
+      `[API /api/chat][observability] textPreview="${textPreview}" | conversationId=${conversationId} | contextScope=${contextScope} | activeSkillReceived=${activeSkillReceived} | sfocusInjected=${isSfocusTriggered} | triggerSource=${triggerSource} | hasClientArtifactContext=${!!clientArtifact} | currentArtifactStatus=${currentArtifactStatus}`
+    );
+    let sfocusSkillContent = "";
+    if (isSfocusTriggered) {
+      try {
+        sfocusSkillContent = fs.readFileSync(path.join(ROOT_DIR, 'skills/sfocus/SKILL.md'), 'utf-8');
+      } catch (e) {
+        console.warn('Failed to load SFOCUS skill:', e.message);
+      }
+    }
 
     let reply = '';
+    let cleanReply = '';
+    let artifact = clientArtifact;
+    let errors = [];
+    let responseStatus = 200;
+    let assistantMessageId = typeof body.assistantMessageId === 'string'
+      ? body.assistantMessageId
+      : `msg_assistant_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
     if (mode === 'real_llm') {
       const apiKey = process.env.DEEPSEEK_API_KEY;
       if (!apiKey || apiKey === 'your_deepseek_api_key_here') {
         reply = `Real LLM call failed.\nReason: DEEPSEEK_API_KEY is not configured.\nFallback not used in this test.`;
+        cleanReply = reply;
         console.error('[API /api/chat] 真实 LLM 调用失败：未配置 API Key，且根据测试约束不使用 fallback');
+        errors = [{
+          code: 'DEEPSEEK_API_KEY_MISSING',
+          message: 'DEEPSEEK_API_KEY is not configured.',
+          retryable: true,
+          trace_id: traceId
+        }];
+        responseStatus = 500;
       } else {
         console.log('[API /api/chat] 模式为 real_llm，发起真实 LLM 调用...');
         try {
-          const promptInstruction = 
-            `[MANDATORY SYSTEM INSTRUCTION FOR CANDIDATE ARTIFACT GENERATION]\n` +
-            `你必须在 "real LLM" 候选版本生成模式下运行。\n` +
-            `你的回答必须严格遵守以下结构与指导原则：\n\n` +
-            `1. [针对旧交付物改写 (FOR LEGACY ARTIFACT REWRITING - RLCG1-RLCG6)]:\n` +
-            `   - 识别并指出用户指定的质量问题。\n` +
-            `   - 基于旧版本内容生成一个干净、具备可执行性的候选版本。\n` +
-            `   - 禁止直接照抄原文或只做简单的分行处理。\n` +
-            `   - 严禁擅自添加原文未提及的任何时间或截止时间描述（如“明确时间前”、“周五前”、“下周”等），除非原文中明确提供。\n` +
-            `   - 必须完全且仅仅基于用户提供的事实内容进行改写。严禁编造任何未提供的关键事实，严禁补充或捏造原文未提及的人名（如“王明”、“李华”等）、具体业务细节。只改写不添加任何外部假设或虚构细节。\n` +
-            `   - 候选版本必须保持与原文同等的规模和体量（只改写，不扩展）。\n` +
-            `   - 针对不同类型抱怨的改写细节准则：\n` +
-            `     * [合并与同步要求 (如RLCG1)]：如果原始待办存在内容重叠或重复提取，必须将其合并为句意完整的单句候选，表述要自然流畅（如“请某人确认报价并同步”），严禁机械拆分为多条，且必须完整保留原文中的同步反馈动作。\n` +
-            `     * [处理“不够清楚” (如RLCG3)]：不能流于形式（如仅改写为“进行后续沟通”），必须将其细化为包含具体待处理事项、负责人和同步要求的动作，但严禁编造任何截止时间。\n` +
-            `     * [处理“完成标准不清楚” (如RLCG5)]：必须将模糊的动作细化为可验证的明确结果（如“整理主要问题并确认是否需要下一步处理，完成后同步摘要和建议”）。如果原文未提供明确的同步对象，需保守表达为“完成后等待确认同步对象”。\n` +
-            `     * [处理“太空泛计划” (如RLCG6)]：你必须保持单句表达（不超过1-2句，严禁拆分成多行步骤或执行计划）。你只需将原句中空泛的概念（如“推进产品优化”、“加强协同”）细化为对应同等规模的具体单一动作（例如将优化拆解为任务列表、安排一次销售同步会明确需求），以保证改写前后的句式体量一致。\n` +
-            `   - 必须严格遵守以下回复格式结构（不可多字少字，只输出这三项）：\n` +
-            `     识别到的问题：\n` +
-            `     <具体问题>\n` +
-            `     候选版本：\n` +
-            `     <仅包含改写后的单句或同等规模候选内容>\n` +
-            `     请确认是否采用，或说明希望继续修改的方向。\n\n` +
-            `2. [通用规则 (GENERAL RULES)]:\n` +
-            `   - 禁止自己直接同意或冻结该版本。状态必须保持等待用户确认。\n` +
-            `   - 严禁包含商业诊断、方法论、路线图或诊断信息。\n` +
-            `   - 必须在你的回答最末尾单独另起一行，以纯文本形式追加以下模式和模型块（注意换行）：\n` +
-            `     Mode: real LLM\n` +
-            `     Model: DeepSeek V4 Flash`;
+          const modeInstruction = isSfocusTriggered
+            ? `[MANDATORY SYSTEM INSTRUCTION FOR SFOCUS COLLABORATION]\n` +
+              `你必须在 "real LLM" 候选版本生成模式下运行。\n` +
+              `当前对话使用 S’FOCUS 协作方式。请按以下顺序推进：\n` +
+              `1. 澄清系统\n` +
+              `2. 澄清目标\n` +
+              `3. 澄清不良效应\n` +
+              `4. 提出可能制约\n` +
+              `5. 形成下一步行动\n` +
+              `不要替用户直接下最终判断。信息不足时，把缺失项放入待补充信息。\n\n`
+            : `[MANDATORY SYSTEM INSTRUCTION FOR DEFAULT MODE]\n` +
+              `你必须在 Eliy default mode 下运行。\n` +
+              `不要声称当前对话正在使用 S’FOCUS，除非 SFOCUS.skill 已被明确触发。\n` +
+              `先理解用户真实意图，再决定是澄清、解释、收敛还是推进。\n` +
+              `普通对话中不要暴露 artifact、Recorder、NEXT_CONTEXT、debug_meta、proposed、accepted、frozen 等内部语言。\n` +
+              `不要默认生成 Action Card；只有用户明确要求，或对话已收敛到一个被用户接受的具体行动时才生成。\n\n`;
+
+          const artifactPayloadContract =
+            `[XML ARTIFACT PAYLOAD CONTRACT]\n` +
+            `1. 当用户要求整理成果（如“整理成果”、“整理成成果卡”等）时，你必须在回答最后使用 <eliy_artifact>...</eliy_artifact> 标签包裹一个标准的 JSON payload，类型为 current_result_card，格式如下：\n` +
+            `{\n` +
+            `  "schema_version": "0.1",\n` +
+            `  "type": "current_result_card",\n` +
+            `  "title": "当前成果卡｜待办事项草稿",\n` +
+            `  "status": "suggested",\n` +
+            `  "sections": [\n` +
+            `    { "label": "已知情况", "content": "..." },\n` +
+            `    { "label": "当前判断", "content": "..." },\n` +
+            `    { "label": "待补充信息", "content": "..." },\n` +
+            `    { "label": "下一步行动", "content": "..." }\n` +
+            `  ]\n` +
+            `}\n` +
+            `2. 当用户要求生成行动卡（如“请基于当前成果生成一张下一步行动卡”、“转成行动卡”）时，你必须在回答最后使用 <eliy_artifact>...</eliy_artifact> 标签包裹一个标准的 JSON payload，类型为 next_action_card，格式如下：\n` +
+            `{\n` +
+            `  "schema_version": "0.1",\n` +
+            `  "type": "next_action_card",\n` +
+            `  "title": "下一步行动卡｜整理获客成本关键数据",\n` +
+            `  "status": "suggested",\n` +
+            `  "fields": {\n` +
+            `    "行动名称": "...",\n` +
+            `    "行动目的": "...",\n` +
+            `    "下一步动作": "...",\n` +
+            `    "负责人": "待确认",\n` +
+            `    "完成标准": "...",\n` +
+            `    "检查时间": "待确认",\n` +
+            `    "待补充信息": "..."\n` +
+            `  }\n` +
+            `}\n` +
+            `缺失字段必须写“待确认”。完成标准尽量可观察。禁止输出 "frozen"、"决策库" 或 "高置信度诊断" 等字眼。\n` +
+            `如果不是用户明确要求整理成果或转行动卡，绝对不要输出 <eliy_artifact> 标签及 JSON。`;
+          const promptInstruction = modeInstruction + artifactPayloadContract;
 
           const classification = classifyArtifactInput(userText);
           let taskPrompt = '';
@@ -167,12 +309,12 @@ async function handleChat(req, res) {
               `请确认是否采用作为最终版本。\n\n` +
               `Mode: real LLM\n` +
               `Model: DeepSeek V4 Flash`;
-          } else if (classification === 'explicit_acceptance') {
+          } else if (classification === 'explicit_acceptance' || classification === 'explicit_freeze') {
             taskPrompt = 
               `[MANDATORY: EXPLICIT ACCEPTANCE]\n` +
-              `用户已经确认采纳了这个候选版本。\n` +
+              `用户已经确认采纳或冻结了这个候选版本。\n` +
               `你必须严格且仅按以下格式回复，不得偏离，也不得加入任何如“加入任务列表”等产品功能的动作：\n\n` +
-              `当前 artifact 已标记为 accepted。请提供下一条输入，或说明是否继续调整其他内容。\n\n` +
+              `当前 artifact 已标记为 ${classification === 'explicit_freeze' ? 'frozen' : 'accepted'}。请提供下一条输入，或说明是否继续调整其他内容。\n\n` +
               `Mode: real LLM\n` +
               `Model: DeepSeek V4 Flash`;
           } else {
@@ -182,7 +324,7 @@ async function handleChat(req, res) {
           const messages = [
             {
               role: 'system',
-              content: `${flashGuardRules}\n\n${hacAgentRules}\n\n${frontendRules}\n\n${hlamtFile}\n\n当前状态:\n${stateFile}\n\n当前上下文:\n${nextContextFile}\n\n${taskPrompt}`
+              content: `${flashGuardRules}\n\n${hacAgentRules}\n\n${frontendRules}${isSfocusTriggered ? '' : '\n\n' + defaultIdentityStyle}\n\n${hlamtFile}\n\n当前状态:\n${stateFile}\n\n当前上下文:\n${nextContextFile}\n\n${taskPrompt}${sfocusSkillContent ? '\n\n' + sfocusSkillContent : ''}`
             },
             ...(body.history || [{ role: 'user', content: userText }])
           ];
@@ -217,13 +359,13 @@ async function handleChat(req, res) {
                   textReply = possibleReply;
                   break;
                 }
-                console.warn(`[API /api/chat] 第 ${attempts} 次调用返回空响应，准备重试...`);
+                console.log(`[API /api/chat] 第 ${attempts} 次调用返回空响应，准备重试...`);
               } else {
                 const errText = await response.text();
-                console.warn(`[API /api/chat] 第 ${attempts} 次调用接口错误 (${response.status}): ${errText}，准备重试...`);
+                console.log(`[API /api/chat] 第 ${attempts} 次调用接口错误 (${response.status}): ${errText}，准备重试...`);
               }
             } catch (err) {
-              console.warn(`[API /api/chat] 第 ${attempts} 次调用异常: ${err.message}，准备重试...`);
+              console.log(`[API /api/chat] 第 ${attempts} 次调用异常: ${err.message}，准备重试...`);
             }
 
             if (attempts < maxAttempts) {
@@ -235,32 +377,196 @@ async function handleChat(req, res) {
             throw new Error("DeepSeek API returned empty or failed after 3 attempts.");
           }
           reply = textReply;
+          cleanReply = reply;
+
+          // 安全提取 Real LLM 返回的结构化 XML Payload
+          const match = reply.match(/<eliy_artifact>([\s\S]*?)<\/eliy_artifact>/);
+          if (match) {
+            try {
+              artifact = JSON.parse(match[1].trim());
+              if (!artifact.type || !artifact.title) {
+                artifact = null;
+              } else {
+                // 成功提取后，将 XML 标签从 reply 剔除，不渲染到前端聊天文本中
+                cleanReply = reply.replace(/<eliy_artifact>[\s\S]*?<\/eliy_artifact>/g, '').trim();
+              }
+            } catch (e) {
+              console.warn('[API /api/chat] Real LLM XML JSON 解析失败:', e.message);
+              artifact = null;
+            }
+          }
         } catch (err) {
           reply = `Real LLM call failed.\nReason: ${err.message}\nFallback not used in this test.`;
+          cleanReply = reply;
           console.error('[API /api/chat] 真实 LLM 调用失败，不使用 fallback:', err.message);
+          errors = [{
+            code: 'DEEPSEEK_REAL_LLM_ERROR',
+            message: err.message,
+            retryable: true,
+            trace_id: traceId
+          }];
+          responseStatus = 500;
         }
       }
     } else {
       console.log('[API /api/chat] 模式为 generic_fallback，直接走对照 Mock 响应...');
       reply = generateMockReply(userText);
-      // 统一替换或在末尾追加 Mode: generic fallback baseline 以满足测试要求
+      // 统一替换或在末尾追加 Mode: generic fallback baseline
       if (reply.includes('Mode: generic fallback')) {
         reply = reply.replace('Mode: generic fallback', 'Mode: generic fallback baseline');
       } else {
         reply += '\n\nMode: generic fallback baseline';
       }
+      cleanReply = reply;
+
+      // generic_fallback 模式下的确定性 Payload 映射
+      const cleanUserText = userText.trim().toLowerCase();
+      
+      const wantsActionCard = cleanUserText.includes('请基于当前成果生成一张下一步行动卡') || cleanUserText.includes('转成行动卡') || cleanUserText.includes('生成行动卡') || cleanUserText.includes('下一步行动卡');
+      const wantsResultCard = cleanUserText.includes('整理成成果卡') || cleanUserText.includes('整理成待办') || cleanUserText.includes('整理成果') || cleanUserText.includes('当前成果') || cleanUserText.includes('待办事项版本') || cleanUserText.includes('形成当前成果');
+      
+      if (wantsActionCard) {
+        artifact = {
+          schema_version: "0.1",
+          type: "next_action_card",
+          title: "下一步行动卡｜整理获客成本关键数据",
+          status: "suggested",
+          fields: {
+            "行动名称": "整理获客成本关键数据",
+            "行动目的": "确认获客成本上升主要来自投放端、销售转化端，还是两者共同作用。",
+            "下一步动作": "请先整理过去三个月的广告费用、咨询量、成交量和线索跟进数据。",
+            "负责人": "待确认",
+            "完成标准": "至少补齐广告费用、咨询量、成交量三项数据，并能按月份对比。",
+            "检查时间": "待确认",
+            "待补充信息": "线索来源、销售跟进记录、成交周期。"
+          }
+        };
+        cleanReply = `好的，我已基于当前成果为你生成了下一步行动卡草稿。\n\nMode: generic fallback baseline`;
+      } else if (wantsResultCard) {
+        artifact = {
+          schema_version: "0.1",
+          type: "current_result_card",
+          title: "当前成果卡｜待办事项草稿",
+          status: "suggested",
+          sections: [
+            {
+              label: "已知情况",
+              content: "广告账户结构老化，点击成本上升，销售跟进转化不足。"
+            },
+            {
+              label: "当前判断",
+              content: "获客成本上升可能同时受投放端和销售转化端影响。"
+            },
+            {
+              label: "待补充信息",
+              content: "近三个月广告费用、咨询量、成交量和线索跟进数据。"
+            },
+            {
+              label: "下一步行动",
+              content: "先整理关键数据。"
+            }
+          ]
+        };
+        cleanReply = `我先根据你已提供的信息整理一个当前版本；缺失的信息放在待补充项里。\n\nMode: generic fallback baseline`;
+      } else {
+        artifact = null;
+      }
     }
 
+    const replyText = cleanReply || reply;
+    const legacyArtifact = artifact || null;
+    const evalSummary = {
+      mode,
+      contextScope,
+      has_gate2: false,
+      legacy_artifact: !!legacyArtifact,
+      error_count: errors.length,
+      skill_triggered: isSfocusTriggered
+    };
+    accountStore.appendMessage({
+      conversation_id: conversationId,
+      user_id: userId,
+      role: 'assistant',
+      content: replyText,
+      message_id: assistantMessageId,
+      run_id: runId,
+      trace_id: traceId,
+      status: responseStatus === 200 ? 'sent' : 'failed',
+      raw_envelope_summary: {
+        gate2: null,
+        legacy_artifact: legacyArtifact,
+        errors
+      },
+      error_summary: errors.length > 0 ? errors : null
+    });
+    accountStore.recordRunTrace({
+      run_id: runId,
+      trace_id: traceId,
+      conversation_id: conversationId,
+      message_id: assistantMessageId,
+      user_id: userId,
+      model_or_runtime: model,
+      eval_summary: evalSummary,
+      error_summary: errors.length > 0 ? errors : null
+    });
+
+    const responseEnvelope = {
+      reply: replyText,
+      gate2: null,
+      legacy_artifact: legacyArtifact,
+      artifact: legacyArtifact,
+      errors,
+      trace_id: traceId,
+      run_id: runId,
+      message_id: assistantMessageId,
+      user_message_id: userMessageId,
+      conversation_id: conversationId,
+      user_id: userId,
+      auth_session_id: authSessionId,
+      debug_meta: {
+        activeSkillReceived,
+        sfocusInjected: isSfocusTriggered,
+        triggerSource,
+        skillModeObserved,
+        contextScope,
+        conversationId,
+        runId,
+        traceId,
+        messageId: assistantMessageId,
+        userMessageId,
+        userId,
+        authSessionId
+      }
+    };
+
     // 写入本轮 user input + assistant response 到 transcripts/latest-transcript.md
-    const transcriptContent = `# Latest Transcript - Eliy v0.3.1-test\n\n**User**: ${userText}\n\n**Assistant**: ${reply}\n`;
+    const transcriptContent = `# Latest Transcript - Eliy v0.3.2-test\n\n**User**: ${userText}\n\n**Assistant**: ${replyText}\n`;
     writeKernelFile('transcripts/latest-transcript.md', transcriptContent);
     console.log('[API /api/chat] 成功落盘 transcripts/latest-transcript.md');
 
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ reply: reply }));
+    res.writeHead(responseStatus, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(responseEnvelope));
   } catch (err) {
+    const fallbackTraceId = `trace_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: err.message }));
+    res.end(JSON.stringify({
+      reply: '',
+      gate2: null,
+      legacy_artifact: null,
+      artifact: null,
+      errors: [{
+        code: 'CHAT_HANDLER_ERROR',
+        message: err.message,
+        retryable: true,
+        trace_id: fallbackTraceId
+      }],
+      trace_id: fallbackTraceId,
+      run_id: `run_${Date.now()}`,
+      message_id: `msg_${Date.now()}`,
+      conversation_id: 'none',
+      user_id: 'anonymous',
+      auth_session_id: 'anonymous'
+    }));
   }
 }
 
@@ -325,7 +631,11 @@ function detectExplicitAcceptanceMarkers(msg) {
     t.includes('我接受') ||
     t.includes('接受这个') || t.includes('接受這個') ||
     /^確認/.test(t) || /^确认/.test(t) ||
-    t === '接受' || t === '接受。'
+    t === '接受' || t === '接受。' ||
+    t.includes('可以采用') || t.includes('可以採用') ||
+    t.includes('确认采用') || t.includes('確認採用') ||
+    t.includes('采用') || t.includes('採用') ||
+    t.includes('这个可以') || t.includes('這個可以')
   );
 }
 
@@ -383,6 +693,47 @@ function classifyArtifactInput(userMsg) {
   }
 
   return 'no_artifact_input';
+}
+
+function detectAssistantArtifactProposal(assistantMsg) {
+  const msg = assistantMsg || '';
+  if (!msg.trim()) return null;
+
+  const xmlPayload = msg.match(/<eliy_artifact>([\s\S]*?)<\/eliy_artifact>/i);
+  if (xmlPayload) {
+    const typeMatch = xmlPayload[1].match(/"type"\s*:\s*"([^"]+)"/i);
+    return {
+      artifact: typeMatch ? typeMatch[1] : 'artifact payload',
+      reason: 'assistant returned explicit artifact payload'
+    };
+  }
+
+  const inlineTypeMatch = msg.match(/"type"\s*:\s*"(next_action_card|current_result_card)"/i);
+  if (inlineTypeMatch) {
+    return {
+      artifact: inlineTypeMatch[1],
+      reason: 'assistant returned explicit artifact payload'
+    };
+  }
+
+  const hasActionCardLabel = /行动卡|行動卡|next_action_card/i.test(msg);
+  const hasResultCardLabel = /成果卡|current_result_card/i.test(msg);
+  const structureFields = msg.match(/标题|標題|对象|對象|截止时间|截止時間|验收标准|驗收標準|完成标准|完成標準|负责人|負責人|行动名称|行動名稱|下一步动作|下一步動作/g) || [];
+  if ((hasActionCardLabel || hasResultCardLabel) && structureFields.length >= 2) {
+    return {
+      artifact: hasActionCardLabel ? 'next_action_card' : 'current_result_card',
+      reason: 'assistant proposed a structured artifact card'
+    };
+  }
+
+  if (/候选版本|候選版本|候補版本|候选工件|候選工件|请确认是否采用|請確認是否採用|是否采用这个版本|是否採用這個版本|请确认是否采用此卡|請確認是否採用此卡/.test(msg)) {
+    return {
+      artifact: 'candidate artifact',
+      reason: 'assistant proposed a candidate artifact for confirmation'
+    };
+  }
+
+  return null;
 }
 
 function determineArtifactStatus(userMsg, assistantMsg) {
@@ -443,12 +794,12 @@ function determineArtifactStatus(userMsg, assistantMsg) {
       
     case 'no_artifact_input':
     default:
-      const hasArtifact = (assistantMsg.includes('行动') || assistantMsg.includes('处方') || assistantMsg.includes('proposal') || assistantMsg.includes('建議'));
-      if (hasArtifact) {
+      const assistantArtifact = detectAssistantArtifactProposal(assistantMsg);
+      if (assistantArtifact) {
         return {
-          artifact: 'action proposal',
+          artifact: assistantArtifact.artifact,
           status: 'proposed',
-          reason: 'assistant proposed a business action plan'
+          reason: assistantArtifact.reason
         };
       }
       return {
@@ -464,6 +815,17 @@ async function handleRecord(req, res) {
   try {
     console.log('[API /api/record] 触发后台记录模块...');
 
+    // 解析出请求体 (支持前端附带的 artifact)
+    const body = await parseJsonBody(req).catch(() => ({}));
+    const clientArtifact = body.artifact || null;
+    const activeSkillReceived = body.activeSkill === 'sfocus' ? 'sfocus' : 'default';
+    const contextScope = normalizeContextScope(body.contextScope);
+    const isNewConversationContext = contextScope === 'new_conversation';
+    const conversationId = typeof body.conversationId === 'string' ? body.conversationId : 'none';
+    const normalizedClientArtifact = clientArtifact?.status === 'suggested'
+      ? { ...clientArtifact, status: 'proposed' }
+      : clientArtifact;
+
     // 读取输入数据
     const latestTranscript = readKernelFile('transcripts/latest-transcript.md');
 
@@ -473,13 +835,34 @@ async function handleRecord(req, res) {
     const userMsg = userMatch ? userMatch[1].trim() : '';
     const assistantMsg = assistantMatch ? assistantMatch[1].trim() : '';
 
+    const extractField = (text, fieldName) => {
+      const regex = new RegExp(`${fieldName}:\\s*(.*)`);
+      const match = text.match(regex);
+      return match ? match[1].trim() : null;
+    };
+    const currentNextContextForParse = isNewConversationContext ? buildNeutralNextContext() : readKernelFile('memory/NEXT_CONTEXT.md');
+    let currentSkill = activeSkillReceived === 'sfocus'
+      ? 'sfocus'
+      : extractField(assistantMsg, 'CURRENT_SKILL') || extractField(currentNextContextForParse, 'CURRENT_SKILL') || 'none';
+    let currentStep = extractField(assistantMsg, 'CURRENT_STEP') || extractField(currentNextContextForParse, 'CURRENT_STEP') || '';
+    let systemUnderDisc = extractField(assistantMsg, 'SYSTEM_UNDER_DISCUSSION') || extractField(currentNextContextForParse, 'SYSTEM_UNDER_DISCUSSION') || '';
+    let candidateBottleneck = extractField(assistantMsg, 'CANDIDATE_BOTTLENECK') || extractField(currentNextContextForParse, 'CANDIDATE_BOTTLENECK') || '';
+    let chokeSignal = extractField(assistantMsg, 'CHOKE_THE_RELEASE_SIGNAL') || extractField(currentNextContextForParse, 'CHOKE_THE_RELEASE_SIGNAL') || '';
+    let minActionCardStatus = extractField(assistantMsg, 'MIN_ACTION_CARD_STATUS') || extractField(currentNextContextForParse, 'MIN_ACTION_CARD_STATUS') || '';
+
     // === 使用泛化分類器統一驅動所有落盤邏輯 ===
     const classification = classifyArtifactInput(userMsg);
     const artifactGuard = determineArtifactStatus(userMsg, assistantMsg);
     const isArtifactWorkflow = ['raw_material_with_legacy_artifact', 'user_candidate_requires_judgment', 'explicit_acceptance', 'explicit_rejection', 'explicit_freeze'].includes(classification);
     let preciseArtifactType = artifactGuard.artifact;
-    if (isArtifactWorkflow) {
-      const currentStatus = readKernelFile('memory/ARTIFACT_STATUS.md');
+    if (normalizedClientArtifact && normalizedClientArtifact.type) {
+      preciseArtifactType = normalizedClientArtifact.type;
+      if (!isArtifactWorkflow) {
+         artifactGuard.status = normalizedClientArtifact.status || 'proposed';
+         artifactGuard.reason = 'carried over from client artifact context';
+      }
+    } else if (isArtifactWorkflow) {
+      const currentStatus = isNewConversationContext ? buildNeutralArtifactStatus() : readKernelFile('memory/ARTIFACT_STATUS.md');
       const matchSavedType = currentStatus.match(/Artifact:\s*([^\n]+)/);
       if (matchSavedType && matchSavedType[1].trim() !== 'none' && matchSavedType[1].trim() !== 'rewritten todo sentence' && matchSavedType[1].trim() !== 'action proposal') {
         preciseArtifactType = matchSavedType[1].trim();
@@ -488,7 +871,7 @@ async function handleRecord(req, res) {
       }
     }
 
-    console.log(`[API /api/record] classification: ${classification} | artifact_status: ${artifactGuard.status}`);
+    console.log(`[API /api/record] conversationId=${conversationId} | contextScope=${contextScope} | activeSkillReceived=${activeSkillReceived} | classification=${classification} | artifact_status=${artifactGuard.status}`);
 
     // === 1. STATE.md ===
     const stateFocusMap = {
@@ -572,16 +955,19 @@ async function handleRecord(req, res) {
         `- Business Challenge: none detected.\n` +
         `- Capability Evidence: none inferred from this turn.\n`;
     }
+
+    // Append client payload as evidence context (without overriding the Guard decision)
+    newEvidenceContent += `\n- Client Artifact Evidence: ${normalizedClientArtifact ? JSON.stringify(normalizedClientArtifact) : 'none'}\n`;
     writeKernelFile('hlamt/EVIDENCE.md', newEvidenceContent);
 
     // === 3. NEXT_CONTEXT.md（current artifact 使用 assistant 實際回應文本）===
-    // 從 assistantMsg 中提取實際候選文本（取最有意義的部分）
+    // 從 assistantMsg 中提取實際候选文本（取最有意義的部分）
     function extractCandidateText(msg) {
       if (!msg || msg.trim().length === 0) return 'see transcript';
       // 去掉 [Mock] 前綴
       const cleaned = msg.replace(/^\[Mock\]\s*/i, '').trim();
 
-      // 優先精確提取成對的 --- 包裹的候選版本
+      // 優先精確提取成對的 --- 包裹的候选版本
       const matchDashes = cleaned.match(/---\s*\n+([\s\S]+?)\n+---/);
       if (matchDashes) {
         return matchDashes[1].trim();
@@ -605,7 +991,7 @@ async function handleRecord(req, res) {
       // 嘗試找到候補/改寫句（冒號後的首句）
       const afterColon = cleaned.match(/[：:]\s*\n?([^\n]{10,200})/);
       if (afterColon) return afterColon[1].trim();
-      // 取最長的非空行（最可能是實際候補）
+      // 取最长的非空行（最可能是实际候補）
       const lines = cleaned.split('\n').map(l => l.trim()).filter(l => l.length > 8);
       if (lines.length > 0) return lines.reduce((a, b) => a.length > b.length ? a : b).substring(0, 200);
       return cleaned.substring(0, 200);
@@ -626,9 +1012,11 @@ async function handleRecord(req, res) {
     } else if (classification === 'user_candidate_requires_judgment') {
       candidateText = extractUserCandidateText(userMsg);
     } else {
-      const currentNext = readKernelFile('memory/NEXT_CONTEXT.md');
+      const currentNext = isNewConversationContext ? buildNeutralNextContext() : readKernelFile('memory/NEXT_CONTEXT.md');
       const matchSavedArt = currentNext.match(/- Current artifact:\s*([\s\S]*?)(?=\n- Current artifact status|$)/);
-      if (matchSavedArt && matchSavedArt[1].trim() !== 'none') {
+      if (normalizedClientArtifact) {
+        candidateText = JSON.stringify(normalizedClientArtifact);
+      } else if (matchSavedArt && matchSavedArt[1].trim() !== 'none') {
         candidateText = matchSavedArt[1].trim();
       } else {
         candidateText = extractCandidateText(assistantMsg);
@@ -662,9 +1050,9 @@ async function handleRecord(req, res) {
         `- Awaiting user input: none (artifact frozen)\n` +
         `- Do not infer unsupported workflow`,
       'no_artifact_input':
-        `- Current artifact: none\n` +
-        `- Current artifact status: none\n` +
-        `- Awaiting user input: no artifact workflow active\n` +
+        `- Current artifact: ${normalizedClientArtifact ? candidateText : 'none'}\n` +
+        `- Current artifact status: ${normalizedClientArtifact ? artifactGuard.status : 'none'}\n` +
+        `- Awaiting user input: ${normalizedClientArtifact ? 'awaiting user action on existing artifact' : 'no artifact workflow active'}\n` +
         `- Do not infer unsupported workflow`,
     };
     const nextContextBody = nextContextBodyMap[classification] || nextContextBodyMap['no_artifact_input'];
@@ -672,6 +1060,15 @@ async function handleRecord(req, res) {
       `# NEXT_CONTEXT.md\n` +
       `## Current Artifact Workflow\n` +
       `${nextContextBody}\n` +
+      `- Client Artifact Context: ${normalizedClientArtifact ? JSON.stringify(normalizedClientArtifact) : 'none'}\n` +
+      (currentSkill === 'sfocus' ? 
+        `\n## SFOCUS Skill State\n` +
+        `CURRENT_SKILL: ${currentSkill}\n` +
+        `CURRENT_STEP: ${currentStep}\n` +
+        `SYSTEM_UNDER_DISCUSSION: ${systemUnderDisc}\n` +
+        `CANDIDATE_BOTTLENECK: ${candidateBottleneck}\n` +
+        `CHOKE_THE_RELEASE_SIGNAL: ${chokeSignal}\n` +
+        `MIN_ACTION_CARD_STATUS: ${minActionCardStatus}\n\n` : '') +
       `- Timestamp: ${new Date().toISOString()}\n`;
     writeKernelFile('memory/NEXT_CONTEXT.md', newNextContextContent);
 
@@ -868,6 +1265,268 @@ function parseJsonBody(req) {
       }
     });
   });
+}
+
+function sendJson(res, statusCode, payload, extraHeaders = {}) {
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json',
+    ...extraHeaders
+  });
+  res.end(JSON.stringify(payload));
+}
+
+function authErrorEnvelope(code, message, retryable = false, traceId = null) {
+  const error = {
+    code,
+    message,
+    retryable
+  };
+  if (traceId) error.trace_id = traceId;
+  return {
+    reply: '',
+    gate2: null,
+    legacy_artifact: null,
+    errors: [error],
+    trace_id: traceId || null
+  };
+}
+
+function conversationNotFoundEnvelope(conversationId) {
+  return {
+    reply: '',
+    gate2: null,
+    legacy_artifact: null,
+    errors: [{
+      code: 'CONVERSATION_NOT_FOUND',
+      message: `Conversation ${conversationId} not found for current user.`,
+      retryable: false
+    }]
+  };
+}
+
+function getAuthContext(req) {
+  return accountStore.authenticateRequest(req);
+}
+
+function parseConversationPath(pathname) {
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments[0] !== 'api' || segments[1] !== 'conversations') return null;
+  const conversationId = segments[2] || null;
+  const subresource = segments[3] || null;
+  return { conversationId, subresource };
+}
+
+async function handleAuthLogin(req, res) {
+  try {
+    const body = await parseJsonBody(req);
+    const result = accountStore.login({
+      email_or_login_id: body.email_or_login_id || body.email || body.userId || '',
+      invite_code: body.invite_code || body.inviteCode || body.password || '',
+      display_name: body.display_name || body.displayName || '',
+      device_info: {
+        user_agent: req.headers['user-agent'] || '',
+        accept_language: req.headers['accept-language'] || '',
+        ip: req.socket.remoteAddress || ''
+      }
+    });
+
+    if (!result.ok) {
+      sendJson(res, 403, {
+        errors: [result.error]
+      });
+      return;
+    }
+
+    res.setHeader('Set-Cookie', result.cookie);
+    sendJson(res, 200, {
+      user: result.user,
+      auth_session: {
+        auth_session_id: result.session.auth_session_id,
+        expires_at: result.session.expires_at,
+        status: result.session.status
+      }
+    });
+  } catch (err) {
+    sendJson(res, 500, {
+      errors: [{
+        code: 'AUTH_LOGIN_ERROR',
+        message: err instanceof Error ? err.message : 'Login failed.',
+        retryable: true
+      }]
+    });
+  }
+}
+
+async function handleAuthMe(req, res) {
+  const result = getAuthContext(req);
+  if (!result.ok) {
+    sendJson(res, 401, result.error);
+    return;
+  }
+  sendJson(res, 200, {
+    user: result.user,
+    auth_session: result.session
+  });
+}
+
+async function handleAuthLogout(req, res) {
+  const sessionInfo = accountStore.getSessionFromRequest(req);
+  if (sessionInfo?.session?.auth_session_id) {
+    accountStore.revokeSession(sessionInfo.session.auth_session_id);
+  }
+  res.setHeader('Set-Cookie', clearSessionCookie());
+  sendJson(res, 200, { success: true });
+}
+
+async function handleConversationList(req, res) {
+  const auth = getAuthContext(req);
+  if (!auth.ok) {
+    sendJson(res, 401, auth.error);
+    return;
+  }
+
+  sendJson(res, 200, {
+    user: auth.user,
+    conversations: accountStore.listConversations(auth.user.user_id)
+  });
+}
+
+async function handleConversationCreate(req, res) {
+  const auth = getAuthContext(req);
+  if (!auth.ok) {
+    sendJson(res, 401, auth.error);
+    return;
+  }
+
+  try {
+    const body = await parseJsonBody(req);
+    const conversation = accountStore.createConversation(auth.user.user_id, {
+      title: body.title || '新对话'
+    });
+    sendJson(res, 201, { conversation });
+  } catch (err) {
+    sendJson(res, 500, {
+      errors: [{
+        code: 'CONVERSATION_CREATE_ERROR',
+        message: err instanceof Error ? err.message : 'Conversation creation failed.',
+        retryable: true
+      }]
+    });
+  }
+}
+
+async function handleConversationResource(req, res, pathname) {
+  const auth = getAuthContext(req);
+  if (!auth.ok) {
+    sendJson(res, 401, auth.error);
+    return;
+  }
+
+  const parsed = parseConversationPath(pathname);
+  if (!parsed?.conversationId) {
+    sendJson(res, 404, { errors: [{ code: 'NOT_FOUND', message: 'Conversation endpoint not found.', retryable: false }] });
+    return;
+  }
+
+  if (parsed.subresource === 'messages' && req.method === 'GET') {
+    const conversation = accountStore.getConversation(auth.user.user_id, parsed.conversationId);
+    if (!conversation) {
+      sendJson(res, 404, conversationNotFoundEnvelope(parsed.conversationId));
+      return;
+    }
+    sendJson(res, 200, {
+      conversation,
+      messages: accountStore.listMessages(auth.user.user_id, parsed.conversationId)
+    });
+    return;
+  }
+
+  if (parsed.subresource && parsed.subresource !== 'messages') {
+    sendJson(res, 404, { errors: [{ code: 'NOT_FOUND', message: 'Conversation subresource not found.', retryable: false }] });
+    return;
+  }
+
+  if (req.method === 'PATCH') {
+    const body = await parseJsonBody(req);
+    let updated = null;
+    if (typeof body.title === 'string') {
+      updated = accountStore.renameConversation(auth.user.user_id, parsed.conversationId, body.title);
+    }
+    if (body.status === 'archived') {
+      updated = accountStore.archiveConversation(auth.user.user_id, parsed.conversationId);
+    }
+    if (body.status === 'deleted') {
+      updated = accountStore.deleteConversation(auth.user.user_id, parsed.conversationId);
+    }
+    if (!updated) {
+      sendJson(res, 400, { errors: [{ code: 'INVALID_CONVERSATION_UPDATE', message: 'No supported update payload.', retryable: false }] });
+      return;
+    }
+    sendJson(res, 200, { conversation: updated });
+    return;
+  }
+
+  if (req.method === 'DELETE') {
+    const deleted = accountStore.deleteConversation(auth.user.user_id, parsed.conversationId);
+    if (!deleted) {
+      sendJson(res, 404, conversationNotFoundEnvelope(parsed.conversationId));
+      return;
+    }
+    sendJson(res, 200, { conversation: deleted });
+    return;
+  }
+
+  if (req.method === 'GET') {
+    const conversation = accountStore.getConversation(auth.user.user_id, parsed.conversationId);
+    if (!conversation) {
+      sendJson(res, 404, conversationNotFoundEnvelope(parsed.conversationId));
+      return;
+    }
+    sendJson(res, 200, {
+      conversation,
+      messages: accountStore.listMessages(auth.user.user_id, parsed.conversationId)
+    });
+    return;
+  }
+
+  sendJson(res, 405, { errors: [{ code: 'METHOD_NOT_ALLOWED', message: 'Unsupported conversation operation.', retryable: false }] });
+}
+
+function normalizeContextScope(scope) {
+  return scope === 'new_conversation' ? 'new_conversation' : 'existing_conversation';
+}
+
+function buildNeutralStateContext() {
+  return [
+    '# STATE.md',
+    '- Phase: INTAKE',
+    '- Classification: no_artifact_input',
+    '- Current Focus: new conversation; no prior server-side context',
+    '- Last User Input: "None"',
+    ''
+  ].join('\n');
+}
+
+function buildNeutralNextContext() {
+  return [
+    '# NEXT_CONTEXT.md',
+    '## Current Artifact Workflow',
+    '- Current artifact: none',
+    '- Current artifact status: none',
+    '- Awaiting user input: no artifact workflow active',
+    '- Client Artifact Context: none',
+    ''
+  ].join('\n');
+}
+
+function buildNeutralArtifactStatus() {
+  return [
+    '# ARTIFACT_STATUS.md',
+    'Artifact: none',
+    'Status: none',
+    'Reason: new conversation context isolation',
+    ''
+  ].join('\n');
 }
 
 function readKernelFile(relPath) {
@@ -1262,7 +1921,7 @@ function generateMockReply(userText) {
 
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`\n======================================================`);
-  console.log(`✨ Eliy v0.3.1-test Local Runtime Service 启动成功！`);
+  console.log(`✨ Eliy v0.3.2-test Local Runtime Service 启动成功！`);
   console.log(`🌐 访问地址: http://localhost:${PORT}/index.html`);
   console.log(`🎙 语音版地址: http://localhost:${PORT}/voice.html`);
   console.log(`======================================================\n`);

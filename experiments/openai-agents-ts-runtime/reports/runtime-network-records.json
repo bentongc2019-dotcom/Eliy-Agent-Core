@@ -1,0 +1,47 @@
+[
+  {
+    "phase": "runtime",
+    "method": "POST",
+    "url": "https://api.openai.com/v1/responses",
+    "domain": "api.openai.com",
+    "allowed": true,
+    "reason": "OpenAI Model API",
+    "timestamp": "2026-06-15T19:55:12.453Z"
+  },
+  {
+    "phase": "runtime",
+    "method": "POST",
+    "url": "https://api.openai.com/v1/responses",
+    "domain": "api.openai.com",
+    "allowed": true,
+    "reason": "OpenAI Model API",
+    "timestamp": "2026-06-15T19:55:14.998Z"
+  },
+  {
+    "phase": "runtime",
+    "method": "POST",
+    "url": "https://api.openai.com/v1/responses",
+    "domain": "api.openai.com",
+    "allowed": true,
+    "reason": "OpenAI Model API",
+    "timestamp": "2026-06-15T19:55:16.709Z"
+  },
+  {
+    "phase": "runtime",
+    "method": "POST",
+    "url": "https://api.openai.com/v1/responses",
+    "domain": "api.openai.com",
+    "allowed": true,
+    "reason": "OpenAI Model API",
+    "timestamp": "2026-06-15T19:55:18.298Z"
+  },
+  {
+    "phase": "runtime",
+    "method": "POST",
+    "url": "https://api.openai.com/v1/responses",
+    "domain": "api.openai.com",
+    "allowed": true,
+    "reason": "OpenAI Model API",
+    "timestamp": "2026-06-15T19:55:19.323Z"
+  }
+]
