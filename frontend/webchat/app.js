@@ -17,7 +17,11 @@ const state = {
   serverConversations: [],
   userId: null,
   authSessionId: null,
-  lastSubmittedUserText: ''
+  lastSubmittedUserText: '',
+  workspacePanel: 'conversations',
+  runtimeStatus: null,
+  skillRegistry: null,
+  oOrderSchema: null
 };
 
 const RECENT_CONVERSATIONS_KEY = 'ELIY_RECENT_CONVERSATIONS';
@@ -43,6 +47,12 @@ const fileInput = $('#fileInput');
 const frontSkillMode = $('#frontSkillMode');
 const backendSkillMode = $('#backendSkillMode');
 const skillTriggerSource = $('#skillTriggerSource');
+const workspaceShell = $('#workspaceShell');
+const workspaceShellTitle = $('#workspaceShellTitle');
+const workspaceShellSubtitle = $('#workspaceShellSubtitle');
+const workspaceShellState = $('#workspaceShellState');
+const workspaceShellBody = $('#workspaceShellBody');
+const workspaceNavButtons = Array.from(document.querySelectorAll('[data-workspace-panel]'));
 
 function syncComposerState() {
   if (!sendBtn) return;
@@ -71,9 +81,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupEventHandlers();
   setupAutoResize();
   syncComposerState();
+  setWorkspacePanel('conversations');
 
   await initUserContext();
   await bootstrapConversationState();
+  await renderWorkspacePanel(state.workspacePanel);
 });
 
 // === 用户上下文与安全拦截守卫 ===
@@ -153,6 +165,14 @@ function setupEventHandlers() {
   newChatBtn.addEventListener('click', () => {
     void startNewSession();
     closeSidebar();
+  });
+
+  workspaceNavButtons.forEach((button) => {
+    button.addEventListener('click', () => {
+      const panel = button.getAttribute('data-workspace-panel') || 'conversations';
+      setWorkspacePanel(panel);
+      closeSidebar();
+    });
   });
 
   // 点击左侧增强技能 S'FOCUS Skill 逻辑
@@ -603,6 +623,7 @@ async function startNewSession() {
   msgList.innerHTML = '';
   appendMessage('assistant', getWelcomeMessageHTML(), true);
   renderRecentConversations();
+  void renderWorkspacePanel(state.workspacePanel);
 
   return state.currentConversation;
 }
@@ -783,6 +804,9 @@ function persistConversationMessage(message) {
   conversations.unshift(state.currentConversation);
   setRecentConversations(conversations);
   renderRecentConversations();
+  if (state.workspacePanel === 'conversations') {
+    void renderWorkspacePanel('conversations');
+  }
 }
 
 function createConversationTitle(text) {
@@ -822,6 +846,10 @@ function renderRecentConversations() {
     });
     historyList.appendChild(item);
   });
+
+  if (state.workspacePanel === 'conversations') {
+    void renderWorkspacePanel('conversations');
+  }
 }
 
 async function loadConversation(conversationId) {
@@ -912,6 +940,7 @@ async function loadConversation(conversationId) {
   }
 
   renderRecentConversations();
+  void renderWorkspacePanel(state.workspacePanel);
   refreshAssistantMessageSelectors();
   return state.currentConversation;
 }
@@ -984,6 +1013,250 @@ function updateSkillObserver(debugMeta = null) {
   if (frontSkillMode) frontSkillMode.textContent = getActiveSkill();
   if (backendSkillMode) backendSkillMode.textContent = debugMeta?.skillModeObserved || '未返回';
   if (skillTriggerSource) skillTriggerSource.textContent = debugMeta?.triggerSource || 'none';
+}
+
+function setWorkspacePanel(panel) {
+  state.workspacePanel = panel;
+  workspaceNavButtons.forEach((button) => {
+    const active = button.getAttribute('data-workspace-panel') === panel;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+  if (workspaceShell) workspaceShell.hidden = false;
+  void renderWorkspacePanel(panel);
+}
+
+async function fetchRuntimeStatus() {
+  if (state.runtimeStatus) return state.runtimeStatus;
+  const status = await apiJson('/api/runtime/status', { method: 'GET' });
+  state.runtimeStatus = status;
+  return status;
+}
+
+async function fetchSkillRegistry() {
+  if (state.skillRegistry) return state.skillRegistry;
+  const registry = await apiJson('/api/skills', { method: 'GET' });
+  state.skillRegistry = registry;
+  return registry;
+}
+
+async function fetchOOrderSchema() {
+  if (state.oOrderSchema) return state.oOrderSchema;
+  const schema = await apiJson('/api/workbench/o-order/schema', { method: 'GET' });
+  state.oOrderSchema = schema;
+  return schema;
+}
+
+function renderWorkspaceCard(title, bodyHTML, pillText = 'Shell Ready') {
+  if (!workspaceShell || !workspaceShellTitle || !workspaceShellSubtitle || !workspaceShellState || !workspaceShellBody) return;
+  workspaceShell.hidden = false;
+  workspaceShellTitle.textContent = title;
+  workspaceShellSubtitle.textContent = 'Chat-first shell ready';
+  workspaceShellState.textContent = pillText;
+  workspaceShellBody.innerHTML = bodyHTML;
+}
+
+function renderConversationsWorkspace() {
+  const conversations = getRecentConversations();
+  const active = state.currentConversation;
+  const items = conversations.map((conversation) => {
+    const isActive = conversation.id === active?.id;
+    return `
+      <div class="workspace-list-item${isActive ? ' active' : ''}">
+        <div class="workspace-list-main">
+          <span class="workspace-list-title">${escapeHTML(conversation.title || '新对话')}</span>
+          <span class="workspace-list-meta">${escapeHTML(formatHistoryTime(conversation.updatedAt))}</span>
+        </div>
+        <span class="workspace-list-pill">${isActive ? 'active' : 'saved'}</span>
+      </div>
+    `;
+  }).join('');
+
+  renderWorkspaceCard(
+    'Conversations',
+    `
+      <div class="workspace-summary-grid">
+        <div class="workspace-summary-card">
+          <span class="workspace-summary-label">当前会话</span>
+          <strong>${escapeHTML(active?.title || '新对话')}</strong>
+        </div>
+        <div class="workspace-summary-card">
+          <span class="workspace-summary-label">会话数量</span>
+          <strong>${conversations.length}</strong>
+        </div>
+        <div class="workspace-summary-card">
+          <span class="workspace-summary-label">来源</span>
+          <strong>${escapeHTML(state.conversationSource || 'unknown')}</strong>
+        </div>
+      </div>
+      <div class="workspace-list">${items || '<div class="workspace-empty">暂无对话</div>'}</div>
+    `,
+    'Shell Ready'
+  );
+}
+
+async function renderSkillsWorkspace() {
+  const registry = await fetchSkillRegistry();
+  const skills = Array.isArray(registry.skills) ? registry.skills : [];
+  const items = skills.map((skill) => `
+    <div class="workspace-skill-card${skill.active ? ' active' : ''}">
+      <div class="workspace-skill-header">
+        <strong>${escapeHTML(skill.name || skill.id)}</strong>
+        <span class="workspace-list-pill">${escapeHTML(skill.status || 'available')}</span>
+      </div>
+      <div class="workspace-skill-meta">
+        <span><code>${escapeHTML(skill.id)}</code></span>
+        <span>${skill.skillLoaded ? 'SKILL.md loaded' : 'SKILL.md missing'}</span>
+      </div>
+      <div class="workspace-skill-paths">
+        <div><span>SKILL.md</span><code>${escapeHTML(skill.skillMdPath || '')}</code></div>
+        <div><span>references</span><code>${escapeHTML(skill.referencesPath || '')}</code></div>
+      </div>
+    </div>
+  `).join('');
+
+  renderWorkspaceCard(
+    'Skills',
+    `
+      <div class="workspace-summary-grid">
+        <div class="workspace-summary-card">
+          <span class="workspace-summary-label">Registry</span>
+          <strong>${escapeHTML(registry.registry || 'filesystem')}</strong>
+        </div>
+        <div class="workspace-summary-card">
+          <span class="workspace-summary-label">Active</span>
+          <strong>${escapeHTML(registry.activeSkill || 'default')}</strong>
+        </div>
+        <div class="workspace-summary-card">
+          <span class="workspace-summary-label">Loaded</span>
+          <strong>${registry.registryLoaded ? 'true' : 'false'}</strong>
+        </div>
+      </div>
+      <div class="workspace-list">${items}</div>
+    `,
+    'Registry Ready'
+  );
+}
+
+async function renderDebugWorkspace() {
+  const runtimeStatus = await fetchRuntimeStatus();
+  const rows = [
+    ['environment', runtimeStatus.environment],
+    ['version', runtimeStatus.version],
+    ['stage', runtimeStatus.stage],
+    ['modelMode', runtimeStatus.modelMode],
+    ['realLlmEnabled', runtimeStatus.realLlmEnabled],
+    ['agentHarnessEnabled', runtimeStatus.agentHarnessEnabled],
+    ['skillRegistryEnabled', runtimeStatus.skillRegistryEnabled],
+    ['oOrderWorkbench', runtimeStatus.oOrderWorkbench],
+    ['oOrderRuntimeEnabled', runtimeStatus.oOrderRuntimeEnabled],
+    ['activeSkill', runtimeStatus.activeSkill],
+  ];
+  renderWorkspaceCard(
+    'Debug / 诊断信息',
+    `
+      <div class="workspace-summary-grid">
+        <div class="workspace-summary-card">
+          <span class="workspace-summary-label">Host</span>
+          <strong>${escapeHTML(String(runtimeStatus.host || '127.0.0.1'))}:${escapeHTML(String(runtimeStatus.port || '3001'))}</strong>
+        </div>
+        <div class="workspace-summary-card">
+          <span class="workspace-summary-label">Public URL</span>
+          <strong>${escapeHTML(runtimeStatus.publicBaseUrl || '')}</strong>
+        </div>
+        <div class="workspace-summary-card">
+          <span class="workspace-summary-label">Shell</span>
+          <strong>${escapeHTML(runtimeStatus.stage || 'shell')}</strong>
+        </div>
+      </div>
+      <dl class="workspace-kv-list">
+        ${rows.map(([key, value]) => `<div><dt>${escapeHTML(key)}</dt><dd>${escapeHTML(String(value))}</dd></div>`).join('')}
+      </dl>
+    `,
+    'Runtime Ready'
+  );
+}
+
+async function renderWorkbenchWorkspace() {
+  const schema = await fetchOOrderSchema();
+  const fields = Array.isArray(schema.fields) ? schema.fields : [];
+  renderWorkspaceCard(
+    'O 单工作台',
+    `
+      <div class="workspace-summary-grid">
+        <div class="workspace-summary-card">
+          <span class="workspace-summary-label">Workbench</span>
+          <strong>${escapeHTML(schema.workbench || 'o_order')}</strong>
+        </div>
+        <div class="workspace-summary-card">
+          <span class="workspace-summary-label">Status</span>
+          <strong>${escapeHTML(schema.status || 'shell')}</strong>
+        </div>
+        <div class="workspace-summary-card">
+          <span class="workspace-summary-label">Runtime</span>
+          <strong>${schema.runtimeEnabled ? 'true' : 'false'}</strong>
+        </div>
+      </div>
+      <div class="workspace-schema-grid">
+        ${fields.map((field) => `
+          <div class="workspace-schema-card">
+            <strong>${escapeHTML(field.label || field.key || '')}</strong>
+            <code>${escapeHTML(field.key || '')}</code>
+            <p>${escapeHTML(field.description || '')}</p>
+          </div>
+        `).join('')}
+      </div>
+    `,
+    'Schema Ready'
+  );
+}
+
+function renderSettingsWorkspace() {
+  renderWorkspaceCard(
+    'Settings',
+    `
+      <div class="workspace-summary-grid">
+        <div class="workspace-summary-card">
+          <span class="workspace-summary-label">Conversation Source</span>
+          <strong>${escapeHTML(state.conversationSource || 'unknown')}</strong>
+        </div>
+        <div class="workspace-summary-card">
+          <span class="workspace-summary-label">Current Skill</span>
+          <strong>${escapeHTML(getActiveSkill())}</strong>
+        </div>
+        <div class="workspace-summary-card">
+          <span class="workspace-summary-label">Session</span>
+          <strong>${escapeHTML(state.sessionId || 'n/a')}</strong>
+        </div>
+      </div>
+      <div class="workspace-empty">Shell / configuration entrypoint only. No full runtime surface exposed here.</div>
+    `,
+    'Shell Only'
+  );
+}
+
+async function renderWorkspacePanel(panel = state.workspacePanel) {
+  if (!workspaceShell || !workspaceShellBody) return;
+  try {
+    if (panel === 'skills') {
+      await renderSkillsWorkspace();
+    } else if (panel === 'o-order') {
+      await renderWorkbenchWorkspace();
+    } else if (panel === 'debug') {
+      await renderDebugWorkspace();
+    } else if (panel === 'settings') {
+      renderSettingsWorkspace();
+    } else {
+      renderConversationsWorkspace();
+    }
+  } catch (error) {
+    console.warn('[WorkspaceShell] render failed:', error);
+    renderWorkspaceCard(
+      'Diagnostics',
+      `<div class="workspace-empty">Failed to load workspace panel: ${escapeHTML(error instanceof Error ? error.message : String(error))}</div>`,
+      'Panel Error'
+    );
+  }
 }
 
 function normalizeActionCardFields(artifactPayload = {}, assistantText = '', originalUserText = '') {

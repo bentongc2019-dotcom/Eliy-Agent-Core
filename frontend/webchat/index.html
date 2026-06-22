@@ -33,8 +33,8 @@
         <div class="brand">
           <div class="brand-logo">◆</div>
           <div class="brand-text">
-            <h2>Eliy 艾利</h2>
-            <span>主体型商业智能体</span>
+            <h2>Eliy Beta 2.0</h2>
+            <span>Owner Test</span>
           </div>
         </div>
         <button class="sidebar-close-btn" id="sidebarCloseBtn" type="button" aria-label="关闭侧边栏">×</button>
@@ -49,6 +49,14 @@
           <span class="search-icon">🔍</span>
           <input type="text" id="searchChats" placeholder="搜索对话..." disabled>
         </div>
+      </div>
+
+      <div class="workspace-nav" aria-label="工作区入口">
+        <button class="workspace-nav-btn active" type="button" data-testid="workspace-conversations-button" data-workspace-panel="conversations" aria-label="Conversations">Conversations</button>
+        <button class="workspace-nav-btn" type="button" data-testid="workspace-skills-button" data-workspace-panel="skills" aria-label="Skills">Skills</button>
+        <button class="workspace-nav-btn" type="button" data-testid="workspace-o-order-button" data-workspace-panel="o-order" aria-label="O 单工作台">O 单工作台</button>
+        <button class="workspace-nav-btn" type="button" data-testid="workspace-settings-button" data-workspace-panel="settings" aria-label="Settings">Settings</button>
+        <button class="workspace-nav-btn" type="button" data-testid="workspace-debug-button" data-workspace-panel="debug" aria-label="Debug / 诊断信息">Debug / 诊断信息</button>
       </div>
 
       <!-- Skills 区域 -->
@@ -93,12 +101,16 @@
       </div>
     </aside>
 
-    <!-- 右侧主聊天区 -->
-    <main id="chatMain">
+      <!-- 右侧主聊天区 -->
+      <main id="chatMain">
       <!-- 顶部栏 -->
       <header class="chat-header">
         <div class="header-left">
           <button class="menu-toggle" id="menuToggle">☰</button>
+          <div class="product-shell">
+            <span class="product-shell-title">Eliy Beta 2.0</span>
+            <span class="product-shell-subtitle">Owner Test</span>
+          </div>
           <div class="model-dropdown">
             <button class="dropdown-trigger" id="dropdownTrigger">
               <span class="model-badge">v0.3.2</span>
@@ -124,6 +136,17 @@
           </div>
         </div>
       </header>
+
+      <section id="workspaceShell" class="workspace-shell" hidden aria-live="polite">
+        <div class="workspace-shell-header">
+          <div>
+            <h3 id="workspaceShellTitle">Conversations</h3>
+            <p id="workspaceShellSubtitle">Chat-first shell ready</p>
+          </div>
+          <span class="workspace-shell-state" id="workspaceShellState">Shell Ready</span>
+        </div>
+        <div class="workspace-shell-body" id="workspaceShellBody"></div>
+      </section>
 
       <!-- 消息列表 -->
       <div class="messages" id="messageList">

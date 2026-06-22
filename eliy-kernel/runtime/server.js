@@ -8,6 +8,11 @@ import {
   parseAccountStoreCookies
 } from './account-store.js';
 import {
+  buildOOrderWorkbenchSchema,
+  buildRuntimeStatus,
+  buildSkillRegistry
+} from './beta2-architecture-shell.js';
+import {
   resolveKernelRuntimePath,
   resolveRuntimeConfig
 } from './deploy-config.js';
@@ -29,7 +34,9 @@ function loadEnv() {
         if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
           val = val.slice(1, -1);
         }
-        process.env[match[1]] = val;
+        if (process.env[match[1]] === undefined || process.env[match[1]] === '') {
+          process.env[match[1]] = val;
+        }
       }
     });
     console.log('[Env] 成功加载 .env 配置文件');
@@ -90,6 +97,12 @@ const server = http.createServer(async (req, res) => {
     await handleAuthMe(req, res);
   } else if (pathname === '/api/auth/logout' && req.method === 'POST') {
     await handleAuthLogout(req, res);
+  } else if (pathname === '/api/runtime/status' && req.method === 'GET') {
+    await handleRuntimeStatus(req, res);
+  } else if (pathname === '/api/skills' && req.method === 'GET') {
+    await handleSkills(req, res);
+  } else if (pathname === '/api/workbench/o-order/schema' && req.method === 'GET') {
+    await handleOOrderWorkbenchSchema(req, res);
   } else if (pathname === '/api/conversations' && req.method === 'GET') {
     await handleConversationList(req, res);
   } else if (pathname === '/api/conversations' && req.method === 'POST') {
@@ -519,11 +532,27 @@ async function handleChat(req, res) {
       error_summary: errors.length > 0 ? errors : null
     });
 
+    const skillRegistry = buildSkillRegistry(ROOT_DIR, activeSkillReceived);
+    const activeSkillRecord = skillRegistry.skills.find((item) => item.id === activeSkillReceived) || skillRegistry.skills[0];
     const responseEnvelope = {
       reply: replyText,
       gate2: null,
       legacy_artifact: legacyArtifact,
       artifact: legacyArtifact,
+      runtime: buildRuntimeStatus({
+        runtimeConfig,
+        activeSkill: activeSkillReceived,
+        modelMode: mode
+      }),
+      skill: {
+        activeSkill: activeSkillReceived,
+        skillSource: 'registry',
+        skillLoaded: Boolean(activeSkillRecord?.skillLoaded)
+      },
+      workbench: {
+        oOrderWorkbench: 'shell',
+        oOrderRuntimeEnabled: false
+      },
       errors,
       trace_id: traceId,
       run_id: runId,
@@ -1291,6 +1320,15 @@ function noStoreHeaders() {
   };
 }
 
+function getActiveSkillFromRequest(req) {
+  try {
+    const url = new URL(req.url, `http://${req.headers.host || '127.0.0.1'}`);
+    return url.searchParams.get('activeSkill') === 'sfocus' ? 'sfocus' : 'default';
+  } catch {
+    return 'default';
+  }
+}
+
 function authErrorEnvelope(code, message, retryable = false, traceId = null) {
   const error = {
     code,
@@ -1392,6 +1430,24 @@ async function handleAuthLogout(req, res) {
   }
   res.setHeader('Set-Cookie', clearSessionCookie(runtimeConfig.cookie));
   sendJson(res, 200, { success: true }, noStoreHeaders());
+}
+
+async function handleRuntimeStatus(req, res) {
+  sendJson(res, 200, buildRuntimeStatus({
+    runtimeConfig,
+    activeSkill: getActiveSkillFromRequest(req),
+    modelMode: process.env.CANDIDATE_GENERATION_MODE || 'generic_fallback'
+  }), noStoreHeaders());
+}
+
+async function handleSkills(req, res) {
+  const activeSkill = getActiveSkillFromRequest(req);
+  const registry = buildSkillRegistry(ROOT_DIR, activeSkill);
+  sendJson(res, 200, registry, noStoreHeaders());
+}
+
+async function handleOOrderWorkbenchSchema(req, res) {
+  sendJson(res, 200, buildOOrderWorkbenchSchema(), noStoreHeaders());
 }
 
 async function handleConversationList(req, res) {
