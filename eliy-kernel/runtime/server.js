@@ -1284,6 +1284,13 @@ function sendJson(res, statusCode, payload, extraHeaders = {}) {
   res.end(JSON.stringify(payload));
 }
 
+function noStoreHeaders() {
+  return {
+    'Cache-Control': 'no-store, max-age=0',
+    'Pragma': 'no-cache'
+  };
+}
+
 function authErrorEnvelope(code, message, retryable = false, traceId = null) {
   const error = {
     code,
@@ -1354,7 +1361,7 @@ async function handleAuthLogin(req, res) {
         expires_at: result.session.expires_at,
         status: result.session.status
       }
-    });
+    }, noStoreHeaders());
   } catch (err) {
     sendJson(res, 500, {
       errors: [{
@@ -1369,13 +1376,13 @@ async function handleAuthLogin(req, res) {
 async function handleAuthMe(req, res) {
   const result = getAuthContext(req);
   if (!result.ok) {
-    sendJson(res, 401, result.error);
+    sendJson(res, 401, result.error, noStoreHeaders());
     return;
   }
   sendJson(res, 200, {
     user: result.user,
     auth_session: result.session
-  });
+  }, noStoreHeaders());
 }
 
 async function handleAuthLogout(req, res) {
@@ -1384,7 +1391,7 @@ async function handleAuthLogout(req, res) {
     accountStore.revokeSession(sessionInfo.session.auth_session_id);
   }
   res.setHeader('Set-Cookie', clearSessionCookie(runtimeConfig.cookie));
-  sendJson(res, 200, { success: true });
+  sendJson(res, 200, { success: true }, noStoreHeaders());
 }
 
 async function handleConversationList(req, res) {

@@ -147,7 +147,13 @@ async function getBodyText(page: Page): Promise<string> {
 
 async function checkAuthMe(page: Page, baseUrl: string, expectedAuthenticated: boolean): Promise<void> {
   const response = await page.evaluate(async (url) => {
-    const res = await fetch(`${url}/api/auth/me`, { credentials: "include" });
+    const res = await fetch(`${url}/api/auth/me`, {
+      credentials: "include",
+      cache: "no-store",
+      headers: {
+        "Cache-Control": "no-store",
+      },
+    });
     const text = await res.text();
     return { status: res.status, text };
   }, baseUrl);
@@ -381,6 +387,9 @@ async function main(): Promise<void> {
       }
     }
 
+    // ownerTestWaitForTraceChipAfterDelayedAttach: wait for frontend delayed trace-chip reattach.
+    await page.waitForSelector('[data-testid="trace-chip"]', { state: "visible", timeout: 8000 }).catch(() => undefined);
+
     const traceLocator = await getRequiredVisibleTestId(page, "trace-chip", "trace chip visible");
     const traceText = await traceLocator.innerText().catch(() => "");
     assertCheck(Boolean(traceText.trim().length > 0), "trace id non-empty", `trace=${traceText || "MISSING"}`);
@@ -437,6 +446,24 @@ async function main(): Promise<void> {
     await clickRequiredTestId(page, "logout-button", "logout clicked");
     const loginBackHint = await waitForAnyText(page, ["登录", "Login", "invite", "邀请码", "email", "Email"], 20000);
     assertCheck(Boolean(loginBackHint), "logout returns to login state", `matched=${loginBackHint || "NONE"}`);
+    // ownerTestWaitForAuthMeUnauthenticatedAfterLogout: allow logout cookie/session invalidation to settle.
+    await page.waitForFunction(
+      async (baseUrl) => {
+        const response = await fetch(`${baseUrl}/api/auth/me`, {
+          credentials: "include",
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-store",
+          },
+        });
+        if (response.status === 401) return true;
+        const payload = await response.json().catch(() => null) as { authenticated?: boolean } | null;
+        return Boolean(payload && payload.authenticated === false);
+      },
+      cfg.baseUrl,
+      { timeout: 10000 }
+    ).catch(() => undefined);
+
     await checkAuthMe(page, cfg.baseUrl, false);
 
     const beta1Response = await page.request.get("https://hk-beta.eliyai.com", {
