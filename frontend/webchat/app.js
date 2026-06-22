@@ -1295,6 +1295,17 @@ async function simulateEliyResponse(userText, context = {}) {
     renderGate2TraceChip(ownerTestTraceBubble, traceId);
   }
 
+  // ownerTestEnsureTraceChipVisible: delayed reattach in case later DOM updates replace bubble content.
+  const ownerTestEnsureTraceChipVisible = () => {
+    const bubble = typingDiv.querySelector('.bubble');
+    if (traceId && bubble && !typingDiv.querySelector('[data-testid="trace-chip"]')) {
+      renderGate2TraceChip(bubble, traceId);
+    }
+  };
+  setTimeout(ownerTestEnsureTraceChipVisible, 0);
+  setTimeout(ownerTestEnsureTraceChipVisible, 1000);
+  setTimeout(ownerTestEnsureTraceChipVisible, 2500);
+
   persistConversationMessage({
     role: 'assistant',
     content: response,
