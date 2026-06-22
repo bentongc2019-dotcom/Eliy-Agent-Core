@@ -104,6 +104,24 @@ async function clickRequiredTestId(page: Page, testId: string, step: string): Pr
   record("PASS", step, `data-testid=${testId}`);
 }
 
+async function getRequiredConversationId(page: Page, selector: string, step: string): Promise<string> {
+  const locator = page.locator(selector).first();
+  assertCheck(await locator.count().catch(() => 0) > 0, step, `missing selector=${selector}`);
+  assertCheck(await locator.isVisible().catch(() => false), step, `hidden selector=${selector}`);
+  const conversationId = await locator.getAttribute("data-conversation-id");
+  assertCheck(Boolean(conversationId), step, `missing data-conversation-id for selector=${selector}`);
+  return String(conversationId);
+}
+
+async function clickConversationById(page: Page, conversationId: string, step: string): Promise<void> {
+  const selector = `#historyList [data-conversation-id="${conversationId}"]`;
+  const locator = page.locator(selector).first();
+  assertCheck(await locator.count().catch(() => 0) > 0, step, `missing selector=${selector}`);
+  assertCheck(await locator.isVisible().catch(() => false), step, `hidden selector=${selector}`);
+  await locator.click();
+  record("PASS", step, `selector=${selector}`);
+}
+
 async function fillFirstVisible(page: Page, selectors: string[], value: string, step: string): Promise<boolean> {
   for (const selector of selectors) {
     const locator = page.locator(selector).first();
@@ -329,6 +347,8 @@ async function main(): Promise<void> {
     await checkAuthMe(page, cfg.baseUrl, true);
 
     const mainText = await getBodyText(page);
+    assertCheck(/Eliy Beta 2\.0/i.test(mainText), "top product shell visible");
+    assertCheck(/Owner Test/i.test(mainText), "owner test shell visible");
     assertCheck(/连接|Connected|online|在线/i.test(mainText), "top connection status visible");
     assertCheck(/Skill|backend|generic|fallback|Beta|状态|模式/i.test(mainText), "skill/backend status chip visible");
     assertCheck(/conversation|Conversation|最近|话题|新建|New/i.test(mainText), "conversation list area visible");
@@ -337,6 +357,22 @@ async function main(): Promise<void> {
       "message input visible"
     );
     record("WARN", "send button precheck skipped", "post-input submit path verifies button or Enter fallback");
+
+    await clickRequiredTestId(page, "workspace-debug-button", "debug workspace clicked");
+    assertCheck(await textVisible(page, "owner_test", 15000), "debug workspace shows runtime environment");
+    assertCheck(await textVisible(page, "generic_fallback", 15000), "debug workspace shows generic fallback mode");
+    assertCheck(await textVisible(page, "p0_foundation_agent_harness_shell", 15000), "debug workspace shows shell stage");
+
+    await clickRequiredTestId(page, "workspace-skills-button", "skills workspace clicked");
+    assertCheck(await textVisible(page, "Default", 15000), "skills workspace shows default skill");
+    assertCheck(await textVisible(page, "S’FOCUS", 15000) || await textVisible(page, "S'FOCUS", 15000), "skills workspace shows S’FOCUS skill");
+    assertCheck(await textVisible(page, "SKILL.md loaded", 15000), "skills workspace shows loaded skill metadata");
+
+    await clickRequiredTestId(page, "workspace-o-order-button", "o-order workspace clicked");
+    assertCheck(await textVisible(page, "Schema Ready", 15000), "o-order workspace shows schema ready state");
+    assertCheck(await textVisible(page, "目标", 15000), "o-order workspace shows goal field");
+    assertCheck(await textVisible(page, "证据", 15000), "o-order workspace shows evidence field");
+    await clickRequiredTestId(page, "workspace-conversations-button", "conversations workspace clicked");
 
     // ownerTestNewConversationBeforePrompt: isolate browser regression from prior Owner Test conversations.
     const ownerTestNewConversationBeforePrompt = page.getByTestId("new-conversation-button").first();
@@ -410,6 +446,11 @@ async function main(): Promise<void> {
     assertCheck(/conversation|Conversation|最近|话题|新建|New/i.test(refreshedText), "refresh keeps conversation list visible");
 
     const firstConversationMarker = "Eliy Beta 2.0 Owner Test";
+    const firstConversationId = await getRequiredConversationId(
+      page,
+      "#historyList .history-item.active",
+      "capture first conversation id"
+    );
     const secondMarker = `BROWSER_ISOLATION_${Date.now()}`;
 
     await clickRequiredTestId(page, "new-conversation-button", "new conversation clicked");
@@ -424,24 +465,10 @@ async function main(): Promise<void> {
       "second conversation does not show full first conversation history"
     );
 
-    const returned = await clickFirstVisible(
-      page,
-      [
-        `text=${firstConversationMarker}`,
-        `text=${prompt.slice(0, 20)}`,
-        'aside >> text=Owner',
-        'aside >> text=Regression',
-      ],
-      "return to first conversation attempt"
-    );
-
-    if (returned) {
-      await page.waitForTimeout(1000);
-      const firstAgainText = await getBodyText(page);
-      assertCheck(firstAgainText.includes(firstConversationMarker), "first conversation history retained after returning");
-    } else {
-      record("WARN", "return first conversation selector not found", "manual visual check may still be useful");
-    }
+    await clickConversationById(page, firstConversationId, "return to first conversation attempt");
+    await page.waitForTimeout(1000);
+    const firstAgainText = await getBodyText(page);
+    assertCheck(firstAgainText.includes(firstConversationMarker), "first conversation history retained after returning");
 
     const logoutResponsePromise = page.waitForResponse(
       (response) => response.url().includes("/api/auth/logout") && response.request().method() === "POST",
