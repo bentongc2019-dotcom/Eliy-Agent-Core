@@ -1862,6 +1862,12 @@ function generateCandidateFromInput(userText) {
 }
 
 function generateMockReply(userText) {
+  // CP_ELIY_BETA2_OWNER_TEST_BOOTSTRAP_REPLY_FIX
+  const bootstrapTerms = ["你好", "你是谁", "Eliy", "Beta 2.0", "Owner Test", "当前环境", "能帮我做什么", "现在能做什么", "能做什么", "这个版本能做什么", "版本能做什么", "当前版本能做什么", "现在这个版本能做什么", "当前完成了什么", "完成了什么", "还不能做什么", "当前是不是完整的经营智能体", "完整的经营智能体"];
+  const isBootstrapIntent = bootstrapTerms.some((term) => String(userText || '').includes(term));
+  if (isBootstrapIntent) {
+    return "你好，我是 Eliy Beta 2.0 Owner Test 环境。当前我可以帮助你验证登录、会话保存、消息历史、trace 显示与基础对话链路；经营管理能力仍处于后续工程化阶段，所以现在还不是完整的经营智能体。";
+  }
   // 系統/接續測試信號，不走 artifact 流程
   const isTestSignal =
     userText.includes('NEXT_CONTEXT') ||
