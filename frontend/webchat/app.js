@@ -44,6 +44,25 @@ const frontSkillMode = $('#frontSkillMode');
 const backendSkillMode = $('#backendSkillMode');
 const skillTriggerSource = $('#skillTriggerSource');
 
+function syncComposerState() {
+  if (!sendBtn) return;
+  const hasText = Boolean(userInput?.value.trim());
+  const disabled = state.isStreaming || !hasText;
+  sendBtn.disabled = disabled;
+  sendBtn.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+}
+
+function refreshAssistantMessageSelectors() {
+  const assistantMessages = Array.from(msgList.querySelectorAll('.message.assistant'));
+  assistantMessages.forEach((messageEl, index) => {
+    messageEl.setAttribute('data-testid', index === assistantMessages.length - 1 ? 'latest-assistant-message' : 'assistant-message');
+    if (!messageEl.getAttribute('data-message-id')) {
+      const fallbackId = messageEl.dataset.messageId || messageEl.getAttribute('data-message-id');
+      if (fallbackId) messageEl.setAttribute('data-message-id', fallbackId);
+    }
+  });
+}
+
 // === 初始化入口 ===
 document.addEventListener('DOMContentLoaded', async () => {
   state.sessionId = 'sess_' + Date.now();
@@ -51,6 +70,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initTheme();
   setupEventHandlers();
   setupAutoResize();
+  syncComposerState();
 
   await initUserContext();
   await bootstrapConversationState();
@@ -358,7 +378,7 @@ function renderGate2ErrorBanner(bubble, errors, onRetry, originalUserText) {
   banner.innerHTML = `
     <div class="gate2-panel-header">
       <span class="gate2-panel-title">错误</span>
-      ${traceId ? `<span class="gate2-trace-chip" data-trace-id="${escapeHTML(traceId)}">${escapeHTML(traceId)}</span>` : ''}
+      ${traceId ? `<span class="gate2-trace-chip" data-testid="trace-chip" data-trace-id="${escapeHTML(traceId)}" aria-label="trace chip">${escapeHTML(traceId)}</span>` : ''}
     </div>
     <ul class="gate2-error-list">${errorItems}</ul>
     ${retryable ? `<button class="gate2-inline-btn" type="button" id="gate2RetryBtn">重试</button>` : ''}
@@ -376,6 +396,8 @@ function renderGate2TraceChip(bubble, traceId) {
   const chip = document.createElement('button');
   chip.type = 'button';
   chip.className = 'gate2-trace-chip';
+  chip.setAttribute('data-testid', 'trace-chip');
+  chip.setAttribute('aria-label', 'trace chip');
   chip.textContent = traceId;
   chip.title = '点击复制 trace_id';
   chip.addEventListener('click', async () => {
@@ -399,7 +421,7 @@ function renderGate2ConfirmationPanel(bubble, request, traceId, onAction) {
   panel.innerHTML = `
     <div class="gate2-panel-header">
       <span class="gate2-panel-title">需要确认</span>
-      ${traceId ? `<span class="gate2-trace-chip" data-trace-id="${escapeHTML(traceId)}">${escapeHTML(traceId)}</span>` : ''}
+      ${traceId ? `<span class="gate2-trace-chip" data-testid="trace-chip" data-trace-id="${escapeHTML(traceId)}" aria-label="trace chip">${escapeHTML(traceId)}</span>` : ''}
     </div>
     <div class="gate2-panel-body">
       <p class="gate2-summary">${escapeHTML(summary)}</p>
@@ -659,6 +681,7 @@ function submitMessage(directText = '') {
   });
   userInput.value = '';
   userInput.style.height = 'auto';
+  syncComposerState();
 
   simulateEliyResponse(finalMessageText, { userMessageId });
 }
@@ -668,11 +691,19 @@ function appendMessage(role, content, isHTML = false, options = {}) {
   const div = document.createElement('div');
   div.className = `message ${role}`;
   const avatarText = role === 'assistant' ? 'E' : '你';
+  const resolvedMessageId = options.messageId || (role === 'assistant' ? createLocalMessageId('msg_assistant') : null);
+  if (resolvedMessageId) {
+    div.setAttribute('data-message-id', resolvedMessageId);
+  }
+  if (role === 'assistant') {
+    div.setAttribute('data-message-role', 'assistant');
+  }
   div.innerHTML = `
     <div class="avatar">${avatarText}</div>
     <div class="bubble">${isHTML ? content : formatText(content)}</div>
   `;
   msgList.appendChild(div);
+  refreshAssistantMessageSelectors();
   msgList.scrollTop = msgList.scrollHeight;
   state.messageCount++;
   if (options.persist) {
@@ -684,7 +715,7 @@ function appendMessage(role, content, isHTML = false, options = {}) {
       legacy_artifact: options.legacy_artifact || null,
       gate2: options.gate2 || null,
       errors: options.errors || [],
-      messageId: options.messageId || null,
+      messageId: resolvedMessageId,
       runId: options.runId || null,
       traceId: options.traceId || null,
       userId: options.userId || state.userId || null,
@@ -884,6 +915,7 @@ async function loadConversation(conversationId) {
   }
 
   renderRecentConversations();
+  refreshAssistantMessageSelectors();
   return state.currentConversation;
 }
 
@@ -1030,6 +1062,7 @@ function buildConservativeActionCardFallback(title = '', assistantText = '', ori
 async function simulateEliyResponse(userText, context = {}) {
   state.isStreaming = true;
   setStatus('思考中...', false);
+  syncComposerState();
 
   const typingDiv = appendMessage('assistant', '<div class="typing-indicator"><span></span><span></span><span></span></div>', true);
   const userMessageId = context.userMessageId || createLocalMessageId('msg_user');
@@ -1200,6 +1233,7 @@ async function simulateEliyResponse(userText, context = {}) {
 
   state.isStreaming = false;
   setStatus('连接就绪', true);
+  syncComposerState();
 
   // 触发后台记录模块同步状态
   try {
@@ -1559,12 +1593,14 @@ function setupAutoResize() {
   userInput.addEventListener('input', () => {
     userInput.style.height = 'auto';
     userInput.style.height = Math.min(userInput.scrollHeight, 140) + 'px';
+    syncComposerState();
   });
 }
 
 function setStatus(text, ready) {
   $('#statusText').textContent = text;
   $('#statusDot').style.background = ready ? 'var(--color-success)' : 'var(--color-warning)';
+  syncComposerState();
 }
 
 function sleep(ms) {

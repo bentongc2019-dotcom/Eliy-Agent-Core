@@ -42,8 +42,8 @@
 
       <!-- 操作区 -->
       <div class="sidebar-actions">
-        <button class="new-chat-btn" id="newChatBtn">
-          <span class="btn-icon">＋</span> 新对话
+        <button class="new-chat-btn" id="newChatBtn" type="button" data-testid="new-conversation-button" aria-label="新建对话" title="新建对话">
+          <span class="btn-icon" aria-hidden="true">＋</span> 新建对话
         </button>
         <div class="search-box">
           <span class="search-icon">🔍</span>
@@ -85,7 +85,10 @@
             <span class="user-name" id="userNameText">加载中...</span>
             <span class="user-role">账号</span>
           </div>
-          <button class="logout-btn" id="logoutBtn" title="登出">🚪</button>
+          <button class="logout-btn" id="logoutBtn" type="button" data-testid="logout-button" aria-label="退出登录" title="退出登录">
+            <span class="logout-icon" aria-hidden="true">🚪</span>
+            <span class="logout-text">退出登录</span>
+          </button>
         </div>
       </div>
     </aside>
@@ -150,8 +153,8 @@
           
           <!-- 发送按钮 -->
           <div class="input-actions">
-            <button class="send-btn" id="sendBtn" title="发送消息">
-              <svg class="send-icon" viewBox="0 0 24 24">
+            <button class="send-btn" id="sendBtn" type="button" data-testid="send-message-button" aria-label="发送消息" title="发送消息">
+              <svg class="send-icon" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
               </svg>
             </button>

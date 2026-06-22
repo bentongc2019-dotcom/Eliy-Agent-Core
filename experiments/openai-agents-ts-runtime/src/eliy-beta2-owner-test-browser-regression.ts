@@ -91,6 +91,19 @@ async function clickFirstVisible(page: Page, selectors: string[], step: string):
   return false;
 }
 
+async function getRequiredVisibleTestId(page: Page, testId: string, step: string): Promise<ReturnType<Page["locator"]>> {
+  const locator = page.locator(`[data-testid="${testId}"]`).last();
+  assertCheck(await locator.count().catch(() => 0) > 0, step, `missing data-testid=${testId}`);
+  assertCheck(await locator.isVisible().catch(() => false), step, `hidden data-testid=${testId}`);
+  return locator;
+}
+
+async function clickRequiredTestId(page: Page, testId: string, step: string): Promise<void> {
+  const locator = await getRequiredVisibleTestId(page, testId, step);
+  await locator.click();
+  record("PASS", step, `data-testid=${testId}`);
+}
+
 async function fillFirstVisible(page: Page, selectors: string[], value: string, step: string): Promise<boolean> {
   for (const selector of selectors) {
     const locator = page.locator(selector).first();
@@ -188,22 +201,7 @@ async function typeAndSendMessage(page: Page, message: string): Promise<void> {
 
   assertCheck(filled, "message input visible and fillable");
 
-  const clicked = await clickFirstVisible(
-    page,
-    [
-      'button:has-text("发送")',
-      'button:has-text("Send")',
-      'button[type="submit"]',
-      '[aria-label*="发送"]',
-      '[aria-label*="Send"]',
-    ],
-    "send button clicked"
-  );
-
-  if (!clicked) {
-    await page.keyboard.press("Enter");
-    record("PASS", "message submitted by Enter fallback");
-  }
+  await clickRequiredTestId(page, "send-message-button", "send button clicked");
 }
 
 async function main(): Promise<void> {
@@ -340,7 +338,8 @@ async function main(): Promise<void> {
     await textVisible(page, prompt, 15000);
     assertCheck(await textVisible(page, "Eliy Beta 2.0 Owner Test", 30000), "assistant reply visible");
 
-    let replyText = await getBodyText(page);
+    const latestAssistantLocator = await getRequiredVisibleTestId(page, "latest-assistant-message", "latest assistant reply visible");
+    const latestAssistantText = await latestAssistantLocator.innerText().catch(() => "");
     const requiredTerms = [
       "Eliy Beta 2.0 Owner Test",
       "登录",
@@ -350,36 +349,26 @@ async function main(): Promise<void> {
       "基础对话链路",
       "经营管理能力仍处于后续工程化阶段",
     ];
-
-    // wait for required reply terms before checking
-    const requiredTermsDeadline = Date.now() + 45000;
-
-    while (Date.now() < requiredTermsDeadline) {
-      replyText = await getBodyText(page);
-      const missingRequiredTerms = requiredTerms.filter((term) => replyText.indexOf(term) === -1);
-      if (missingRequiredTerms.length === 0) break;
-      await page.waitForTimeout(500);
-    }
+    assertCheck(Boolean(latestAssistantText.trim().length > 0), "latest assistant reply non-empty");
+    assertCheck(latestAssistantText.includes("Eliy Beta 2.0 Owner Test"), "latest assistant reply contains Owner Test phrase");
 
     for (const term of requiredTerms) {
-      assertCheck(replyText.includes(term), `reply contains required term: ${term}`);
+      assertCheck(latestAssistantText.includes(term), `latest assistant reply contains required term: ${term}`);
     }
 
     for (const term of ["请提供更多业务细节", "请提供具体数据", "请说明目前的核心阻碍"]) {
-      if (replyText.includes(term)) {
-        record("WARN", `reply contains fallback-like phrase in page text: ${term}`, "full-page text may include sidebar/history; not treated as browser regression failure");
+      if (latestAssistantText.includes(term)) {
+        record("FAIL", `latest assistant reply contains forbidden term: ${term}`);
+        throw new Error(`latest assistant reply contains forbidden term: ${term}`);
       } else {
-        record("PASS", `reply excludes forbidden term: ${term}`);
+        record("PASS", `latest assistant reply excludes forbidden term: ${term}`);
       }
     }
 
-    const traceText = await waitForAnyText(page, ["trace_run_", "trace", "Trace"], 15000);
-    assertCheck(Boolean(traceText), "trace chip visible", `matched=${traceText || "NONE"}`);
+    const traceLocator = await getRequiredVisibleTestId(page, "trace-chip", "trace chip visible");
+    const traceText = await traceLocator.innerText().catch(() => "");
+    assertCheck(Boolean(traceText.trim().length > 0), "trace id non-empty", `trace=${traceText || "MISSING"}`);
 
-    const traceCandidate = (await getBodyText(page)).match(/trace[_a-zA-Z0-9-]+/);
-    assertCheck(Boolean(traceCandidate?.[0]), "trace id non-empty", `trace=${traceCandidate?.[0] || "MISSING"}`);
-
-    const traceLocator = page.getByText(/trace/i).first();
     const box = await traceLocator.boundingBox().catch(() => null);
     assertCheck(Boolean(box && box.width > 0 && box.height > 0), "trace chip has visible layout box");
     assertCheck(Boolean(box && box.width < 900 && box.height < 160), "trace chip does not obviously break layout");
@@ -398,79 +387,41 @@ async function main(): Promise<void> {
     const firstConversationMarker = "Eliy Beta 2.0 Owner Test";
     const secondMarker = `BROWSER_ISOLATION_${Date.now()}`;
 
-    const newConversationClicked = await clickFirstVisible(
-      page,
-      [
-        'button:has-text("新建")',
-        'button:has-text("New")',
-        'button:has-text("+")',
-        '[aria-label*="新建"]',
-        '[aria-label*="New"]',
-      ],
-      "new conversation clicked"
+    await clickRequiredTestId(page, "new-conversation-button", "new conversation clicked");
+    await page.waitForTimeout(1000);
+    await typeAndSendMessage(page, secondMarker);
+    assertCheck(await textVisible(page, secondMarker, 20000), "second conversation message visible");
+
+    const secondConversationText = await getBodyText(page);
+    assertCheck(secondConversationText.includes(secondMarker), "second conversation contains its own marker");
+    assertCheck(
+      !secondConversationText.includes(prompt) || !secondConversationText.includes(firstConversationMarker),
+      "second conversation does not show full first conversation history"
     );
 
-    if (!newConversationClicked) {
-      record("WARN", "new conversation button not found", "isolation will be checked with available UI state");
-    } else {
+    const returned = await clickFirstVisible(
+      page,
+      [
+        `text=${firstConversationMarker}`,
+        `text=${prompt.slice(0, 20)}`,
+        'aside >> text=Owner',
+        'aside >> text=Regression',
+      ],
+      "return to first conversation attempt"
+    );
+
+    if (returned) {
       await page.waitForTimeout(1000);
-      await typeAndSendMessage(page, secondMarker);
-      assertCheck(await textVisible(page, secondMarker, 20000), "second conversation message visible");
-
-      const secondConversationText = await getBodyText(page);
-      assertCheck(secondConversationText.includes(secondMarker), "second conversation contains its own marker");
-      assertCheck(
-        !secondConversationText.includes(prompt) || !secondConversationText.includes(firstConversationMarker),
-        "second conversation does not show full first conversation history"
-      );
-
-      const returned = await clickFirstVisible(
-        page,
-        [
-          `text=${firstConversationMarker}`,
-          `text=${prompt.slice(0, 20)}`,
-          'aside >> text=Owner',
-          'aside >> text=Regression',
-        ],
-        "return to first conversation attempt"
-      );
-
-      if (returned) {
-        await page.waitForTimeout(1000);
-        const firstAgainText = await getBodyText(page);
-        assertCheck(firstAgainText.includes(firstConversationMarker), "first conversation history retained after returning");
-      } else {
-        record("WARN", "return first conversation selector not found", "manual visual check may still be useful");
-      }
-    }
-
-    const logoutClicked = await clickFirstVisible(
-      page,
-      [
-        'button:has-text("Logout")',
-        'button:has-text("退出")',
-        'button:has-text("登出")',
-        '[aria-label*="Logout"]',
-        '[aria-label*="退出"]',
-      ],
-      "logout clicked"
-    );
-
-    if (logoutClicked) {
-      record("PASS", "logout button available and clicked");
+      const firstAgainText = await getBodyText(page);
+      assertCheck(firstAgainText.includes(firstConversationMarker), "first conversation history retained after returning");
     } else {
-      record("WARN", "logout button not found by current selectors", "logout UI selector may differ; not treated as browser regression failure");
+      record("WARN", "return first conversation selector not found", "manual visual check may still be useful");
     }
 
+    await clickRequiredTestId(page, "logout-button", "logout clicked");
     const loginBackHint = await waitForAnyText(page, ["登录", "Login", "invite", "邀请码", "email", "Email"], 20000);
-
-    if (logoutClicked) {
-      assertCheck(Boolean(loginBackHint), "logout returns to login state", `matched=${loginBackHint || "NONE"}`);
-      await checkAuthMe(page, cfg.baseUrl, false);
-    } else {
-      record("WARN", "logout return-to-login check skipped", "logout button not found by current selectors");
-      record("WARN", "logout auth check skipped", "logout button not found by current selectors");
-    }
+    assertCheck(Boolean(loginBackHint), "logout returns to login state", `matched=${loginBackHint || "NONE"}`);
+    await checkAuthMe(page, cfg.baseUrl, false);
 
     const beta1Response = await page.request.get("https://hk-beta.eliyai.com", {
       failOnStatusCode: false,
