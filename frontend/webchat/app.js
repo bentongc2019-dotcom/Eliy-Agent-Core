@@ -112,11 +112,8 @@ function setupEventHandlers() {
     }
   });
 
-  // 登出逻辑：二次确认后才清理登录态
+  // 登出逻辑：必须真实调用服务端 logout，再清理本地态并返回登录页
   $('#logoutBtn').addEventListener('click', async () => {
-    const confirmed = window.confirm('确定要退出 Eliy 内测登录吗？当前聊天上下文可能会中断。');
-    if (!confirmed) return;
-
     try {
       await apiJson('/api/auth/logout', { method: 'POST' });
     } catch (error) {

@@ -443,7 +443,14 @@ async function main(): Promise<void> {
       record("WARN", "return first conversation selector not found", "manual visual check may still be useful");
     }
 
+    const logoutResponsePromise = page.waitForResponse(
+      (response) => response.url().includes("/api/auth/logout") && response.request().method() === "POST",
+      { timeout: 10000 }
+    );
     await clickRequiredTestId(page, "logout-button", "logout clicked");
+    const logoutResponse = await logoutResponsePromise.catch(() => null);
+    assertCheck(Boolean(logoutResponse), "/api/auth/logout response seen");
+    assertCheck(logoutResponse?.status() === 200, "/api/auth/logout returns 200", `status=${logoutResponse?.status()}`);
     const loginBackHint = await waitForAnyText(page, ["登录", "Login", "invite", "邀请码", "email", "Email"], 20000);
     assertCheck(Boolean(loginBackHint), "logout returns to login state", `matched=${loginBackHint || "NONE"}`);
     // ownerTestWaitForAuthMeUnauthenticatedAfterLogout: allow logout cookie/session invalidation to settle.
