@@ -1288,6 +1288,13 @@ async function simulateEliyResponse(userText, context = {}) {
   if (!gate2Payload && !legacyArtifactPayload) {
     detectAndRenderArtifact(typingDiv, response, userText, null);
   }
+
+  // ownerTestPreserveTraceChipAfterArtifactDetection: keep trace chip visible for normal assistant replies.
+  const ownerTestTraceBubble = typingDiv.querySelector('.bubble');
+  if (traceId && ownerTestTraceBubble && !typingDiv.querySelector('[data-testid="trace-chip"]')) {
+    renderGate2TraceChip(ownerTestTraceBubble, traceId);
+  }
+
   persistConversationMessage({
     role: 'assistant',
     content: response,

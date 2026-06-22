@@ -332,6 +332,13 @@ async function main(): Promise<void> {
     );
     record("WARN", "send button precheck skipped", "post-input submit path verifies button or Enter fallback");
 
+    // ownerTestNewConversationBeforePrompt: isolate browser regression from prior Owner Test conversations.
+    const ownerTestNewConversationBeforePrompt = page.getByTestId("new-conversation-button").first();
+    await ownerTestNewConversationBeforePrompt.waitFor({ state: "visible", timeout: 15000 });
+    await ownerTestNewConversationBeforePrompt.click();
+    record("PASS", "new conversation button clicked before browser prompt", "data-testid=new-conversation-button");
+    await page.waitForTimeout(1000);
+
     const prompt = "你好，请确认当前是否是 Eliy Beta 2.0 Owner Test，并用一句话说明你现在能帮我做什么。";
     await typeAndSendMessage(page, prompt);
 
@@ -339,7 +346,7 @@ async function main(): Promise<void> {
     assertCheck(await textVisible(page, "Eliy Beta 2.0 Owner Test", 30000), "assistant reply visible");
 
     const latestAssistantLocator = await getRequiredVisibleTestId(page, "latest-assistant-message", "latest assistant reply visible");
-    const latestAssistantText = await latestAssistantLocator.innerText().catch(() => "");
+    let latestAssistantText = await latestAssistantLocator.innerText().catch(() => "");
     const requiredTerms = [
       "Eliy Beta 2.0 Owner Test",
       "登录",
@@ -350,6 +357,15 @@ async function main(): Promise<void> {
       "经营管理能力仍处于后续工程化阶段",
     ];
     assertCheck(Boolean(latestAssistantText.trim().length > 0), "latest assistant reply non-empty");
+    const latestAssistantDeadline = Date.now() + 45000;
+
+    while (Date.now() < latestAssistantDeadline) {
+      latestAssistantText = await latestAssistantLocator.innerText().catch(() => "");
+      const missingRequiredTerms = requiredTerms.filter((term) => !latestAssistantText.includes(term));
+      if (missingRequiredTerms.length === 0) break;
+      await page.waitForTimeout(500);
+    }
+
     assertCheck(latestAssistantText.includes("Eliy Beta 2.0 Owner Test"), "latest assistant reply contains Owner Test phrase");
 
     for (const term of requiredTerms) {
