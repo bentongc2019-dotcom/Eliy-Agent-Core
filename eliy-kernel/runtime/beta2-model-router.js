@@ -147,7 +147,7 @@ export function buildBeta2IdentityReply(userText, { activeSkill = 'default' } = 
     ? `你这个问题可以先拆成三层：现状、关键变量、下一步。当前输入是“${prompt.slice(0, 120)}”。`
     : '你现在在测试 Eliy Beta 2.0 的对话链路。';
 
-  return [
+  const baseReply = [
     '我是 Eliy。我的角色是帮老板把经营问题说清楚、把关键变量拆出来、再把下一步收敛到可执行动作。',
     lead,
     '我会保留老板的最终判断权，不替你做不可委托的关键经营决定。',
@@ -155,6 +155,33 @@ export function buildBeta2IdentityReply(userText, { activeSkill = 'default' } = 
       ? '当前 S’FOCUS 仍是 shell 状态；如果你要，我可以先用文字帮你收敛瓶颈。'
       : '如果你愿意，我可以继续把问题拆成 1–3 个关键变量，再给你一个最小下一步。'
   ].join('\n\n');
+
+  return ensureBeta2IdentityBusinessSignals(baseReply, prompt, routingIntent);
+}
+
+function hasEliyIdentitySignal(text = '') {
+  const value = String(text || '');
+  return /我是\s*Eliy|我是Eliy|我是\s*艾利|我是艾利|Eliy|艾利/.test(value);
+}
+
+function hasBusinessFramingSignal(text = '') {
+  const value = String(text || '');
+  return /经营|經營/.test(value);
+}
+
+export function ensureBeta2IdentityBusinessSignals(reply, userText, routingIntent = classifyBeta2IdentityPrompt(userText)) {
+  const text = String(reply || '').trim();
+  if (!text || routingIntent === 'pure_test_signal') return text;
+
+  const needsIdentity = !hasEliyIdentitySignal(text);
+  const needsBusiness = !hasBusinessFramingSignal(text);
+  if (!needsIdentity && !needsBusiness) return text;
+
+  const prefixParts = [];
+  if (needsIdentity) prefixParts.push('我是 Eliy。');
+  if (needsBusiness) prefixParts.push('这个问题我会先当成老板的经营判断问题处理。');
+
+  return `${prefixParts.join(' ')}\n\n${text}`;
 }
 
 async function callOpenAICompatibleChatCompletion({ providerConfig, messages, temperature = 0.7, maxTokens = 1024 }) {
