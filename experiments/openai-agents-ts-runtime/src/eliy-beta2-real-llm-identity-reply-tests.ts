@@ -83,9 +83,36 @@ async function run(): Promise<void> {
     "ping",
     "pure_test_signal"
   );
-  assert(/Eliy|艾利/.test(pureSignalNormalized), "pure owner-facing real_llm signal should still include Eliy identity");
+  assert(pureSignalNormalized.includes("我是 Eliy") || pureSignalNormalized.includes("我是Eliy"), "pure owner-facing real_llm signal should still include exact Eliy self phrase");
   assert(!pureSignalNormalized.includes("老板"), "pure test signal should not be expanded into business diagnosis");
+  assert(!/generic_fallback|generic fallback|provider config|invite code|api key|API key|ELIY_BETA2_LLM_API_KEY|DEEPSEEK_API_KEY/.test(pureSignalNormalized), "pure identity guard should not leak fallback or internal config");
   record(results, "IDENTITY-08", "Pure test signals get identity guard without being expanded into business diagnosis.");
+
+  const beta2NameOnlyNormalized = router.ensureBeta2IdentityBusinessSignals(
+    "确认，当前是 Eliy Beta 2.0 Owner Test。",
+    "你好，请确认当前是否是 Eliy Beta 2.0 Owner Test，并用一句话说明你现在能帮我做什么。",
+    router.classifyBeta2IdentityPrompt("你好，请确认当前是否是 Eliy Beta 2.0 Owner Test，并用一句话说明你现在能帮我做什么。")
+  );
+  assert(beta2NameOnlyNormalized.includes("我是 Eliy") || beta2NameOnlyNormalized.includes("我是Eliy"), "Eliy name-only reply should be prefixed with exact self phrase");
+
+  const beta2VersionOnlyNormalized = router.ensureBeta2IdentityBusinessSignals(
+    "嗨，Eliy Beta 2.0 的这一版可以先帮你做基础对话验证。",
+    "现在这个版本能做什么？",
+    router.classifyBeta2IdentityPrompt("现在这个版本能做什么？")
+  );
+  assert(beta2VersionOnlyNormalized.includes("我是 Eliy") || beta2VersionOnlyNormalized.includes("我是Eliy"), "Eliy version-only reply should be prefixed with exact self phrase");
+
+  const alreadySelfPhrasedNormalized = router.ensureBeta2IdentityBusinessSignals(
+    "我是 Eliy，一个主体型商业智能体。",
+    "你是谁？",
+    router.classifyBeta2IdentityPrompt("你是谁？")
+  );
+  assert.equal(
+    (alreadySelfPhrasedNormalized.match(/我是\s*Eliy/g) || []).length,
+    1,
+    "exact Eliy self phrase should not be duplicated"
+  );
+  record(results, "IDENTITY-09", "Name-only Eliy replies are upgraded to exact self phrase without duplicating qualified replies.");
 
   const ownerFacingPrompts = [
     "你好，请确认当前是否是 Eliy Beta 2.0 Owner Test，并用一句话说明你现在能帮我做什么。",
@@ -100,7 +127,7 @@ async function run(): Promise<void> {
       prompt,
       router.classifyBeta2IdentityPrompt(prompt)
     );
-    assert(/Eliy|艾利/.test(normalized), `owner-facing real_llm reply should include Eliy identity for prompt: ${prompt}`);
+    assert(normalized.includes("我是 Eliy") || normalized.includes("我是Eliy"), `owner-facing real_llm reply should include exact Eliy self phrase for prompt: ${prompt}`);
     assert(!normalized.includes("Mode: generic fallback baseline"), "real_llm identity guard should not add generic fallback baseline text");
     assert(!/invite code|api key|API key|provider config|ELIY_BETA2_LLM_API_KEY|DEEPSEEK_API_KEY/.test(normalized), "identity guard should not leak internal config or secrets");
   }
@@ -111,7 +138,7 @@ async function run(): Promise<void> {
     router.classifyBeta2IdentityPrompt("测试一下：如果我是一个补习班老板，老师时间不够，我下一步该先看什么？")
   );
   assert(/老板|经营|判断/.test(ownerBusinessNormalized), "business owner-facing reply should retain business signal");
-  record(results, "IDENTITY-09", "Owner-facing Beta2 real_llm replies are guarded with Eliy identity without leaking fallback or internal config.");
+  record(results, "IDENTITY-10", "Owner-facing Beta2 real_llm replies are guarded with Eliy identity without leaking fallback or internal config.");
 
   const fakeAdapter = await router.runBeta2RealLlmAdapter({
     modelState: router.resolveBeta2ModelRouterState({
@@ -129,7 +156,7 @@ async function run(): Promise<void> {
   assert.equal(fakeAdapter.modelState.modelMode, "real_llm");
   assert.equal(fakeAdapter.modelState.realLlmEnabled, true);
   assert(fakeAdapter.reply.includes("我是 Eliy"), "fake adapter should return identity reply");
-  record(results, "IDENTITY-10", "Fake adapter returns deterministic identity reply for offline tests.");
+  record(results, "IDENTITY-11", "Fake adapter returns deterministic identity reply for offline tests.");
 
   console.log([
     "# CP-ELIY-BETA2-REAL-LLM-IDENTITY-REPLY-TESTS",
