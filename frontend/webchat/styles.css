@@ -616,6 +616,10 @@ html, body {
   border-radius: var(--radius-md);
   background: rgba(20, 26, 45, 0.72);
   box-shadow: var(--shadow);
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  max-height: min(30dvh, 260px);
   overflow: hidden;
 }
 .workspace-shell-header {
@@ -625,6 +629,7 @@ html, body {
   gap: 1rem;
   padding: 0.9rem 1rem;
   border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 .workspace-shell-header h3 {
   font-size: 0.98rem;
@@ -649,6 +654,10 @@ html, body {
   padding: 0.9rem 1rem 1rem;
   display: grid;
   gap: 0.85rem;
+  min-height: 0;
+  max-height: min(21dvh, 184px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .workspace-summary-grid {
   display: grid;
@@ -800,7 +809,8 @@ html, body {
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 2rem 1.5rem;
+  padding: 2rem 1.5rem 2.5rem;
+  scroll-padding-bottom: 2.5rem;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -1387,6 +1397,10 @@ html, body {
   }
   .workspace-shell {
     margin: 0.75rem 0.75rem 0.25rem;
+    max-height: min(28dvh, 190px);
+  }
+  .workspace-shell-body {
+    max-height: min(18dvh, 128px);
   }
   .workspace-summary-grid,
   .workspace-schema-grid {
@@ -1396,7 +1410,8 @@ html, body {
     grid-template-columns: 1fr;
   }
   .messages {
-    padding: 1rem 0.75rem;
+    padding: 1rem 0.75rem 1.75rem;
+    scroll-padding-bottom: 1.75rem;
     gap: 1rem;
   }
   .message {

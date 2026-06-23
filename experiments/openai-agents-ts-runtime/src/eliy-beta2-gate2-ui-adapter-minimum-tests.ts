@@ -1,5 +1,6 @@
-import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { readFile, writeFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { ensureDirs, reportsDir } from "./storage.js";
 
 type TestResult = {
@@ -8,10 +9,19 @@ type TestResult = {
   evidence: string;
 };
 
+const thisDir = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(thisDir, "../../..");
+
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
     throw new Error(message);
   }
+}
+
+function cssRuleBlock(css: string, selector: string): string {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = css.match(new RegExp(`${escaped}\\s*\\{([\\s\\S]*?)\\}`));
+  return match?.[1] ?? "";
 }
 
 async function loadAdapter(): Promise<any> {
@@ -204,6 +214,22 @@ async function runTests(): Promise<TestResult[]> {
     id: "UI-GT-H",
     result: "Passed",
     evidence: "Runtime binding preserved user, auth session, conversation, message, run, and trace identifiers."
+  });
+
+  const webchatCss = await readFile(join(repoRoot, "frontend/webchat/styles.css"), "utf8");
+  const workspaceShellCss = cssRuleBlock(webchatCss, ".workspace-shell");
+  const workspaceShellBodyCss = cssRuleBlock(webchatCss, ".workspace-shell-body");
+  const messagesCss = cssRuleBlock(webchatCss, ".messages");
+  assert(/max-height\s*:/.test(workspaceShellCss), "Workspace shell must be height-capped so it cannot obscure chat messages.");
+  assert(/display\s*:\s*flex/.test(workspaceShellCss) && /flex-direction\s*:\s*column/.test(workspaceShellCss), "Workspace shell must use a vertical flex layout for bounded body scrolling.");
+  assert(/overflow-y\s*:\s*auto/.test(workspaceShellBodyCss), "Workspace shell body must scroll internally instead of growing over chat content.");
+  assert(/max-height\s*:/.test(workspaceShellBodyCss), "Workspace shell body must have a max-height.");
+  assert(/overflow-y\s*:\s*auto/.test(messagesCss), "Message list must remain vertically scrollable.");
+  assert(/scroll-padding-bottom\s*:/.test(messagesCss), "Message list must keep bottom scroll padding so the composer does not hide the last reply.");
+  results.push({
+    id: "UI-GT-I",
+    result: "Passed",
+    evidence: "Webchat workspace panel is height-capped with internal scrolling, while messages remain scrollable with bottom padding."
   });
 
   return results;
