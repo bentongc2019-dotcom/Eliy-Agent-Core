@@ -66,10 +66,20 @@ export function buildSkillRegistry(rootDir, activeSkill = 'default') {
   };
 }
 
-export function buildRuntimeStatus({ runtimeConfig, activeSkill = 'default', modelMode = process.env.CANDIDATE_GENERATION_MODE || 'generic_fallback' } = {}) {
+export function buildRuntimeStatus({
+  runtimeConfig,
+  activeSkill = 'default',
+  modelMode = 'generic_fallback',
+  requestedModelMode = modelMode,
+  realLlmEnabled,
+  modelProvider = 'shell',
+  fallbackReason = null,
+  lastModelErrorRedacted = false
+} = {}) {
   const normalizedModelMode = String(modelMode).trim() || 'generic_fallback';
+  const normalizedRequestedModelMode = String(requestedModelMode).trim() || normalizedModelMode;
   const effectiveModelMode = normalizedModelMode;
-  const isRealLlmEnabled = effectiveModelMode === 'real_llm';
+  const isRealLlmEnabled = typeof realLlmEnabled === 'boolean' ? realLlmEnabled : effectiveModelMode === 'real_llm';
 
   return {
     environment: 'owner_test',
@@ -82,6 +92,10 @@ export function buildRuntimeStatus({ runtimeConfig, activeSkill = 'default', mod
     oOrderWorkbench: 'shell',
     oOrderRuntimeEnabled: false,
     activeSkill: activeSkill === 'sfocus' ? 'sfocus' : 'default',
+    requestedModelMode: normalizedRequestedModelMode,
+    modelProvider,
+    fallbackReason: fallbackReason || null,
+    lastModelErrorRedacted: Boolean(lastModelErrorRedacted),
     host: runtimeConfig?.host || '127.0.0.1',
     port: runtimeConfig?.port || 3001,
     publicBaseUrl: runtimeConfig?.publicBaseUrl || `http://localhost:${runtimeConfig?.port || 3001}`,

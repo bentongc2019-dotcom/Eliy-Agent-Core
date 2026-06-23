@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import { execSync } from "node:child_process";
+import { resolveExpectedBeta2ModelMode } from "./beta2-shell-test-utils.js";
 
 type StepStatus = "PASS" | "FAIL" | "WARN";
 
@@ -195,6 +196,7 @@ function loadConfig(): {
   email: string;
   inviteCode: string;
   envFileExists: boolean;
+  expectedModelMode: "generic_fallback" | "real_llm";
 } {
   const envFilePath = "/etc/eliy-beta2/env";
   const fileEnv = parseEnvFile(envFilePath);
@@ -217,6 +219,7 @@ function loadConfig(): {
     email,
     inviteCode,
     envFileExists: fs.existsSync(envFilePath),
+    expectedModelMode: resolveExpectedBeta2ModelMode(env),
   };
 }
 
@@ -228,6 +231,7 @@ async function main(): Promise<void> {
   console.log(`env_file_exists=${config.envFileExists ? "YES" : "NO"}`);
   console.log(`owner_email_present=${config.email ? "YES" : "NO"}`);
   console.log(`invite_code_present_redacted=${config.inviteCode ? "YES" : "NO"}`);
+  console.log(`expected_beta2_model_mode=${config.expectedModelMode}`);
 
   assertCheck(Boolean(config.baseUrl), "config base URL present");
   assertCheck(Boolean(config.email), "config owner email present");
@@ -360,21 +364,57 @@ async function main(): Promise<void> {
 
     assertCheck(chat.status === 200, `chat status 200 for prompt: ${prompt}`, `status=${chat.status}`);
 
-    const assistantText = findBestAssistantText(chat.json, chat.text);
-
-    for (const term of requiredTerms) {
-      assertCheck(
-        assistantText.includes(term),
-        `bootstrap reply contains required term: ${term}`,
-        `prompt=${prompt}`
-      );
+    assertCheck(Boolean(chat.json && typeof chat.json === "object"), "chat payload is json object");
+    const chatEnvelope = chat.json as Record<string, any>;
+    assertCheck(chatEnvelope.runtime, "chat payload has runtime envelope");
+    assertCheck(chatEnvelope.skill, "chat payload has skill envelope");
+    assertCheck(chatEnvelope.workbench, "chat payload has workbench envelope");
+    assertCheck(
+      chatEnvelope.runtime.modelMode === config.expectedModelMode,
+      "chat runtime model mode matches expected beta2 mode",
+      `runtime_mode=${chatEnvelope.runtime.modelMode}`
+    );
+    if (config.expectedModelMode === "real_llm") {
+      assertCheck(chatEnvelope.runtime.realLlmEnabled === true, "chat runtime real_llm enabled");
+      assertCheck(chatEnvelope.runtime.fallbackReason === null || chatEnvelope.runtime.fallbackReason === "redacted", "chat runtime fallback reason redacted or null");
+    } else {
+      assertCheck(chatEnvelope.runtime.realLlmEnabled === false, "chat runtime generic_fallback disabled real_llm");
     }
 
-    for (const term of forbiddenTerms) {
+    const assistantText = findBestAssistantText(chat.json, chat.text);
+
+    if (config.expectedModelMode === "generic_fallback") {
+      for (const term of requiredTerms) {
+        assertCheck(
+          assistantText.includes(term),
+          `bootstrap reply contains required term: ${term}`,
+          `prompt=${prompt}`
+        );
+      }
+
+      for (const term of forbiddenTerms) {
+        assertCheck(
+          !assistantText.includes(term),
+          `bootstrap reply excludes forbidden term: ${term}`,
+          `prompt=${prompt}`
+        );
+      }
+    } else {
       assertCheck(
-        !assistantText.includes(term),
-        `bootstrap reply excludes forbidden term: ${term}`,
-        `prompt=${prompt}`
+        assistantText.includes("我是 Eliy") || assistantText.includes("我是Eliy"),
+        "real_llm reply identifies Eliy"
+      );
+      assertCheck(
+        assistantText.includes("老板") || assistantText.includes("经营"),
+        "real_llm reply keeps business context"
+      );
+      assertCheck(
+        assistantText.includes("判断") || assistantText.includes("下一步"),
+        "real_llm reply keeps judgment or next-step framing"
+      );
+      assertCheck(
+        !assistantText.includes("Mode: generic fallback baseline"),
+        "real_llm reply does not include generic fallback baseline text"
       );
     }
 

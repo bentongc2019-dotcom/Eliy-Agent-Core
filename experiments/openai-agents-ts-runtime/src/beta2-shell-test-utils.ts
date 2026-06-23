@@ -38,7 +38,8 @@ export async function spawnShellServer(overrides: Record<string, string> = {}): 
       ...process.env,
       PORT: String(port),
       HOST: "127.0.0.1",
-      CANDIDATE_GENERATION_MODE: "generic_fallback",
+      ELIY_BETA2_MODEL_MODE: "generic_fallback",
+      ELIY_BETA2_REAL_LLM_ENABLED: "false",
       ELIY_RUNTIME_DATA_DIR: join(tempDir, "runtime"),
       ELIY_ACCOUNT_STORAGE_DIR: tempDir,
       ELIY_TRANSCRIPTS_DIR: join(tempDir, "runtime", "transcripts"),
@@ -110,4 +111,11 @@ export async function fetchJson(url: string, options: RequestInit = {}): Promise
   });
   const payload = await res.json().catch(() => ({} as any));
   return { res, payload };
+}
+
+export function resolveExpectedBeta2ModelMode(env: NodeJS.ProcessEnv = process.env): "generic_fallback" | "real_llm" {
+  if ((String(env.ELIY_BETA2_MODEL_MODE || "").trim().toLowerCase() === "real_llm") || String(env.ELIY_BETA2_REAL_LLM_ENABLED || "").trim().toLowerCase() === "true") {
+    return "real_llm";
+  }
+  return "generic_fallback";
 }
