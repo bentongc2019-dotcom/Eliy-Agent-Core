@@ -1,4 +1,6 @@
 import { strict as assert } from "node:assert";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 type TestResult = {
   id: string;
@@ -10,12 +12,18 @@ function record(results: TestResult[], id: string, evidence: string): void {
   results.push({ id, result: "Passed", evidence });
 }
 
+function resolveRepoRoot(): string {
+  return join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+}
+
 async function run(): Promise<void> {
   const results: TestResult[] = [];
   // @ts-expect-error runtime import of JS helpers
   const shell = await import("../../../eliy-kernel/runtime/beta2-architecture-shell.js");
   // @ts-expect-error runtime import of JS config helper
   const deployConfig = await import("../../../eliy-kernel/runtime/deploy-config.js");
+
+  const repoRoot = resolveRepoRoot();
 
   const runtimeConfig = deployConfig.resolveRuntimeConfig({
     env: {
@@ -35,7 +43,7 @@ async function run(): Promise<void> {
       ELIY_INVITE_CODES: "BETA-INVITE",
       CANDIDATE_GENERATION_MODE: "generic_fallback"
     },
-    rootDir: "/Users/rich1350/Documents/Eliy-Agent-Core"
+    rootDir: repoRoot
   });
 
   const runtimeStatus = shell.buildRuntimeStatus({ runtimeConfig, activeSkill: "default", modelMode: "generic_fallback" });
@@ -54,7 +62,7 @@ async function run(): Promise<void> {
   assert.equal(runtimeStatus.publicBaseUrl, "https://hk-beta2.eliyai.com");
   record(results, "RT-STATUS-01", "Runtime status exposes owner_test beta2 shell metadata.");
 
-  const skillRegistry = shell.buildSkillRegistry("/Users/rich1350/Documents/Eliy-Agent-Core", "default");
+  const skillRegistry = shell.buildSkillRegistry(repoRoot, "default");
   assert.equal(skillRegistry.registry, "filesystem");
   assert.equal(skillRegistry.registryLoaded, true);
   assert.equal(skillRegistry.activeSkill, "default");

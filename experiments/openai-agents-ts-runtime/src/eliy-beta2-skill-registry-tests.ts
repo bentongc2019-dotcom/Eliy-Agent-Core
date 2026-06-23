@@ -1,6 +1,8 @@
 import { strict as assert } from "node:assert";
 import fs from "node:fs";
 import path from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 type TestResult = {
   id: string;
@@ -12,12 +14,16 @@ function record(results: TestResult[], id: string, evidence: string): void {
   results.push({ id, result: "Passed", evidence });
 }
 
+function resolveRepoRoot(): string {
+  return join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
+}
+
 async function run(): Promise<void> {
   const results: TestResult[] = [];
   // @ts-expect-error runtime import of JS helper
   const shell = await import("../../../eliy-kernel/runtime/beta2-architecture-shell.js");
 
-  const rootDir = "/Users/rich1350/Documents/Eliy-Agent-Core";
+  const rootDir = resolveRepoRoot();
   const registry = shell.buildSkillRegistry(rootDir, "default");
 
   const defaultSkill = registry.skills.find((item: any) => item.id === "default");
