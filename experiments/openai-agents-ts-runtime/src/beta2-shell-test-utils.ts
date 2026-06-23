@@ -114,8 +114,37 @@ export async function fetchJson(url: string, options: RequestInit = {}): Promise
 }
 
 export function resolveExpectedBeta2ModelMode(env: NodeJS.ProcessEnv = process.env): "generic_fallback" | "real_llm" {
-  if ((String(env.ELIY_BETA2_MODEL_MODE || "").trim().toLowerCase() === "real_llm") || String(env.ELIY_BETA2_REAL_LLM_ENABLED || "").trim().toLowerCase() === "true") {
-    return "real_llm";
-  }
-  return "generic_fallback";
+  const requestedModelMode = String(env.ELIY_BETA2_MODEL_MODE || "").trim().toLowerCase();
+  const realLlmExplicitlyEnabled =
+    requestedModelMode === "real_llm" ||
+    String(env.ELIY_BETA2_REAL_LLM_ENABLED || "").trim().toLowerCase() === "true";
+  const provider = String(
+    env.ELIY_BETA2_LLM_PROVIDER ||
+      (realLlmExplicitlyEnabled ? env.DEEPSEEK_PROVIDER : "") ||
+      "beta2-unconfigured"
+  ).trim().toLowerCase();
+  const model = String(
+    env.ELIY_BETA2_LLM_MODEL ||
+      (realLlmExplicitlyEnabled ? env.DEEPSEEK_MODEL : "") ||
+      ""
+  ).trim();
+  const baseURL = String(
+    env.ELIY_BETA2_LLM_BASE_URL ||
+      (realLlmExplicitlyEnabled ? env.DEEPSEEK_BASE_URL : "") ||
+      ""
+  ).trim();
+  const apiKey = String(
+    env.ELIY_BETA2_LLM_API_KEY ||
+      (realLlmExplicitlyEnabled ? env.DEEPSEEK_API_KEY : "") ||
+      (realLlmExplicitlyEnabled ? env.OPENAI_API_KEY : "") ||
+      ""
+  ).trim();
+
+  const providerConfigComplete =
+    provider === "fake" ||
+    provider === "mock" ||
+    provider === "fail" ||
+    Boolean(apiKey && baseURL && model);
+
+  return realLlmExplicitlyEnabled && providerConfigComplete ? "real_llm" : "generic_fallback";
 }
