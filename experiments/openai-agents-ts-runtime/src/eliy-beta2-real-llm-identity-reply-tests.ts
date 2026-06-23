@@ -45,6 +45,47 @@ async function run(): Promise<void> {
   assert(mixedReply.includes("判断"), "mixed test/business reply should preserve judgment framing");
   record(results, "IDENTITY-04", "Mixed test/business inputs should answer the business question instead of only confirming link status.");
 
+  const mixedIntent = router.classifyBeta2IdentityPrompt(
+    "我想测试 Eliy Beta 2.0 是否已经接回真实大模型。请用你的方式回答：一个老板现在团队执行很散、事情很多但没有结果，应该先看什么？"
+  );
+
+  const normalizedMissingIdentity = router.ensureBeta2IdentityBusinessSignals(
+    "这个问题我会先当成老板的经营判断问题处理。先看唯一目标是否收敛。",
+    "我想测试 Eliy Beta 2.0 是否已经接回真实大模型。请用你的方式回答：一个老板现在团队执行很散、事情很多但没有结果，应该先看什么？",
+    mixedIntent
+  );
+  assert(normalizedMissingIdentity.includes("我是 Eliy"), "mixed input missing identity should be prefixed");
+  assert(normalizedMissingIdentity.includes("经营判断"), "mixed input missing identity should keep经营判断 framing");
+  record(results, "IDENTITY-05", "Mixed test/business reply missing Eliy should be prefixed with identity framing.");
+
+  const normalizedMissingBusiness = router.ensureBeta2IdentityBusinessSignals(
+    "我是 Eliy。先看唯一目标是否收敛。",
+    "我想测试 Eliy Beta 2.0 是否已经接回真实大模型。请用你的方式回答：一个老板现在团队执行很散、事情很多但没有结果，应该先看什么？",
+    mixedIntent
+  );
+  assert(normalizedMissingBusiness.includes("这个问题我会先当成老板的经营判断问题处理。"), "mixed input missing经营 should be prefixed");
+  record(results, "IDENTITY-06", "Mixed test/business reply missing经营 should be prefixed with business framing.");
+
+  const alreadyQualified = router.ensureBeta2IdentityBusinessSignals(
+    "我是 Eliy。这个问题我会先当成老板的经营判断问题处理。先看唯一目标是否收敛。",
+    "我想测试 Eliy Beta 2.0 是否已经接回真实大模型。请用你的方式回答：一个老板现在团队执行很散、事情很多但没有结果，应该先看什么？",
+    mixedIntent
+  );
+  assert.equal(
+    alreadyQualified,
+    "我是 Eliy。这个问题我会先当成老板的经营判断问题处理。先看唯一目标是否收敛。",
+    "already qualified mixed reply should not be prefixed again"
+  );
+  record(results, "IDENTITY-07", "Already qualified mixed reply is left unchanged.");
+
+  const pureSignalNormalized = router.ensureBeta2IdentityBusinessSignals(
+    "收到。这是系统接续测试信号。",
+    "ping",
+    "pure_test_signal"
+  );
+  assert.equal(pureSignalNormalized, "收到。这是系统接续测试信号。", "pure test signal should not be expanded into business diagnosis");
+  record(results, "IDENTITY-08", "Pure test signals are not normalized into business diagnosis.");
+
   const fakeAdapter = await router.runBeta2RealLlmAdapter({
     modelState: router.resolveBeta2ModelRouterState({
       env: {
@@ -61,7 +102,7 @@ async function run(): Promise<void> {
   assert.equal(fakeAdapter.modelState.modelMode, "real_llm");
   assert.equal(fakeAdapter.modelState.realLlmEnabled, true);
   assert(fakeAdapter.reply.includes("我是 Eliy"), "fake adapter should return identity reply");
-  record(results, "IDENTITY-05", "Fake adapter returns deterministic identity reply for offline tests.");
+  record(results, "IDENTITY-09", "Fake adapter returns deterministic identity reply for offline tests.");
 
   console.log([
     "# CP-ELIY-BETA2-REAL-LLM-IDENTITY-REPLY-TESTS",

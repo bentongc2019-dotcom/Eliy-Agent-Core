@@ -14,6 +14,8 @@ import {
 } from './beta2-architecture-shell.js';
 import {
   buildBeta2IdentityInstruction,
+  classifyBeta2IdentityPrompt,
+  ensureBeta2IdentityBusinessSignals,
   resolveBeta2ModelRouterState,
   runBeta2RealLlmAdapter
 } from './beta2-model-router.js';
@@ -205,6 +207,7 @@ async function handleChat(req, res) {
 
     const modelState = resolveBeta2ModelRouterState({ env: process.env });
     let mode = modelState.modelMode;
+    const identityRoutingIntent = classifyBeta2IdentityPrompt(userText);
     console.log(`[API /api/chat] 当前 Beta2 model mode: ${mode} | requested=${modelState.requestedModelMode} | provider=${modelState.modelProvider}`);
 
     // 读取所有的 HAC、HLAMT 和当前 State / Context 文件以构建交互上下文
@@ -379,6 +382,8 @@ async function handleChat(req, res) {
             artifact = null;
           }
         }
+
+        cleanReply = ensureBeta2IdentityBusinessSignals(cleanReply, userText, identityRoutingIntent);
       } catch (err) {
         beta2ModelDiagnostics = {
           ...modelState,
