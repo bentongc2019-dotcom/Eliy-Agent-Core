@@ -13,6 +13,11 @@ import {
   buildSkillRegistry
 } from './beta2-architecture-shell.js';
 import {
+  buildBeta2IdentityInstruction,
+  resolveBeta2ModelRouterState,
+  runBeta2RealLlmAdapter
+} from './beta2-model-router.js';
+import {
   resolveKernelRuntimePath,
   resolveRuntimeConfig
 } from './deploy-config.js';
@@ -49,6 +54,7 @@ loadEnv();
 const runtimeConfig = resolveRuntimeConfig({ env: process.env, rootDir: ROOT_DIR });
 const PORT = runtimeConfig.port;
 const HOST = runtimeConfig.host;
+let beta2ModelDiagnostics = resolveBeta2ModelRouterState({ env: process.env });
 const accountStore = createAccountStore({
   env: process.env,
   rootDir: ROOT_DIR,
@@ -197,8 +203,9 @@ async function handleChat(req, res) {
       status: 'sent'
     });
 
-    const mode = process.env.CANDIDATE_GENERATION_MODE || 'generic_fallback';
-    console.log(`[API /api/chat] 当前候选生成模式 CANDIDATE_GENERATION_MODE: ${mode}`);
+    const modelState = resolveBeta2ModelRouterState({ env: process.env });
+    let mode = modelState.modelMode;
+    console.log(`[API /api/chat] 当前 Beta2 model mode: ${mode} | requested=${modelState.requestedModelMode} | provider=${modelState.modelProvider}`);
 
     // 读取所有的 HAC、HLAMT 和当前 State / Context 文件以构建交互上下文
     const flashGuardRules = readKernelFile('runtime/ELIY_V0.3.1_FLASH_RUNTIME_GUARD_RULES.md');
@@ -252,186 +259,154 @@ async function handleChat(req, res) {
       : `msg_assistant_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
     if (mode === 'real_llm') {
-      const apiKey = process.env.DEEPSEEK_API_KEY;
-      if (!apiKey || apiKey === 'your_deepseek_api_key_here') {
-        reply = `Real LLM call failed.\nReason: DEEPSEEK_API_KEY is not configured.\nFallback not used in this test.`;
+      console.log('[API /api/chat] 模式为 real_llm，发起 Beta2 real LLM 调用...');
+      try {
+        const modeInstruction = isSfocusTriggered
+          ? `[MANDATORY SYSTEM INSTRUCTION FOR SFOCUS COLLABORATION]\n` +
+            `你必须在 Beta 2.0 real LLM 模式下运行。\n` +
+            `当前对话使用 S’FOCUS 协作方式，但当前仍是 shell 状态，不要假装完整 runtime 已接回。\n` +
+            `请按以下顺序推进：\n` +
+            `1. 澄清系统\n` +
+            `2. 澄清目标\n` +
+            `3. 澄清不良效应\n` +
+            `4. 提出可能制约\n` +
+            `5. 形成下一步行动\n` +
+            `不要替用户直接下最终判断。信息不足时，把缺失项放入待补充信息。\n\n`
+          : `[MANDATORY SYSTEM INSTRUCTION FOR DEFAULT MODE]\n` +
+            `你必须在 Eliy Beta 2.0 real LLM 模式下运行。\n` +
+            `Eliy 是面向老板与经营者的主体型商业智能体，帮助老板厘清问题、识别经营瓶颈、形成可确认的下一步。\n` +
+            `Eliy 保留老板判断权，不替用户做不可委托的关键经营判断。\n` +
+            `不要声称当前对话正在使用 S’FOCUS，除非 SFOCUS.skill 已被明确触发。\n` +
+            `普通对话中不要暴露 artifact、Recorder、NEXT_CONTEXT、debug_meta、proposed、accepted、frozen 等内部语言。\n` +
+            `不要默认生成 Action Card；只有用户明确要求，或对话已收敛到一个被用户接受的具体行动时才生成。\n\n`;
+
+        const artifactPayloadContract =
+          `[XML ARTIFACT PAYLOAD CONTRACT]\n` +
+          `1. 当用户要求整理成果（如“整理成果”、“整理成成果卡”等）时，你必须在回答最后使用 <eliy_artifact>...</eliy_artifact> 标签包裹一个标准的 JSON payload，类型为 current_result_card，格式如下：\n` +
+          `{\n` +
+          `  "schema_version": "0.1",\n` +
+          `  "type": "current_result_card",\n` +
+          `  "title": "当前成果卡｜待办事项草稿",\n` +
+          `  "status": "suggested",\n` +
+          `  "sections": [\n` +
+          `    { "label": "已知情况", "content": "..." },\n` +
+          `    { "label": "当前判断", "content": "..." },\n` +
+          `    { "label": "待补充信息", "content": "..." },\n` +
+          `    { "label": "下一步行动", "content": "..." }\n` +
+          `  ]\n` +
+          `}\n` +
+          `2. 当用户要求生成行动卡（如“请基于当前成果生成一张下一步行动卡”、“转成行动卡”）时，你必须在回答最后使用 <eliy_artifact>...</eliy_artifact> 标签包裹一个标准的 JSON payload，类型为 next_action_card，格式如下：\n` +
+          `{\n` +
+          `  "schema_version": "0.1",\n` +
+          `  "type": "next_action_card",\n` +
+          `  "title": "下一步行动卡｜整理获客成本关键数据",\n` +
+          `  "status": "suggested",\n` +
+          `  "fields": {\n` +
+          `    "行动名称": "...",\n` +
+          `    "行动目的": "...",\n` +
+          `    "下一步动作": "...",\n` +
+          `    "负责人": "待确认",\n` +
+          `    "完成标准": "...",\n` +
+          `    "检查时间": "待确认",\n` +
+          `    "待补充信息": "..."\n` +
+          `  }\n` +
+          `}\n` +
+          `缺失字段必须写“待确认”。完成标准尽量可观察。禁止输出 "frozen"、"决策库" 或 "高置信度诊断" 等字眼。\n` +
+          `如果不是用户明确要求整理成果或转行动卡，绝对不要输出 <eliy_artifact> 标签及 JSON。`;
+        const promptInstruction = [
+          buildBeta2IdentityInstruction({ activeSkill: activeSkillReceived }),
+          modeInstruction,
+          artifactPayloadContract
+        ].join('\n\n');
+
+        const classification = classifyArtifactInput(userText);
+        let taskPrompt = '';
+        if (classification === 'user_candidate_requires_judgment') {
+          taskPrompt =
+            `[MANDATORY: USER CANDIDATE JUDGMENT]\n` +
+            `用户提供了一个候选句并要求你判断。\n` +
+            `你必须严格按以下格式回复，不得偏离：\n\n` +
+            `具体评价：\n` +
+            `<用1-2句话评价这个候选句，说明它在清晰度、责任人、可执行度上好在哪里或差在哪里，以及是否适合作为待办事项>\n\n` +
+            `请确认是否采用作为最终版本。\n\n` +
+            `Mode: real LLM\n` +
+            `Model: DeepSeek V4 Flash`;
+        } else if (classification === 'explicit_acceptance' || classification === 'explicit_freeze') {
+          taskPrompt =
+            `[MANDATORY: EXPLICIT ACCEPTANCE]\n` +
+            `用户已经确认采纳或冻结了这个候选版本。\n` +
+            `你必须严格且仅按以下格式回复，不得偏离，也不得加入任何如“加入任务列表”等产品功能的动作：\n\n` +
+            `当前 artifact 已标记为 ${classification === 'explicit_freeze' ? 'frozen' : 'accepted'}。请提供下一条输入，或说明是否继续调整其他内容。\n\n` +
+            `Mode: real LLM\n` +
+            `Model: DeepSeek V4 Flash`;
+        } else {
+          taskPrompt = promptInstruction;
+        }
+
+        const messages = [
+          {
+            role: 'system',
+            content: `${flashGuardRules}\n\n${hacAgentRules}\n\n${frontendRules}${isSfocusTriggered ? '' : '\n\n' + defaultIdentityStyle}\n\n${hlamtFile}\n\n当前状态:\n${stateFile}\n\n当前上下文:\n${nextContextFile}\n\n${taskPrompt}${sfocusSkillContent ? '\n\n' + sfocusSkillContent : ''}`
+          },
+          ...(body.history || [{ role: 'user', content: userText }])
+        ];
+
+        const temperature = classification === 'user_candidate_requires_judgment' ? 0.2 : 0.7;
+        const modelReply = await runBeta2RealLlmAdapter({
+          modelState,
+          messages,
+          userText,
+          activeSkill: activeSkillReceived,
+          temperature,
+          maxTokens: 1024
+        });
+
+        beta2ModelDiagnostics = modelReply.modelState;
+        reply = modelReply.reply;
         cleanReply = reply;
-        console.error('[API /api/chat] 真实 LLM 调用失败：未配置 API Key，且根据测试约束不使用 fallback');
+
+        const match = reply.match(/<eliy_artifact>([\s\S]*?)<\/eliy_artifact>/);
+        if (match) {
+          try {
+            artifact = JSON.parse(match[1].trim());
+            if (!artifact.type || !artifact.title) {
+              artifact = null;
+            } else {
+              cleanReply = reply.replace(/<eliy_artifact>[\s\S]*?<\/eliy_artifact>/g, '').trim();
+            }
+          } catch (e) {
+            console.warn('[API /api/chat] Beta2 real LLM XML JSON 解析失败:', e.message);
+            artifact = null;
+          }
+        }
+      } catch (err) {
+        beta2ModelDiagnostics = {
+          ...modelState,
+          modelMode: 'generic_fallback',
+          realLlmEnabled: false,
+          fallbackReason: 'redacted',
+          lastModelErrorRedacted: true
+        };
+        mode = 'generic_fallback';
+        console.warn('[API /api/chat] Beta2 real LLM 调用失败，已 redacted 回退到 generic_fallback。');
+        reply = generateMockReply(userText);
+        if (reply.includes('Mode: generic fallback')) {
+          reply = reply.replace('Mode: generic fallback', 'Mode: generic fallback baseline');
+        } else {
+          reply += '\n\nMode: generic fallback baseline';
+        }
+        cleanReply = reply;
+        artifact = null;
         errors = [{
-          code: 'DEEPSEEK_API_KEY_MISSING',
-          message: 'DEEPSEEK_API_KEY is not configured.',
+          code: 'BETA2_REAL_LLM_FALLBACK',
+          message: 'Beta2 real LLM failed and fell back to generic_fallback.',
           retryable: true,
           trace_id: traceId
         }];
-        responseStatus = 500;
-      } else {
-        console.log('[API /api/chat] 模式为 real_llm，发起真实 LLM 调用...');
-        try {
-          const modeInstruction = isSfocusTriggered
-            ? `[MANDATORY SYSTEM INSTRUCTION FOR SFOCUS COLLABORATION]\n` +
-              `你必须在 "real LLM" 候选版本生成模式下运行。\n` +
-              `当前对话使用 S’FOCUS 协作方式。请按以下顺序推进：\n` +
-              `1. 澄清系统\n` +
-              `2. 澄清目标\n` +
-              `3. 澄清不良效应\n` +
-              `4. 提出可能制约\n` +
-              `5. 形成下一步行动\n` +
-              `不要替用户直接下最终判断。信息不足时，把缺失项放入待补充信息。\n\n`
-            : `[MANDATORY SYSTEM INSTRUCTION FOR DEFAULT MODE]\n` +
-              `你必须在 Eliy default mode 下运行。\n` +
-              `不要声称当前对话正在使用 S’FOCUS，除非 SFOCUS.skill 已被明确触发。\n` +
-              `先理解用户真实意图，再决定是澄清、解释、收敛还是推进。\n` +
-              `普通对话中不要暴露 artifact、Recorder、NEXT_CONTEXT、debug_meta、proposed、accepted、frozen 等内部语言。\n` +
-              `不要默认生成 Action Card；只有用户明确要求，或对话已收敛到一个被用户接受的具体行动时才生成。\n\n`;
-
-          const artifactPayloadContract =
-            `[XML ARTIFACT PAYLOAD CONTRACT]\n` +
-            `1. 当用户要求整理成果（如“整理成果”、“整理成成果卡”等）时，你必须在回答最后使用 <eliy_artifact>...</eliy_artifact> 标签包裹一个标准的 JSON payload，类型为 current_result_card，格式如下：\n` +
-            `{\n` +
-            `  "schema_version": "0.1",\n` +
-            `  "type": "current_result_card",\n` +
-            `  "title": "当前成果卡｜待办事项草稿",\n` +
-            `  "status": "suggested",\n` +
-            `  "sections": [\n` +
-            `    { "label": "已知情况", "content": "..." },\n` +
-            `    { "label": "当前判断", "content": "..." },\n` +
-            `    { "label": "待补充信息", "content": "..." },\n` +
-            `    { "label": "下一步行动", "content": "..." }\n` +
-            `  ]\n` +
-            `}\n` +
-            `2. 当用户要求生成行动卡（如“请基于当前成果生成一张下一步行动卡”、“转成行动卡”）时，你必须在回答最后使用 <eliy_artifact>...</eliy_artifact> 标签包裹一个标准的 JSON payload，类型为 next_action_card，格式如下：\n` +
-            `{\n` +
-            `  "schema_version": "0.1",\n` +
-            `  "type": "next_action_card",\n` +
-            `  "title": "下一步行动卡｜整理获客成本关键数据",\n` +
-            `  "status": "suggested",\n` +
-            `  "fields": {\n` +
-            `    "行动名称": "...",\n` +
-            `    "行动目的": "...",\n` +
-            `    "下一步动作": "...",\n` +
-            `    "负责人": "待确认",\n` +
-            `    "完成标准": "...",\n` +
-            `    "检查时间": "待确认",\n` +
-            `    "待补充信息": "..."\n` +
-            `  }\n` +
-            `}\n` +
-            `缺失字段必须写“待确认”。完成标准尽量可观察。禁止输出 "frozen"、"决策库" 或 "高置信度诊断" 等字眼。\n` +
-            `如果不是用户明确要求整理成果或转行动卡，绝对不要输出 <eliy_artifact> 标签及 JSON。`;
-          const promptInstruction = modeInstruction + artifactPayloadContract;
-
-          const classification = classifyArtifactInput(userText);
-          let taskPrompt = '';
-          if (classification === 'user_candidate_requires_judgment') {
-            taskPrompt = 
-              `[MANDATORY: USER CANDIDATE JUDGMENT]\n` +
-              `用户提供了一个候选句并要求你判断。\n` +
-              `你必须严格按以下格式回复，不得偏离：\n\n` +
-              `具体评价：\n` +
-              `<用1-2句话评价这个候选句，说明它在清晰度、责任人、可执行度上好在哪里或差在哪里，以及是否适合作为待办事项>\n\n` +
-              `请确认是否采用作为最终版本。\n\n` +
-              `Mode: real LLM\n` +
-              `Model: DeepSeek V4 Flash`;
-          } else if (classification === 'explicit_acceptance' || classification === 'explicit_freeze') {
-            taskPrompt = 
-              `[MANDATORY: EXPLICIT ACCEPTANCE]\n` +
-              `用户已经确认采纳或冻结了这个候选版本。\n` +
-              `你必须严格且仅按以下格式回复，不得偏离，也不得加入任何如“加入任务列表”等产品功能的动作：\n\n` +
-              `当前 artifact 已标记为 ${classification === 'explicit_freeze' ? 'frozen' : 'accepted'}。请提供下一条输入，或说明是否继续调整其他内容。\n\n` +
-              `Mode: real LLM\n` +
-              `Model: DeepSeek V4 Flash`;
-          } else {
-            taskPrompt = promptInstruction;
-          }
-
-          const messages = [
-            {
-              role: 'system',
-              content: `${flashGuardRules}\n\n${hacAgentRules}\n\n${frontendRules}${isSfocusTriggered ? '' : '\n\n' + defaultIdentityStyle}\n\n${hlamtFile}\n\n当前状态:\n${stateFile}\n\n当前上下文:\n${nextContextFile}\n\n${taskPrompt}${sfocusSkillContent ? '\n\n' + sfocusSkillContent : ''}`
-            },
-            ...(body.history || [{ role: 'user', content: userText }])
-          ];
-
-          const temperature = classification === 'user_candidate_requires_judgment' ? 0.2 : 0.7;
-
-          let textReply = '';
-          let attempts = 0;
-          const maxAttempts = 3;
-
-          while (attempts < maxAttempts) {
-            attempts++;
-            try {
-              const response = await fetch(`${process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'}/v1/chat/completions`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                  model: model,
-                  messages: messages,
-                  temperature: temperature,
-                  max_tokens: 1024
-                })
-              });
-
-              if (response.ok) {
-                const data = await response.json();
-                const possibleReply = data.choices[0]?.message?.content || '';
-                if (possibleReply.trim()) {
-                  textReply = possibleReply;
-                  break;
-                }
-                console.log(`[API /api/chat] 第 ${attempts} 次调用返回空响应，准备重试...`);
-              } else {
-                const errText = await response.text();
-                console.log(`[API /api/chat] 第 ${attempts} 次调用接口错误 (${response.status}): ${errText}，准备重试...`);
-              }
-            } catch (err) {
-              console.log(`[API /api/chat] 第 ${attempts} 次调用异常: ${err.message}，准备重试...`);
-            }
-
-            if (attempts < maxAttempts) {
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-          }
-
-          if (!textReply.trim()) {
-            throw new Error("DeepSeek API returned empty or failed after 3 attempts.");
-          }
-          reply = textReply;
-          cleanReply = reply;
-
-          // 安全提取 Real LLM 返回的结构化 XML Payload
-          const match = reply.match(/<eliy_artifact>([\s\S]*?)<\/eliy_artifact>/);
-          if (match) {
-            try {
-              artifact = JSON.parse(match[1].trim());
-              if (!artifact.type || !artifact.title) {
-                artifact = null;
-              } else {
-                // 成功提取后，将 XML 标签从 reply 剔除，不渲染到前端聊天文本中
-                cleanReply = reply.replace(/<eliy_artifact>[\s\S]*?<\/eliy_artifact>/g, '').trim();
-              }
-            } catch (e) {
-              console.warn('[API /api/chat] Real LLM XML JSON 解析失败:', e.message);
-              artifact = null;
-            }
-          }
-        } catch (err) {
-          reply = `Real LLM call failed.\nReason: ${err.message}\nFallback not used in this test.`;
-          cleanReply = reply;
-          console.error('[API /api/chat] 真实 LLM 调用失败，不使用 fallback:', err.message);
-          errors = [{
-            code: 'DEEPSEEK_REAL_LLM_ERROR',
-            message: err.message,
-            retryable: true,
-            trace_id: traceId
-          }];
-          responseStatus = 500;
-        }
       }
     } else {
       console.log('[API /api/chat] 模式为 generic_fallback，直接走对照 Mock 响应...');
+      beta2ModelDiagnostics = modelState;
       reply = generateMockReply(userText);
       // 统一替换或在末尾追加 Mode: generic fallback baseline
       if (reply.includes('Mode: generic fallback')) {
@@ -534,6 +509,12 @@ async function handleChat(req, res) {
 
     const skillRegistry = buildSkillRegistry(ROOT_DIR, activeSkillReceived);
     const activeSkillRecord = skillRegistry.skills.find((item) => item.id === activeSkillReceived) || skillRegistry.skills[0];
+    beta2ModelDiagnostics = {
+      ...beta2ModelDiagnostics,
+      ...modelState,
+      fallbackReason: beta2ModelDiagnostics.fallbackReason || modelState.fallbackReason || null,
+      lastModelErrorRedacted: Boolean(beta2ModelDiagnostics.lastModelErrorRedacted || modelState.lastModelErrorRedacted)
+    };
     const responseEnvelope = {
       reply: replyText,
       gate2: null,
@@ -542,7 +523,12 @@ async function handleChat(req, res) {
       runtime: buildRuntimeStatus({
         runtimeConfig,
         activeSkill: activeSkillReceived,
-        modelMode: mode
+        modelMode: beta2ModelDiagnostics.modelMode,
+        requestedModelMode: beta2ModelDiagnostics.requestedModelMode,
+        realLlmEnabled: beta2ModelDiagnostics.realLlmEnabled,
+        modelProvider: beta2ModelDiagnostics.modelProvider,
+        fallbackReason: beta2ModelDiagnostics.fallbackReason,
+        lastModelErrorRedacted: beta2ModelDiagnostics.lastModelErrorRedacted
       }),
       skill: {
         activeSkill: activeSkillReceived,
@@ -1436,7 +1422,12 @@ async function handleRuntimeStatus(req, res) {
   sendJson(res, 200, buildRuntimeStatus({
     runtimeConfig,
     activeSkill: getActiveSkillFromRequest(req),
-    modelMode: process.env.CANDIDATE_GENERATION_MODE || 'generic_fallback'
+    modelMode: beta2ModelDiagnostics.modelMode,
+    requestedModelMode: beta2ModelDiagnostics.requestedModelMode,
+    realLlmEnabled: beta2ModelDiagnostics.realLlmEnabled,
+    modelProvider: beta2ModelDiagnostics.modelProvider,
+    fallbackReason: beta2ModelDiagnostics.fallbackReason,
+    lastModelErrorRedacted: beta2ModelDiagnostics.lastModelErrorRedacted
   }), noStoreHeaders());
 }
 

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
+import { resolveExpectedBeta2ModelMode } from "./beta2-shell-test-utils.js";
 
 type StepStatus = "PASS" | "FAIL" | "WARN";
 
@@ -19,6 +20,7 @@ type ConsoleEntry = {
 const results: CheckResult[] = [];
 const consoleEntries: ConsoleEntry[] = [];
 const artifactDir = path.join(os.tmpdir(), `eliy-beta2-browser-regression-${Date.now()}`);
+let activeInviteCode = "";
 
 function record(status: StepStatus, step: string, detail?: string): void {
   results.push({ status, step, detail });
@@ -34,9 +36,36 @@ function assertCheck(condition: boolean, step: string, detail?: string): void {
 }
 
 function sanitize(text: string): string {
-  const invite = process.env.ELIY_OWNER_TEST_INVITE_CODE || "";
   let output = text;
-  if (invite) output = output.split(invite).join("<INVITE_CODE_REDACTED>");
+  if (activeInviteCode) output = output.split(activeInviteCode).join("<INVITE_CODE_REDACTED>");
+  return output;
+}
+
+function parseEnvFile(filePath: string): Record<string, string> {
+  if (!fs.existsSync(filePath)) return {};
+  const output: Record<string, string> = {};
+  const lines = fs.readFileSync(filePath, "utf8").split(/\r?\n/);
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) continue;
+
+    const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+    if (!match) continue;
+
+    const key = match[1];
+    let value = match[2].trim();
+
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    output[key] = value;
+  }
+
   return output;
 }
 
@@ -45,13 +74,18 @@ function config(): {
   email: string;
   inviteCode: string;
   headless: boolean;
+  expectedModelMode: "generic_fallback" | "real_llm";
 } {
-  const baseUrl = String(process.env.ELIY_OWNER_TEST_URL || "https://hk-beta2.eliyai.com").replace(/\/+$/, "");
-  const email = String(process.env.ELIY_OWNER_TEST_EMAIL || "owner-test@eliyai.com");
-  const inviteCode = String(process.env.ELIY_OWNER_TEST_INVITE_CODE || "");
-  const headless = process.env.ELIY_BROWSER_HEADLESS === "0" ? false : true;
+  const envFilePath = "/etc/eliy-beta2/env";
+  const fileEnv = parseEnvFile(envFilePath);
+  const env = { ...fileEnv, ...process.env };
+  const baseUrl = String(env.ELIY_OWNER_TEST_URL || env.ELIY_PUBLIC_BASE_URL || "https://hk-beta2.eliyai.com").replace(/\/+$/, "");
+  const email = String(env.ELIY_OWNER_TEST_EMAIL || "owner-test@eliyai.com");
+  const inviteCode = String(env.ELIY_OWNER_TEST_INVITE_CODE || env.ELIY_INVITE_CODE || env.ELIY_INVITE_CODES || "");
+  const headless = env.ELIY_BROWSER_HEADLESS === "0" ? false : true;
+  activeInviteCode = inviteCode;
 
-  return { baseUrl, email, inviteCode, headless };
+  return { baseUrl, email, inviteCode, headless, expectedModelMode: resolveExpectedBeta2ModelMode(env) };
 }
 
 async function saveFailureArtifacts(page: Page, label: string): Promise<void> {
@@ -237,6 +271,7 @@ async function main(): Promise<void> {
   console.log(`owner_email_present=${cfg.email ? "YES" : "NO"}`);
   console.log(`invite_code_present_redacted=${cfg.inviteCode ? "YES" : "NO"}`);
   console.log(`headless=${cfg.headless ? "YES" : "NO"}`);
+  console.log(`expected_beta2_model_mode=${cfg.expectedModelMode}`);
 
   assertCheck(Boolean(cfg.baseUrl), "config base URL present");
   assertCheck(Boolean(cfg.email), "config owner email present");
@@ -360,7 +395,7 @@ async function main(): Promise<void> {
 
     await clickRequiredTestId(page, "workspace-debug-button", "debug workspace clicked");
     assertCheck(await textVisible(page, "owner_test", 15000), "debug workspace shows runtime environment");
-    assertCheck(await textVisible(page, "generic_fallback", 15000), "debug workspace shows generic fallback mode");
+    assertCheck(await textVisible(page, cfg.expectedModelMode, 15000), `debug workspace shows ${cfg.expectedModelMode} mode`);
     assertCheck(await textVisible(page, "p0_foundation_agent_harness_shell", 15000), "debug workspace shows shell stage");
 
     await clickRequiredTestId(page, "workspace-skills-button", "skills workspace clicked");
@@ -389,38 +424,66 @@ async function main(): Promise<void> {
 
     const latestAssistantLocator = await getRequiredVisibleTestId(page, "latest-assistant-message", "latest assistant reply visible");
     let latestAssistantText = await latestAssistantLocator.innerText().catch(() => "");
-    const requiredTerms = [
-      "Eliy Beta 2.0 Owner Test",
-      "登录",
-      "会话保存",
-      "消息历史",
-      "trace",
-      "基础对话链路",
-      "经营管理能力仍处于后续工程化阶段",
-    ];
     assertCheck(Boolean(latestAssistantText.trim().length > 0), "latest assistant reply non-empty");
     const latestAssistantDeadline = Date.now() + 45000;
 
-    while (Date.now() < latestAssistantDeadline) {
-      latestAssistantText = await latestAssistantLocator.innerText().catch(() => "");
-      const missingRequiredTerms = requiredTerms.filter((term) => !latestAssistantText.includes(term));
-      if (missingRequiredTerms.length === 0) break;
-      await page.waitForTimeout(500);
-    }
+    if (cfg.expectedModelMode === "generic_fallback") {
+      const requiredTerms = [
+        "Eliy Beta 2.0 Owner Test",
+        "登录",
+        "会话保存",
+        "消息历史",
+        "trace",
+        "基础对话链路",
+        "经营管理能力仍处于后续工程化阶段",
+      ];
 
-    assertCheck(latestAssistantText.includes("Eliy Beta 2.0 Owner Test"), "latest assistant reply contains Owner Test phrase");
-
-    for (const term of requiredTerms) {
-      assertCheck(latestAssistantText.includes(term), `latest assistant reply contains required term: ${term}`);
-    }
-
-    for (const term of ["请提供更多业务细节", "请提供具体数据", "请说明目前的核心阻碍"]) {
-      if (latestAssistantText.includes(term)) {
-        record("FAIL", `latest assistant reply contains forbidden term: ${term}`);
-        throw new Error(`latest assistant reply contains forbidden term: ${term}`);
-      } else {
-        record("PASS", `latest assistant reply excludes forbidden term: ${term}`);
+      while (Date.now() < latestAssistantDeadline) {
+        latestAssistantText = await latestAssistantLocator.innerText().catch(() => "");
+        const missingRequiredTerms = requiredTerms.filter((term) => !latestAssistantText.includes(term));
+        if (missingRequiredTerms.length === 0) break;
+        await page.waitForTimeout(500);
       }
+
+      assertCheck(latestAssistantText.includes("Eliy Beta 2.0 Owner Test"), "latest assistant reply contains Owner Test phrase");
+
+      for (const term of requiredTerms) {
+        assertCheck(latestAssistantText.includes(term), `latest assistant reply contains required term: ${term}`);
+      }
+
+      for (const term of ["请提供更多业务细节", "请提供具体数据", "请说明目前的核心阻碍"]) {
+        if (latestAssistantText.includes(term)) {
+          record("FAIL", `latest assistant reply contains forbidden term: ${term}`);
+          throw new Error(`latest assistant reply contains forbidden term: ${term}`);
+        } else {
+          record("PASS", `latest assistant reply excludes forbidden term: ${term}`);
+        }
+      }
+    } else {
+      const requiredTerms = [
+        "我是 Eliy",
+        "老板",
+        "经营",
+        "判断",
+      ];
+      while (Date.now() < latestAssistantDeadline) {
+        latestAssistantText = await latestAssistantLocator.innerText().catch(() => "");
+        const missingRequiredTerms = requiredTerms.filter((term) => !latestAssistantText.includes(term));
+        if (missingRequiredTerms.length === 0) break;
+        await page.waitForTimeout(500);
+      }
+
+      assertCheck(
+        latestAssistantText.includes("我是 Eliy") || latestAssistantText.includes("我是Eliy"),
+        "latest assistant reply identifies Eliy"
+      );
+      for (const term of requiredTerms.slice(1)) {
+        assertCheck(latestAssistantText.includes(term), `latest assistant reply contains required term: ${term}`);
+      }
+      assertCheck(
+        !latestAssistantText.includes("Mode: generic fallback baseline"),
+        "latest assistant reply excludes generic fallback baseline text"
+      );
     }
 
     // ownerTestWaitForTraceChipAfterDelayedAttach: wait for frontend delayed trace-chip reattach.

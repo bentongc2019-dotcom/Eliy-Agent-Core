@@ -1,6 +1,7 @@
 import { strict as assert } from "node:assert";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { fetchJson, spawnShellServer } from "./beta2-shell-test-utils.js";
 
 type TestResult = {
   id: string;
@@ -41,7 +42,8 @@ async function run(): Promise<void> {
       ELIY_EVIDENCE_DIR: "/var/lib/eliy-beta2/runtime/hlamt",
       ELIY_ALLOWLIST: "owner-test@eliyai.com",
       ELIY_INVITE_CODES: "BETA-INVITE",
-      CANDIDATE_GENERATION_MODE: "generic_fallback"
+      ELIY_BETA2_MODEL_MODE: "generic_fallback",
+      ELIY_BETA2_REAL_LLM_ENABLED: "false"
     },
     rootDir: repoRoot
   });
@@ -87,6 +89,25 @@ async function run(): Promise<void> {
     "status"
   ]);
   record(results, "RT-STATUS-03", "O 单 shell schema exposes the required field keys.");
+
+  const realLlmServer = await spawnShellServer({
+    ELIY_BETA2_MODEL_MODE: "real_llm",
+    ELIY_BETA2_LLM_PROVIDER: "fake",
+    ELIY_BETA2_LLM_MODEL: "beta2-fake-model"
+  });
+
+  try {
+    const runtimeStatusResponse = await fetchJson(`${realLlmServer.baseUrl}/api/runtime/status`);
+    assert.equal(runtimeStatusResponse.res.status, 200);
+    assert.equal(runtimeStatusResponse.payload.environment, "owner_test");
+    assert.equal(runtimeStatusResponse.payload.modelMode, "real_llm");
+    assert.equal(runtimeStatusResponse.payload.realLlmEnabled, true);
+    assert.equal(runtimeStatusResponse.payload.activeSkill, "default");
+    assert.equal(runtimeStatusResponse.payload.oOrderWorkbench, "shell");
+    record(results, "RT-STATUS-04", "Runtime status endpoint reports real_llm when Beta2 explicit mode is enabled.");
+  } finally {
+    await realLlmServer.stop();
+  }
 
   console.log([
     "# CP-ELIY-BETA2-RUNTIME-STATUS-TESTS",
