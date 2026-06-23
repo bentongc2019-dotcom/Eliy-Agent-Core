@@ -611,16 +611,26 @@ html, body {
 }
 
 .workspace-shell {
-  margin: 1rem 1.5rem 0.25rem;
+  position: absolute;
+  top: 76px;
+  right: 1.5rem;
+  bottom: 112px;
+  width: min(390px, calc(100% - 3rem));
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: rgba(20, 26, 45, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   box-shadow: var(--shadow);
   flex: 0 0 auto;
-  display: flex;
+  display: none;
   flex-direction: column;
-  max-height: min(30dvh, 260px);
+  max-height: calc(100dvh - 188px);
   overflow: hidden;
+  z-index: 8;
+}
+.workspace-shell.open {
+  display: flex;
 }
 .workspace-shell-header {
   display: flex;
@@ -650,12 +660,31 @@ html, body {
   font-size: 0.72rem;
   white-space: nowrap;
 }
+.workspace-shell-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+.workspace-shell-close {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: rgba(8, 10, 16, 0.42);
+  color: var(--color-text);
+  padding: 0.35rem 0.55rem;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+.workspace-shell-close:hover {
+  border-color: rgba(155, 140, 255, 0.45);
+  background: rgba(155, 140, 255, 0.12);
+}
 .workspace-shell-body {
   padding: 0.9rem 1rem 1rem;
   display: grid;
   gap: 0.85rem;
   min-height: 0;
-  max-height: min(21dvh, 184px);
+  max-height: calc(100dvh - 270px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -815,6 +844,12 @@ html, body {
   flex-direction: column;
   gap: 1.5rem;
   -webkit-overflow-scrolling: touch;
+}
+#chatMain.workspace-drawer-open .messages {
+  padding-right: min(430px, 40vw);
+}
+#chatMain.workspace-drawer-open .chat-footer {
+  padding-right: min(430px, 40vw);
 }
 
 .message {
@@ -1396,11 +1431,19 @@ html, body {
     display: none;
   }
   .workspace-shell {
-    margin: 0.75rem 0.75rem 0.25rem;
-    max-height: min(28dvh, 190px);
+    top: 64px;
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: auto;
+    width: auto;
+    max-height: min(38dvh, 260px);
   }
   .workspace-shell-body {
-    max-height: min(18dvh, 128px);
+    max-height: min(27dvh, 180px);
+  }
+  #chatMain.workspace-drawer-open .messages,
+  #chatMain.workspace-drawer-open .chat-footer {
+    padding-right: 0.75rem;
   }
   .workspace-summary-grid,
   .workspace-schema-grid {

@@ -18,10 +18,11 @@ const state = {
   userId: null,
   authSessionId: null,
   lastSubmittedUserText: '',
-  workspacePanel: 'conversations',
+  workspacePanel: null,
   runtimeStatus: null,
   skillRegistry: null,
-  oOrderSchema: null
+  oOrderSchema: null,
+  debugTraceIds: []
 };
 
 const RECENT_CONVERSATIONS_KEY = 'ELIY_RECENT_CONVERSATIONS';
@@ -52,6 +53,7 @@ const workspaceShellTitle = $('#workspaceShellTitle');
 const workspaceShellSubtitle = $('#workspaceShellSubtitle');
 const workspaceShellState = $('#workspaceShellState');
 const workspaceShellBody = $('#workspaceShellBody');
+const workspaceShellCloseBtn = $('#workspaceShellCloseBtn');
 const workspaceNavButtons = Array.from(document.querySelectorAll('[data-workspace-panel]'));
 
 function syncComposerState() {
@@ -81,11 +83,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   setupEventHandlers();
   setupAutoResize();
   syncComposerState();
-  setWorkspacePanel('conversations');
+  closeWorkspacePanel();
 
   await initUserContext();
   await bootstrapConversationState();
-  await renderWorkspacePanel(state.workspacePanel);
 });
 
 // === 用户上下文与安全拦截守卫 ===
@@ -138,14 +139,14 @@ function setupEventHandlers() {
     window.location.href = './login.html';
   });
 
-  // 模型选择下拉菜单切换展示
-  dropdownTrigger.addEventListener('click', (e) => {
+  // Legacy model dropdown may be absent in the chat-first header.
+  dropdownTrigger?.addEventListener('click', (e) => {
     e.stopPropagation();
-    dropdownMenu.classList.toggle('show');
+    dropdownMenu?.classList.toggle('show');
   });
   
   document.addEventListener('click', () => {
-    dropdownMenu.classList.remove('show');
+    dropdownMenu?.classList.remove('show');
   });
 
   const dropdownItems = document.querySelectorAll('.dropdown-item');
@@ -155,9 +156,10 @@ function setupEventHandlers() {
       dropdownItems.forEach(i => i.classList.remove('active'));
       item.classList.add('active');
       const text = item.textContent.split('(')[0].trim();
-      $('.model-name').textContent = text;
+      const modelName = $('.model-name');
+      if (modelName) modelName.textContent = text;
       state.activeModel = text;
-      dropdownMenu.classList.remove('show');
+      dropdownMenu?.classList.remove('show');
     });
   });
 
@@ -173,6 +175,11 @@ function setupEventHandlers() {
       setWorkspacePanel(panel);
       closeSidebar();
     });
+  });
+  workspaceShellCloseBtn?.addEventListener('click', closeWorkspacePanel);
+  $('#settingsBtn')?.addEventListener('click', () => {
+    setWorkspacePanel('settings');
+    closeSidebar();
   });
 
   // 点击左侧增强技能 S'FOCUS Skill 逻辑
@@ -559,10 +566,6 @@ function renderGate2Envelope(parentDiv, envelope, options = {}) {
     renderGate2ReframeCandidatePanel(bubble, gate2.reframe_candidate);
   }
 
-  if (traceId) {
-    renderGate2TraceChip(bubble, traceId);
-  }
-
   if (!gate2 && (plan.legacy_artifact || envelope.legacy_artifact || envelope.artifact)) {
     renderLegacyArtifactFallback(parentDiv, envelope, originalUserText);
   }
@@ -623,7 +626,7 @@ async function startNewSession() {
   msgList.innerHTML = '';
   appendMessage('assistant', getWelcomeMessageHTML(), true);
   renderRecentConversations();
-  void renderWorkspacePanel(state.workspacePanel);
+  if (state.workspacePanel) void renderWorkspacePanel(state.workspacePanel);
 
   return state.currentConversation;
 }
@@ -716,6 +719,9 @@ function appendMessage(role, content, isHTML = false, options = {}) {
   if (role === 'assistant') {
     div.setAttribute('data-message-role', 'assistant');
   }
+  if (options.traceId) {
+    div.setAttribute('data-trace-id', options.traceId);
+  }
   div.innerHTML = `
     <div class="avatar">${avatarText}</div>
     <div class="bubble">${isHTML ? content : formatText(content)}</div>
@@ -743,6 +749,11 @@ function appendMessage(role, content, isHTML = false, options = {}) {
     });
   }
   return div;
+}
+
+function rememberTraceId(traceId) {
+  if (!traceId) return;
+  state.debugTraceIds = [traceId, ...state.debugTraceIds.filter((item) => item !== traceId)].slice(0, 12);
 }
 
 function createConversationId() {
@@ -804,9 +815,7 @@ function persistConversationMessage(message) {
   conversations.unshift(state.currentConversation);
   setRecentConversations(conversations);
   renderRecentConversations();
-  if (state.workspacePanel === 'conversations') {
-    void renderWorkspacePanel('conversations');
-  }
+  if (state.workspacePanel) void renderWorkspacePanel(state.workspacePanel);
 }
 
 function createConversationTitle(text) {
@@ -847,9 +856,7 @@ function renderRecentConversations() {
     historyList.appendChild(item);
   });
 
-  if (state.workspacePanel === 'conversations') {
-    void renderWorkspacePanel('conversations');
-  }
+  if (state.workspacePanel) void renderWorkspacePanel(state.workspacePanel);
 }
 
 async function loadConversation(conversationId) {
@@ -905,7 +912,12 @@ async function loadConversation(conversationId) {
     appendMessage('assistant', getWelcomeMessageHTML(), true);
   } else {
     state.currentConversation.messages.forEach(message => {
-      const messageDiv = appendMessage(message.role, message.content, !!message.isHTML);
+      const messageDiv = appendMessage(message.role, message.content, !!message.isHTML, {
+        messageId: message.messageId || null,
+        traceId: message.traceId || message.trace_id || null,
+        runId: message.runId || null
+      });
+      if (message.traceId || message.trace_id) rememberTraceId(message.traceId || message.trace_id);
       if (message.role === 'assistant') {
         const storedEnvelope = normalizeGate2Envelope({
           reply: message.content,
@@ -940,7 +952,7 @@ async function loadConversation(conversationId) {
   }
 
   renderRecentConversations();
-  void renderWorkspacePanel(state.workspacePanel);
+  if (state.workspacePanel) void renderWorkspacePanel(state.workspacePanel);
   refreshAssistantMessageSelectors();
   return state.currentConversation;
 }
@@ -1016,14 +1028,48 @@ function updateSkillObserver(debugMeta = null) {
 }
 
 function setWorkspacePanel(panel) {
+  if (panel === 'conversations') {
+    focusConversationsPanel();
+    return;
+  }
   state.workspacePanel = panel;
   workspaceNavButtons.forEach((button) => {
     const active = button.getAttribute('data-workspace-panel') === panel;
     button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
-  if (workspaceShell) workspaceShell.hidden = false;
+  if (workspaceShell) {
+    workspaceShell.hidden = false;
+    workspaceShell.classList.add('open');
+  }
+  chatMain?.classList.add('workspace-drawer-open');
   void renderWorkspacePanel(panel);
+}
+
+function focusConversationsPanel() {
+  state.workspacePanel = null;
+  workspaceNavButtons.forEach((button) => {
+    const active = button.getAttribute('data-workspace-panel') === 'conversations';
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+  closeWorkspacePanel();
+  historyList?.scrollIntoView({ block: 'nearest' });
+  historyList?.focus?.();
+}
+
+function closeWorkspacePanel() {
+  state.workspacePanel = null;
+  if (workspaceShell) {
+    workspaceShell.classList.remove('open');
+    workspaceShell.hidden = true;
+  }
+  chatMain?.classList.remove('workspace-drawer-open');
+  workspaceNavButtons.forEach((button) => {
+    const active = button.getAttribute('data-workspace-panel') === 'conversations';
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
 }
 
 async function fetchRuntimeStatus() {
@@ -1050,6 +1096,7 @@ async function fetchOOrderSchema() {
 function renderWorkspaceCard(title, bodyHTML, pillText = 'Shell Ready') {
   if (!workspaceShell || !workspaceShellTitle || !workspaceShellSubtitle || !workspaceShellState || !workspaceShellBody) return;
   workspaceShell.hidden = false;
+  workspaceShell.classList.add('open');
   workspaceShellTitle.textContent = title;
   workspaceShellSubtitle.textContent = 'Chat-first shell ready';
   workspaceShellState.textContent = pillText;
@@ -1132,9 +1179,10 @@ async function renderSkillsWorkspace() {
           <strong>${registry.registryLoaded ? 'true' : 'false'}</strong>
         </div>
       </div>
+      <div class="workspace-empty">S’FOCUS：shell / available。当前入口只用于辅助澄清，不表示完整 runtime active。</div>
       <div class="workspace-list">${items}</div>
     `,
-    'Registry Ready'
+    'Shell / Available'
   );
 }
 
@@ -1143,6 +1191,7 @@ async function renderDebugWorkspace() {
   const rows = [
     ['environment', runtimeStatus.environment],
     ['version', runtimeStatus.version],
+    ['internalVersion', 'v0.3.2'],
     ['stage', runtimeStatus.stage],
     ['modelMode', runtimeStatus.modelMode],
     ['realLlmEnabled', runtimeStatus.realLlmEnabled],
@@ -1152,6 +1201,9 @@ async function renderDebugWorkspace() {
     ['oOrderRuntimeEnabled', runtimeStatus.oOrderRuntimeEnabled],
     ['activeSkill', runtimeStatus.activeSkill],
   ];
+  const traceRows = state.debugTraceIds.length > 0
+    ? state.debugTraceIds.map((traceId) => `<div><dt>trace_id</dt><dd><code data-testid="debug-trace-id">${escapeHTML(traceId)}</code></dd></div>`).join('')
+    : '<div><dt>trace_id</dt><dd>暂无 trace，发送消息后显示</dd></div>';
   renderWorkspaceCard(
     'Debug / 诊断信息',
     `
@@ -1171,6 +1223,7 @@ async function renderDebugWorkspace() {
       </div>
       <dl class="workspace-kv-list">
         ${rows.map(([key, value]) => `<div><dt>${escapeHTML(key)}</dt><dd>${escapeHTML(String(value))}</dd></div>`).join('')}
+        ${traceRows}
       </dl>
     `,
     'Runtime Ready'
@@ -1206,8 +1259,9 @@ async function renderWorkbenchWorkspace() {
           </div>
         `).join('')}
       </div>
+      <div class="workspace-empty">O 单仍是 shell / schema ready，runtimeEnabled=false。使用右上角“回到对话”可一键收起。</div>
     `,
-    'Schema Ready'
+    'Shell / Schema Ready'
   );
 }
 
@@ -1229,7 +1283,7 @@ function renderSettingsWorkspace() {
           <strong>${escapeHTML(state.sessionId || 'n/a')}</strong>
         </div>
       </div>
-      <div class="workspace-empty">Shell / configuration entrypoint only. No full runtime surface exposed here.</div>
+      <div class="workspace-empty">Compact settings only. 使用右上角“回到对话”可关闭并回到当前聊天。</div>
     `,
     'Shell Only'
   );
@@ -1237,6 +1291,10 @@ function renderSettingsWorkspace() {
 
 async function renderWorkspacePanel(panel = state.workspacePanel) {
   if (!workspaceShell || !workspaceShellBody) return;
+  if (!panel || panel === 'conversations') {
+    closeWorkspacePanel();
+    return;
+  }
   try {
     if (panel === 'skills') {
       await renderSkillsWorkspace();
@@ -1339,6 +1397,8 @@ async function simulateEliyResponse(userText, context = {}) {
   let assistantMessageId = createLocalMessageId('msg_assistant');
   const runId = createLocalRunId();
   const traceId = createLocalTraceId(runId);
+  typingDiv.setAttribute('data-trace-id', traceId);
+  rememberTraceId(traceId);
 
   let response = '';
   let legacyArtifactPayload = null;
@@ -1387,6 +1447,10 @@ async function simulateEliyResponse(userText, context = {}) {
       gate2Payload = envelope.gate2 || null;
       errors = envelope.errors || [];
       assistantMessageId = envelope.message_id || assistantMessageId;
+      if (envelope.trace_id) {
+        typingDiv.setAttribute('data-trace-id', envelope.trace_id);
+        rememberTraceId(envelope.trace_id);
+      }
       updateSkillObserver(data.debug_meta || null);
     } else {
       const errorData = await res.json().catch(() => null);
@@ -1413,6 +1477,10 @@ async function simulateEliyResponse(userText, context = {}) {
           trace_id: envelope.trace_id || traceId
         }];
         assistantMessageId = envelope.message_id || assistantMessageId;
+        if (envelope.trace_id) {
+          typingDiv.setAttribute('data-trace-id', envelope.trace_id);
+          rememberTraceId(envelope.trace_id);
+        }
         updateSkillObserver(errorData.debug_meta || null);
       } else {
         const errorText = await res.text().catch(() => '');
@@ -1558,23 +1626,6 @@ async function simulateEliyResponse(userText, context = {}) {
   if (!gate2Payload && !legacyArtifactPayload) {
     detectAndRenderArtifact(typingDiv, response, userText, null);
   }
-
-  // ownerTestPreserveTraceChipAfterArtifactDetection: keep trace chip visible for normal assistant replies.
-  const ownerTestTraceBubble = typingDiv.querySelector('.bubble');
-  if (traceId && ownerTestTraceBubble && !typingDiv.querySelector('[data-testid="trace-chip"]')) {
-    renderGate2TraceChip(ownerTestTraceBubble, traceId);
-  }
-
-  // ownerTestEnsureTraceChipVisible: delayed reattach in case later DOM updates replace bubble content.
-  const ownerTestEnsureTraceChipVisible = () => {
-    const bubble = typingDiv.querySelector('.bubble');
-    if (traceId && bubble && !typingDiv.querySelector('[data-testid="trace-chip"]')) {
-      renderGate2TraceChip(bubble, traceId);
-    }
-  };
-  setTimeout(ownerTestEnsureTraceChipVisible, 0);
-  setTimeout(ownerTestEnsureTraceChipVisible, 1000);
-  setTimeout(ownerTestEnsureTraceChipVisible, 2500);
 
   persistConversationMessage({
     role: 'assistant',

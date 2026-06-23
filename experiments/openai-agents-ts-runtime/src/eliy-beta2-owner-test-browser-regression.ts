@@ -486,16 +486,17 @@ async function main(): Promise<void> {
       );
     }
 
-    // ownerTestWaitForTraceChipAfterDelayedAttach: wait for frontend delayed trace-chip reattach.
-    await page.waitForSelector('[data-testid="trace-chip"]', { state: "visible", timeout: 8000 }).catch(() => undefined);
+    const traceText = await page
+      .locator('[data-testid="latest-assistant-message"][data-trace-id], .message.assistant[data-trace-id]')
+      .last()
+      .getAttribute("data-trace-id")
+      .catch(() => "");
+    assertCheck(Boolean(traceText && traceText.trim().length > 0), "trace id available in assistant message DOM", `trace=${traceText || "MISSING"}`);
+    assertCheck(!latestAssistantText.includes("trace_run_"), "normal assistant reply hides trace id text");
 
-    const traceLocator = await getRequiredVisibleTestId(page, "trace-chip", "trace chip visible");
-    const traceText = await traceLocator.innerText().catch(() => "");
-    assertCheck(Boolean(traceText.trim().length > 0), "trace id non-empty", `trace=${traceText || "MISSING"}`);
-
-    const box = await traceLocator.boundingBox().catch(() => null);
-    assertCheck(Boolean(box && box.width > 0 && box.height > 0), "trace chip has visible layout box");
-    assertCheck(Boolean(box && box.width < 900 && box.height < 160), "trace chip does not obviously break layout");
+    await clickRequiredTestId(page, "workspace-debug-button", "debug workspace opened for trace");
+    assertCheck(await textVisible(page, traceText || "trace_", 15000), "debug workspace exposes trace id");
+    await clickRequiredTestId(page, "workspace-close-button", "debug workspace closed");
 
     await page.reload({ waitUntil: "domcontentloaded", timeout: 45000 });
     await page.waitForLoadState("networkidle", { timeout: 30000 }).catch(() => undefined);

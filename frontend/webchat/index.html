@@ -111,17 +111,6 @@
             <span class="product-shell-title">Eliy Beta 2.0</span>
             <span class="product-shell-subtitle">Owner Test</span>
           </div>
-          <div class="model-dropdown">
-            <button class="dropdown-trigger" id="dropdownTrigger">
-              <span class="model-badge">v0.3.2</span>
-              <span class="model-name">Eliy Agent</span>
-              <span class="dropdown-arrow">▼</span>
-            </button>
-            <div class="dropdown-menu" id="dropdownMenu">
-              <div class="dropdown-item active">Eliy v0.3.2 (DeepSeek Flash)</div>
-              <div class="dropdown-item disabled">Eliy v0.4.0 (Planning - 规划中)</div>
-            </div>
-          </div>
         </div>
 
         <div class="header-right">
@@ -143,7 +132,10 @@
             <h3 id="workspaceShellTitle">Conversations</h3>
             <p id="workspaceShellSubtitle">Chat-first shell ready</p>
           </div>
-          <span class="workspace-shell-state" id="workspaceShellState">Shell Ready</span>
+          <div class="workspace-shell-actions">
+            <span class="workspace-shell-state" id="workspaceShellState">Shell Ready</span>
+            <button class="workspace-shell-close" id="workspaceShellCloseBtn" type="button" data-testid="workspace-close-button" aria-label="回到对话">回到对话</button>
+          </div>
         </div>
         <div class="workspace-shell-body" id="workspaceShellBody"></div>
       </section>
