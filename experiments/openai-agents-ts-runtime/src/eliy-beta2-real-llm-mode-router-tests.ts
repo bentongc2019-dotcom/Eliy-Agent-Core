@@ -132,8 +132,9 @@ async function run(): Promise<void> {
     "ping",
     "pure_test_signal"
   );
-  assert.equal(pureSignalNormalized, "收到。这是系统接续测试信号。", "pure test signal should not be expanded");
-  record(results, "MODE-ROUTER-08", "Normalization only applies to business or mixed inputs and preserves pure test signals.");
+  assert(pureSignalNormalized.includes("我是 Eliy"), "pure test signal should get identity guard");
+  assert(!pureSignalNormalized.includes("老板"), "pure test signal should not be expanded into business diagnosis");
+  record(results, "MODE-ROUTER-08", "Normalization applies identity guard to pure test signals without adding business diagnosis.");
 
   const explicitFakeState = router.resolveBeta2ModelRouterState({
     env: {

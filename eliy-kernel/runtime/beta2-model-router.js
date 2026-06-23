@@ -171,10 +171,10 @@ function hasBusinessFramingSignal(text = '') {
 
 export function ensureBeta2IdentityBusinessSignals(reply, userText, routingIntent = classifyBeta2IdentityPrompt(userText)) {
   const text = String(reply || '').trim();
-  if (!text || routingIntent === 'pure_test_signal') return text;
+  if (!text) return text;
 
   const needsIdentity = !hasEliyIdentitySignal(text);
-  const needsBusiness = !hasBusinessFramingSignal(text);
+  const needsBusiness = routingIntent !== 'pure_test_signal' && !hasBusinessFramingSignal(text);
   if (!needsIdentity && !needsBusiness) return text;
 
   const prefixParts = [];
