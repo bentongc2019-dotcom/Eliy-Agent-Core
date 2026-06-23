@@ -87,6 +87,17 @@ async function run(): Promise<void> {
     record(results, testCase.id, testCase.detail);
   }
 
+  assert.equal(router.classifyBeta2IdentityPrompt("ping"), "pure_test_signal");
+  assert.equal(
+    router.classifyBeta2IdentityPrompt("我想测试 Eliy Beta 2.0 是否已经接回真实大模型。请用你的方式回答：一个老板现在团队执行很散、事情很多但没有结果，应该先看什么？"),
+    "mixed_test_and_business"
+  );
+  assert.equal(
+    router.classifyBeta2IdentityPrompt("老板团队执行很散，应该先看什么？"),
+    "business_question"
+  );
+  record(results, "MODE-ROUTER-07", "Identity prompt classifier distinguishes pure test, mixed test/business, and business-only inputs.");
+
   const explicitFakeState = router.resolveBeta2ModelRouterState({
     env: {
       ELIY_BETA2_MODEL_MODE: "real_llm",
@@ -97,7 +108,7 @@ async function run(): Promise<void> {
   const fallbackReply = router.buildBeta2IdentityReply("团队执行散，事情多但没结果，先看什么？", { activeSkill: "default" });
   assert(fallbackReply.includes("我是 Eliy"), "identity reply should identify Eliy");
   assert(fallbackReply.includes("老板") || fallbackReply.includes("经营"), "identity reply should retain business context");
-  record(results, "MODE-ROUTER-07", "Identity reply template preserves Eliy business voice.");
+  record(results, "MODE-ROUTER-08", "Identity reply template preserves Eliy business voice.");
 
   const fakeAdapterReply = await router.runBeta2RealLlmAdapter({
     modelState: explicitFakeState,
@@ -109,7 +120,7 @@ async function run(): Promise<void> {
   assert.equal(fakeAdapterReply.modelState.modelMode, "real_llm");
   assert.equal(fakeAdapterReply.modelState.realLlmEnabled, true);
   assert(fakeAdapterReply.reply.includes("我是 Eliy"), "fake adapter should return Eliy identity reply");
-  record(results, "MODE-ROUTER-08", "Fake provider adapter returns deterministic identity reply.");
+  record(results, "MODE-ROUTER-09", "Fake provider adapter returns deterministic identity reply.");
 
   console.log([
     "# CP-ELIY-BETA2-REAL-LLM-MODE-ROUTER-TESTS",
