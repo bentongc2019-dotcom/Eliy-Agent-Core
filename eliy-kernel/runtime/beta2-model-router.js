@@ -161,7 +161,7 @@ export function buildBeta2IdentityReply(userText, { activeSkill = 'default' } = 
 
 function hasEliyIdentitySignal(text = '') {
   const value = String(text || '');
-  return /我是\s*Eliy|我是Eliy|我是\s*艾利|我是艾利|Eliy|艾利/.test(value);
+  return /我是\s*(?:Eliy|艾利)/.test(value);
 }
 
 function hasBusinessFramingSignal(text = '') {
