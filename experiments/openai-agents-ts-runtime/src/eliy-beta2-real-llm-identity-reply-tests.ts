@@ -83,8 +83,35 @@ async function run(): Promise<void> {
     "ping",
     "pure_test_signal"
   );
-  assert.equal(pureSignalNormalized, "收到。这是系统接续测试信号。", "pure test signal should not be expanded into business diagnosis");
-  record(results, "IDENTITY-08", "Pure test signals are not normalized into business diagnosis.");
+  assert(/Eliy|艾利/.test(pureSignalNormalized), "pure owner-facing real_llm signal should still include Eliy identity");
+  assert(!pureSignalNormalized.includes("老板"), "pure test signal should not be expanded into business diagnosis");
+  record(results, "IDENTITY-08", "Pure test signals get identity guard without being expanded into business diagnosis.");
+
+  const ownerFacingPrompts = [
+    "你好，请确认当前是否是 Eliy Beta 2.0 Owner Test，并用一句话说明你现在能帮我做什么。",
+    "你是谁？",
+    "现在这个版本能做什么？",
+    "当前是不是完整的经营智能体？",
+    "测试一下：如果我是一个补习班老板，老师时间不够，我下一步该先看什么？",
+  ];
+  for (const prompt of ownerFacingPrompts) {
+    const normalized = router.ensureBeta2IdentityBusinessSignals(
+      "可以。我会先判断当前问题，再给你一个下一步。",
+      prompt,
+      router.classifyBeta2IdentityPrompt(prompt)
+    );
+    assert(/Eliy|艾利/.test(normalized), `owner-facing real_llm reply should include Eliy identity for prompt: ${prompt}`);
+    assert(!normalized.includes("Mode: generic fallback baseline"), "real_llm identity guard should not add generic fallback baseline text");
+    assert(!/invite code|api key|API key|provider config|ELIY_BETA2_LLM_API_KEY|DEEPSEEK_API_KEY/.test(normalized), "identity guard should not leak internal config or secrets");
+  }
+
+  const ownerBusinessNormalized = router.ensureBeta2IdentityBusinessSignals(
+    "老师时间不够时，先判断是哪类工作正在挤占老师精力，再决定下一步。",
+    "测试一下：如果我是一个补习班老板，老师时间不够，我下一步该先看什么？",
+    router.classifyBeta2IdentityPrompt("测试一下：如果我是一个补习班老板，老师时间不够，我下一步该先看什么？")
+  );
+  assert(/老板|经营|判断/.test(ownerBusinessNormalized), "business owner-facing reply should retain business signal");
+  record(results, "IDENTITY-09", "Owner-facing Beta2 real_llm replies are guarded with Eliy identity without leaking fallback or internal config.");
 
   const fakeAdapter = await router.runBeta2RealLlmAdapter({
     modelState: router.resolveBeta2ModelRouterState({
@@ -102,7 +129,7 @@ async function run(): Promise<void> {
   assert.equal(fakeAdapter.modelState.modelMode, "real_llm");
   assert.equal(fakeAdapter.modelState.realLlmEnabled, true);
   assert(fakeAdapter.reply.includes("我是 Eliy"), "fake adapter should return identity reply");
-  record(results, "IDENTITY-09", "Fake adapter returns deterministic identity reply for offline tests.");
+  record(results, "IDENTITY-10", "Fake adapter returns deterministic identity reply for offline tests.");
 
   console.log([
     "# CP-ELIY-BETA2-REAL-LLM-IDENTITY-REPLY-TESTS",
