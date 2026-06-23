@@ -2,6 +2,38 @@ const DEFAULT_MODEL_MODE = 'generic_fallback';
 const DEFAULT_PROVIDER = 'beta2-unconfigured';
 const REDACTED_REASON = 'redacted';
 
+function hasTestSignalMarkers(text = '') {
+  const value = String(text || '');
+  return (
+    value.includes('NEXT_CONTEXT') ||
+    value.includes('接续') || value.includes('接續') ||
+    value.includes('test') ||
+    value.includes('测试') || value.includes('測試') ||
+    value.includes('ping') ||
+    value.includes('hello')
+  );
+}
+
+function hasBusinessMarkers(text = '') {
+  const value = String(text || '');
+  return (
+    /老板|老闆|经营|經營|团队|團隊|执行|執行|结果|結果|计划|計劃|瓶颈|瓶頸|判断|判斷|业务|業務|问题|問題|目标|目標|先看|下一步|结果|結果/.test(value)
+  );
+}
+
+export function classifyBeta2IdentityPrompt(userText = '') {
+  const text = String(userText || '');
+  const trimmed = text.trim();
+  const testSignals = hasTestSignalMarkers(trimmed);
+  const businessSignals = hasBusinessMarkers(trimmed);
+
+  if (!trimmed) return 'pure_test_signal';
+  if (testSignals && businessSignals) return 'mixed_test_and_business';
+  if (testSignals) return 'pure_test_signal';
+  if (businessSignals) return 'business_question';
+  return 'business_question';
+}
+
 export function parseBooleanEnv(value, defaultValue = false) {
   if (value === undefined || value === null || value === '') return defaultValue;
   const normalized = String(value).trim().toLowerCase();
@@ -78,7 +110,14 @@ export function resolveBeta2ModelRouterState({ env = process.env, lastModelError
   };
 }
 
-export function buildBeta2IdentityInstruction({ activeSkill = 'default' } = {}) {
+export function buildBeta2IdentityInstruction({ activeSkill = 'default', userText = '' } = {}) {
+  const routingIntent = classifyBeta2IdentityPrompt(userText);
+  const routingRules = routingIntent === 'pure_test_signal'
+    ? '如果用户只是输入纯测试/连通性确认、没有明确经营问题，可以简短说明已进入 Beta 2.0 real LLM 对话链路，然后保持简洁。'
+    : routingIntent === 'mixed_test_and_business'
+      ? '如果用户输入同时包含测试语义和明确经营问题，必须优先回答经营问题，不得只回复测试确认。'
+      : '如果用户提出经营问题，直接围绕经营判断回答。先归纳问题、识别关键变量，再给出可执行的下一步。';
+
   return [
     'Eliy 是面向老板与经营者的主体型商业智能体。',
     'Eliy 的任务不是替代老板判断，而是帮助老板厘清问题、识别经营瓶颈、形成可确认的下一步。',
@@ -86,6 +125,7 @@ export function buildBeta2IdentityInstruction({ activeSkill = 'default' } = {}) 
     '回复风格：直接、清楚、少空话、少泛泛鼓励，面向经营行动。',
     '先归纳用户真正要解决的经营问题，再识别关键变量，并给出可执行的下一步。',
     '信息不足时，提炼需要补充的关键点，但不要把所有问题都推回给用户。',
+    routingRules,
     activeSkill === 'sfocus'
       ? 'S’FOCUS 仍是 shell 状态，不要假装完整 runtime 已接回。'
       : 'O 单仍是 shell / schema ready，不要假装完整 runtime 已接回。'
@@ -94,6 +134,15 @@ export function buildBeta2IdentityInstruction({ activeSkill = 'default' } = {}) 
 
 export function buildBeta2IdentityReply(userText, { activeSkill = 'default' } = {}) {
   const prompt = String(userText || '').trim();
+  const routingIntent = classifyBeta2IdentityPrompt(prompt);
+  if (routingIntent === 'pure_test_signal') {
+    return [
+      '收到。这是系统接续测试信号。',
+      '我已经进入 Eliy Beta 2.0 real LLM 对话链路。',
+      '如果你要，我可以继续处理下一条真业务输入。'
+    ].join('\n\n');
+  }
+
   const lead = prompt
     ? `你这个问题可以先拆成三层：现状、关键变量、下一步。当前输入是“${prompt.slice(0, 120)}”。`
     : '你现在在测试 Eliy Beta 2.0 的对话链路。';

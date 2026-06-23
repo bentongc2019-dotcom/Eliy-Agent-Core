@@ -314,7 +314,7 @@ async function handleChat(req, res) {
           `缺失字段必须写“待确认”。完成标准尽量可观察。禁止输出 "frozen"、"决策库" 或 "高置信度诊断" 等字眼。\n` +
           `如果不是用户明确要求整理成果或转行动卡，绝对不要输出 <eliy_artifact> 标签及 JSON。`;
         const promptInstruction = [
-          buildBeta2IdentityInstruction({ activeSkill: activeSkillReceived }),
+          buildBeta2IdentityInstruction({ activeSkill: activeSkillReceived, userText }),
           modeInstruction,
           artifactPayloadContract
         ].join('\n\n');

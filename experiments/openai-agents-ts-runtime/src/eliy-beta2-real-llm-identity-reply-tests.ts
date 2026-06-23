@@ -30,6 +30,21 @@ async function run(): Promise<void> {
   assert(reply.includes("判断"), "identity reply should preserve judgment framing");
   record(results, "IDENTITY-02", "Identity reply keeps the owner judgment and operating context.");
 
+  const pureTestReply = router.buildBeta2IdentityReply("ping", { activeSkill: "default" });
+  assert(pureTestReply.includes("系统接续测试信号"), "pure test signal should get concise confirmation");
+  assert(!pureTestReply.includes("老板"), "pure test signal should not expand into business diagnosis");
+  record(results, "IDENTITY-03", "Pure test signals receive concise link confirmation.");
+
+  const mixedReply = router.buildBeta2IdentityReply(
+    "我想测试 Eliy Beta 2.0 是否已经接回真实大模型。请用你的方式回答：一个老板现在团队执行很散、事情很多但没有结果，应该先看什么？",
+    { activeSkill: "default" }
+  );
+  assert(mixedReply.includes("我是 Eliy"), "mixed test/business reply should still identify Eliy");
+  assert(mixedReply.includes("老板"), "mixed test/business reply should keep business context");
+  assert(mixedReply.includes("经营"), "mixed test/business reply should keep经营语境");
+  assert(mixedReply.includes("判断"), "mixed test/business reply should preserve judgment framing");
+  record(results, "IDENTITY-04", "Mixed test/business inputs should answer the business question instead of only confirming link status.");
+
   const fakeAdapter = await router.runBeta2RealLlmAdapter({
     modelState: router.resolveBeta2ModelRouterState({
       env: {
@@ -46,7 +61,7 @@ async function run(): Promise<void> {
   assert.equal(fakeAdapter.modelState.modelMode, "real_llm");
   assert.equal(fakeAdapter.modelState.realLlmEnabled, true);
   assert(fakeAdapter.reply.includes("我是 Eliy"), "fake adapter should return identity reply");
-  record(results, "IDENTITY-03", "Fake adapter returns deterministic identity reply for offline tests.");
+  record(results, "IDENTITY-05", "Fake adapter returns deterministic identity reply for offline tests.");
 
   console.log([
     "# CP-ELIY-BETA2-REAL-LLM-IDENTITY-REPLY-TESTS",
