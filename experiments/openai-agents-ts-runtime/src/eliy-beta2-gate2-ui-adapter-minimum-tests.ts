@@ -217,11 +217,14 @@ async function runTests(): Promise<TestResult[]> {
   });
 
   const webchatCss = await readFile(join(repoRoot, "frontend/webchat/styles.css"), "utf8");
+  const webchatHtml = await readFile(join(repoRoot, "frontend/webchat/index.html"), "utf8");
+  const webchatApp = await readFile(join(repoRoot, "frontend/webchat/app.js"), "utf8");
   const workspaceShellCss = cssRuleBlock(webchatCss, ".workspace-shell");
+  const workspaceShellOpenCss = cssRuleBlock(webchatCss, ".workspace-shell.open");
   const workspaceShellBodyCss = cssRuleBlock(webchatCss, ".workspace-shell-body");
   const messagesCss = cssRuleBlock(webchatCss, ".messages");
   assert(/max-height\s*:/.test(workspaceShellCss), "Workspace shell must be height-capped so it cannot obscure chat messages.");
-  assert(/display\s*:\s*flex/.test(workspaceShellCss) && /flex-direction\s*:\s*column/.test(workspaceShellCss), "Workspace shell must use a vertical flex layout for bounded body scrolling.");
+  assert(/display\s*:\s*none/.test(workspaceShellCss) && /display\s*:\s*flex/.test(workspaceShellOpenCss) && /flex-direction\s*:\s*column/.test(workspaceShellCss), "Workspace shell must stay hidden by default and use a vertical flex layout only when opened.");
   assert(/overflow-y\s*:\s*auto/.test(workspaceShellBodyCss), "Workspace shell body must scroll internally instead of growing over chat content.");
   assert(/max-height\s*:/.test(workspaceShellBodyCss), "Workspace shell body must have a max-height.");
   assert(/overflow-y\s*:\s*auto/.test(messagesCss), "Message list must remain vertically scrollable.");
@@ -230,6 +233,29 @@ async function runTests(): Promise<TestResult[]> {
     id: "UI-GT-I",
     result: "Passed",
     evidence: "Webchat workspace panel is height-capped with internal scrolling, while messages remain scrollable with bottom padding."
+  });
+
+  assert(webchatHtml.includes('id="messageList"'), "Chat-first IA must keep the message flow in the main area.");
+  assert(webchatHtml.includes('id="userInput"'), "Chat-first IA must keep the composer in the main area.");
+  assert(/Eliy Beta 2\.0/.test(webchatHtml) && /Owner Test/.test(webchatHtml), "Primary UI must show Eliy Beta 2.0 / Owner Test.");
+  assert(!/<span class="model-badge">v0\.3\.2<\/span>/.test(webchatHtml), "Primary header must not show v0.3.2 as a main product badge.");
+  assert(!/await renderWorkspacePanel\(state\.workspacePanel\)/.test(webchatApp), "Default bootstrap must not render a workspace panel above chat.");
+  assert(!/setWorkspacePanel\('conversations'\)/.test(webchatApp), "Default bootstrap must not open Conversations as a main workspace panel.");
+  assert(/if \(panel === 'conversations'\)[\s\S]{0,240}focusConversations/.test(webchatApp), "Conversations nav must focus the sidebar conversation list instead of opening the main workspace panel.");
+  assert(/workspaceShell\.classList\.add\('open'\)/.test(webchatApp), "Auxiliary workspaces must open as a drawer/compact layer.");
+  assert(/closeWorkspacePanel/.test(webchatApp), "Auxiliary workspaces must have an explicit return-to-chat path.");
+  assert(/S’FOCUS[\s\S]{0,120}shell \/ available/.test(webchatApp), "Skills surface must show S'FOCUS as shell / available, not runtime active.");
+  assert(/oOrderRuntimeEnabled[\s\S]{0,160}false/.test(webchatApp) || /runtimeEnabled[\s\S]{0,160}false/.test(webchatApp), "O 单 workbench must expose shell/false runtime state.");
+  assert(/trace_id/.test(webchatApp) && /data-trace-id/.test(webchatApp), "Trace id must remain available in DOM or Debug.");
+  assert(!/ownerTestPreserveTraceChipAfterArtifactDetection/.test(webchatApp), "Normal assistant replies must not force visible trace chips.");
+  assert(!/ownerTestEnsureTraceChipVisible/.test(webchatApp), "Normal assistant replies must not reattach visible trace chips after render.");
+  assert(/\.workspace-shell\.open/.test(webchatCss), "Workspace shell must be hidden by default and only visible when opened.");
+  assert(/position\s*:\s*absolute/.test(workspaceShellCss), "Workspace shell must be an auxiliary layer rather than a normal top panel in chat flow.");
+  assert(/#chatMain\.workspace-drawer-open\s+\.messages/.test(webchatCss), "Message flow must reserve space when an auxiliary drawer is open.");
+  results.push({
+    id: "UI-GT-II",
+    result: "Passed",
+    evidence: "Chat-first IA keeps conversation as the primary surface, moves workspaces to auxiliary layers, hides trace by default, and keeps version labeling focused on Beta 2.0."
   });
 
   return results;
