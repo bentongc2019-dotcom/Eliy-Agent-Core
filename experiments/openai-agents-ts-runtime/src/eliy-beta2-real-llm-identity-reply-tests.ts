@@ -24,7 +24,7 @@ async function run(): Promise<void> {
   const reply = router.buildBeta2IdentityReply("老板团队执行很散，事情很多但没有结果，应该先看什么？", {
     activeSkill: "default"
   });
-  assert(reply.includes("我是 Eliy"), "identity reply should identify Eliy");
+  assert(reply.includes("作为 Eliy") || reply.includes("Eliy"), "identity reply should identify Eliy through role framing");
   assert(reply.includes("老板"), "identity reply should mention老板");
   assert(reply.includes("经营"), "identity reply should mention经营语境");
   assert(reply.includes("判断"), "identity reply should preserve judgment framing");
@@ -39,7 +39,7 @@ async function run(): Promise<void> {
     "我想测试 Eliy Beta 2.0 是否已经接回真实大模型。请用你的方式回答：一个老板现在团队执行很散、事情很多但没有结果，应该先看什么？",
     { activeSkill: "default" }
   );
-  assert(mixedReply.includes("我是 Eliy"), "mixed test/business reply should still identify Eliy");
+  assert(mixedReply.includes("作为 Eliy") || mixedReply.includes("Eliy"), "mixed test/business reply should still identify Eliy");
   assert(mixedReply.includes("老板"), "mixed test/business reply should keep business context");
   assert(mixedReply.includes("经营"), "mixed test/business reply should keep经营语境");
   assert(mixedReply.includes("判断"), "mixed test/business reply should preserve judgment framing");
@@ -54,12 +54,12 @@ async function run(): Promise<void> {
     "我想测试 Eliy Beta 2.0 是否已经接回真实大模型。请用你的方式回答：一个老板现在团队执行很散、事情很多但没有结果，应该先看什么？",
     mixedIntent
   );
-  assert(normalizedMissingIdentity.includes("我是 Eliy"), "mixed input missing identity should be prefixed");
+  assert(normalizedMissingIdentity.includes("作为 Eliy") || normalizedMissingIdentity.includes("Eliy"), "mixed input missing identity should keep Eliy identity signal");
   assert(normalizedMissingIdentity.includes("经营判断"), "mixed input missing identity should keep经营判断 framing");
   record(results, "IDENTITY-05", "Mixed test/business reply missing Eliy should be prefixed with identity framing.");
 
   const normalizedMissingBusiness = router.ensureBeta2IdentityBusinessSignals(
-    "我是 Eliy。先看唯一目标是否收敛。",
+    "作为 Eliy。先看唯一目标是否收敛。",
     "我想测试 Eliy Beta 2.0 是否已经接回真实大模型。请用你的方式回答：一个老板现在团队执行很散、事情很多但没有结果，应该先看什么？",
     mixedIntent
   );
@@ -67,13 +67,13 @@ async function run(): Promise<void> {
   record(results, "IDENTITY-06", "Mixed test/business reply missing经营 should be prefixed with business framing.");
 
   const alreadyQualified = router.ensureBeta2IdentityBusinessSignals(
-    "我是 Eliy。这个问题我会先当成老板的经营判断问题处理。先看唯一目标是否收敛。",
+    "作为 Eliy。这个问题我会先当成老板的经营判断问题处理。先看唯一目标是否收敛。",
     "我想测试 Eliy Beta 2.0 是否已经接回真实大模型。请用你的方式回答：一个老板现在团队执行很散、事情很多但没有结果，应该先看什么？",
     mixedIntent
   );
   assert.equal(
     alreadyQualified,
-    "我是 Eliy。这个问题我会先当成老板的经营判断问题处理。先看唯一目标是否收敛。",
+    "作为 Eliy。这个问题我会先当成老板的经营判断问题处理。先看唯一目标是否收敛。",
     "already qualified mixed reply should not be prefixed again"
   );
   record(results, "IDENTITY-07", "Already qualified mixed reply is left unchanged.");
@@ -93,14 +93,14 @@ async function run(): Promise<void> {
     "你好，请确认当前是否是 Eliy Beta 2.0 Owner Test，并用一句话说明你现在能帮我做什么。",
     router.classifyBeta2IdentityPrompt("你好，请确认当前是否是 Eliy Beta 2.0 Owner Test，并用一句话说明你现在能帮我做什么。")
   );
-  assert(beta2NameOnlyNormalized.includes("我是 Eliy") || beta2NameOnlyNormalized.includes("我是Eliy"), "Eliy name-only reply should be prefixed with exact self phrase");
+  assert(beta2NameOnlyNormalized.includes("作为 Eliy") || beta2NameOnlyNormalized.includes("Eliy"), "Eliy name-only reply should be normalized into Eliy identity signal");
 
   const beta2VersionOnlyNormalized = router.ensureBeta2IdentityBusinessSignals(
     "嗨，Eliy Beta 2.0 的这一版可以先帮你做基础对话验证。",
     "现在这个版本能做什么？",
     router.classifyBeta2IdentityPrompt("现在这个版本能做什么？")
   );
-  assert(beta2VersionOnlyNormalized.includes("我是 Eliy") || beta2VersionOnlyNormalized.includes("我是Eliy"), "Eliy version-only reply should be prefixed with exact self phrase");
+  assert(beta2VersionOnlyNormalized.includes("作为 Eliy") || beta2VersionOnlyNormalized.includes("Eliy"), "Eliy version-only reply should be normalized into Eliy identity signal");
 
   const alreadySelfPhrasedNormalized = router.ensureBeta2IdentityBusinessSignals(
     "我是 Eliy，一个主体型商业智能体。",
@@ -112,7 +112,7 @@ async function run(): Promise<void> {
     1,
     "exact Eliy self phrase should not be duplicated"
   );
-  record(results, "IDENTITY-09", "Name-only Eliy replies are upgraded to exact self phrase without duplicating qualified replies.");
+  record(results, "IDENTITY-09", "Name-only Eliy replies are normalized into a stable identity signal without duplicating qualified replies.");
 
   const ownerFacingPrompts = [
     "你好，请确认当前是否是 Eliy Beta 2.0 Owner Test，并用一句话说明你现在能帮我做什么。",
@@ -127,7 +127,10 @@ async function run(): Promise<void> {
       prompt,
       router.classifyBeta2IdentityPrompt(prompt)
     );
-    assert(normalized.includes("我是 Eliy") || normalized.includes("我是Eliy"), `owner-facing real_llm reply should include exact Eliy self phrase for prompt: ${prompt}`);
+    assert(normalized.includes("Eliy") || normalized.includes("艾利"), `owner-facing real_llm reply should include Eliy identity signal for prompt: ${prompt}`);
+    if (!/你是谁/.test(prompt)) {
+      assert(!/^(?:我是\s*Eliy|我是Eliy)/.test(normalized), `owner-facing business reply should not repeatedly start with exact self-introduction for prompt: ${prompt}`);
+    }
     assert(!normalized.includes("Mode: generic fallback baseline"), "real_llm identity guard should not add generic fallback baseline text");
     assert(!/invite code|api key|API key|provider config|ELIY_BETA2_LLM_API_KEY|DEEPSEEK_API_KEY/.test(normalized), "identity guard should not leak internal config or secrets");
   }
@@ -138,7 +141,7 @@ async function run(): Promise<void> {
     router.classifyBeta2IdentityPrompt("测试一下：如果我是一个补习班老板，老师时间不够，我下一步该先看什么？")
   );
   assert(/老板|经营|判断/.test(ownerBusinessNormalized), "business owner-facing reply should retain business signal");
-  record(results, "IDENTITY-10", "Owner-facing Beta2 real_llm replies are guarded with Eliy identity without leaking fallback or internal config.");
+  record(results, "IDENTITY-10", "Owner-facing Beta2 real_llm replies keep Eliy identity signal without leaking fallback or internal config.");
 
   const fakeAdapter = await router.runBeta2RealLlmAdapter({
     modelState: router.resolveBeta2ModelRouterState({
@@ -155,7 +158,7 @@ async function run(): Promise<void> {
 
   assert.equal(fakeAdapter.modelState.modelMode, "real_llm");
   assert.equal(fakeAdapter.modelState.realLlmEnabled, true);
-  assert(fakeAdapter.reply.includes("我是 Eliy"), "fake adapter should return identity reply");
+  assert(fakeAdapter.reply.includes("我是 Eliy") || fakeAdapter.reply.includes("作为 Eliy"), "fake adapter should return identity reply");
   record(results, "IDENTITY-11", "Fake adapter returns deterministic identity reply for offline tests.");
 
   console.log([

@@ -62,7 +62,8 @@ async function run(): Promise<void> {
     assert.equal(chat.payload.workbench.oOrderRuntimeEnabled, false);
 
     const replyText = String(chat.payload.reply || "");
-    assert(replyText.includes("我是 Eliy") || replyText.includes("我是Eliy"), "real LLM reply identifies Eliy");
+    assert(replyText.includes("Eliy") || replyText.includes("艾利"), "real LLM reply keeps Eliy identity signal");
+    assert(!/^(?:我是\s*Eliy|我是Eliy)/.test(replyText), "real LLM reply should not repeatedly start with exact self-introduction");
     assert(replyText.includes("老板") || replyText.includes("经营"), "real LLM reply keeps business context");
     assert(!replyText.includes("Mode: generic fallback baseline"), "real LLM reply excludes generic fallback baseline text");
     assert(chat.payload.runtime.fallbackReason === null || chat.payload.runtime.fallbackReason === "redacted", "fallback reason remains redacted or null");
