@@ -298,10 +298,17 @@ function normalizeConversationList(list = []) {
       updatedAt: Date.parse(item.updated_at || item.updatedAt || new Date().toISOString()),
       serverContextInitialized: true,
       status: item.status || 'active',
+      pinned: item.pinned === true,
+      isTest: item.is_test === true,
       messages: Array.isArray(item.messages) ? item.messages : []
     }))
     .filter(item => !!item.id)
-    .sort((a, b) => b.updatedAt - a.updatedAt);
+    .sort(sortConversationsForList);
+}
+
+function sortConversationsForList(a, b) {
+  if (Boolean(a.pinned) !== Boolean(b.pinned)) return a.pinned ? -1 : 1;
+  return (b.updatedAt || 0) - (a.updatedAt || 0);
 }
 
 function isAuthErrorPayload(payload) {
@@ -776,7 +783,8 @@ function getRecentConversations() {
 
 function setRecentConversations(conversations) {
   const next = conversations
-    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+    .filter(item => item && item.status !== 'deleted' && item.status !== 'archived' && item.isTest !== true)
+    .sort(sortConversationsForList)
     .slice(0, MAX_RECENT_CONVERSATIONS);
   state.serverConversations = [...next];
   localStorage.setItem(RECENT_CONVERSATIONS_KEY, JSON.stringify(next));
@@ -821,9 +829,117 @@ function persistConversationMessage(message) {
 function createConversationTitle(text) {
   const cleaned = String(text)
     .replace(/^\[当前会话附件:[\s\S]*?\]\s*/m, '')
+    .replace(/(?:^|\s)(?:trace|run|msg|auth|conv)[_-][a-z0-9_-]+/gi, ' ')
+    .replace(/(?:\/[\w.-]+){2,}/g, ' ')
+    .replace(/\b(?:internal\s+version|server\s+path|runtime\s+key|provider\s+raw\s+key|provider|model|runtime|regression|isolation|browser\s+test|owner\s+test|debug\s+fixture|mock\s+test|fixture|debug)\b/gi, ' ')
+    .replace(/\b(?:beta2|deepseek|openai)[a-z0-9_.-]*\b/gi, ' ')
+    .split(/[。！？!?；;\n]/)[0]
+    .split(/[，,]/)[0]
     .replace(/\s+/g, '')
     .trim();
-  return cleaned.slice(0, 16) || '新对话';
+  return cleaned.slice(0, 24) || '经营问题讨论';
+}
+
+async function patchConversation(conversationId, payload) {
+  const response = await apiJson(`/api/conversations/${encodeURIComponent(conversationId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  });
+  const normalized = normalizeConversationList([response.conversation || {}])[0];
+  if (normalized && normalized.status === 'active' && !normalized.isTest) {
+    const conversations = getRecentConversations().filter(item => item.id !== normalized.id);
+    setRecentConversations([normalized, ...conversations]);
+    if (state.currentConversation?.id === normalized.id) {
+      state.currentConversation = {
+        ...state.currentConversation,
+        title: normalized.title,
+        updatedAt: normalized.updatedAt,
+        status: normalized.status,
+        pinned: normalized.pinned
+      };
+    }
+  } else if (normalized) {
+    setRecentConversations(getRecentConversations().filter(item => item.id !== normalized.id));
+  }
+  renderRecentConversations();
+  if (state.workspacePanel) void renderWorkspacePanel(state.workspacePanel);
+  return normalized;
+}
+
+async function refreshConversationList() {
+  if (state.conversationSource === 'server') {
+    return await fetchConversationListFromServer();
+  }
+  renderRecentConversations();
+  return getRecentConversations();
+}
+
+async function ensureSafeConversationAfterRemoval(removedConversationId) {
+  const conversations = await refreshConversationList();
+  if (state.currentConversation?.id !== removedConversationId && state.sessionId !== removedConversationId) {
+    return;
+  }
+  const next = conversations.find(item => item.id !== removedConversationId);
+  if (next) {
+    await loadConversation(next.id);
+    return;
+  }
+  await startNewSession();
+}
+
+async function renameConversation(conversation) {
+  if (!conversation?.id || state.isStreaming) return;
+  const nextTitle = window.prompt('重命名对话', conversation.title || '');
+  if (nextTitle === null) return;
+  const trimmed = nextTitle.trim();
+  if (!trimmed) {
+    setStatus('标题不能为空', false);
+    return;
+  }
+  try {
+    await patchConversation(conversation.id, { title: trimmed });
+    setStatus('对话已重命名', true);
+  } catch (error) {
+    console.warn('[Conversation] 重命名失败:', error);
+    setStatus('重命名失败', false);
+  }
+}
+
+async function toggleConversationPin(conversation) {
+  if (!conversation?.id || state.isStreaming) return;
+  try {
+    await patchConversation(conversation.id, { pinned: !conversation.pinned });
+    setStatus(conversation.pinned ? '已取消钉选' : '已钉选对话', true);
+  } catch (error) {
+    console.warn('[Conversation] 钉选更新失败:', error);
+    setStatus('钉选更新失败', false);
+  }
+}
+
+async function archiveConversation(conversation) {
+  if (!conversation?.id || state.isStreaming) return;
+  try {
+    await patchConversation(conversation.id, { status: 'archived' });
+    await ensureSafeConversationAfterRemoval(conversation.id);
+    setStatus('对话已封存', true);
+  } catch (error) {
+    console.warn('[Conversation] 封存失败:', error);
+    setStatus('封存失败', false);
+  }
+}
+
+async function deleteConversation(conversation) {
+  if (!conversation?.id || state.isStreaming) return;
+  if (!window.confirm('删除这个对话？')) return;
+  try {
+    await apiJson(`/api/conversations/${encodeURIComponent(conversation.id)}`, { method: 'DELETE' });
+    setRecentConversations(getRecentConversations().filter(item => item.id !== conversation.id));
+    await ensureSafeConversationAfterRemoval(conversation.id);
+    setStatus('对话已删除', true);
+  } catch (error) {
+    console.warn('[Conversation] 删除失败:', error);
+    setStatus('删除失败', false);
+  }
 }
 
 function renderRecentConversations() {
@@ -840,18 +956,41 @@ function renderRecentConversations() {
 
   conversations.forEach(conversation => {
     const item = document.createElement('div');
-    item.className = `history-item${conversation.id === state.sessionId ? ' active' : ''}`;
+    item.className = `history-item${conversation.id === state.sessionId ? ' active' : ''}${conversation.pinned ? ' pinned' : ''}`;
     item.dataset.conversationId = conversation.id;
     item.innerHTML = `
-      <span class="history-icon">💬</span>
+      <span class="history-icon">${conversation.pinned ? '📌' : '💬'}</span>
       <div class="history-details">
         <span class="history-title">${escapeHTML(conversation.title || '新对话')}</span>
         <span class="history-time">${formatHistoryTime(conversation.updatedAt)}</span>
       </div>
+      <div class="conversation-actions" aria-label="会话操作">
+        <button class="conversation-action-btn" type="button" data-testid="conversation-rename-button" title="重命名" aria-label="重命名">✎</button>
+        <button class="conversation-action-btn" type="button" data-testid="conversation-pin-button" title="${conversation.pinned ? '取消钉选' : '钉选'}" aria-label="${conversation.pinned ? '取消钉选' : '钉选'}">${conversation.pinned ? '⌃' : '⌖'}</button>
+        <button class="conversation-action-btn" type="button" data-testid="conversation-archive-button" title="封存" aria-label="封存">□</button>
+        <button class="conversation-action-btn danger" type="button" data-testid="conversation-delete-button" title="删除" aria-label="删除">×</button>
+      </div>
     `;
     item.addEventListener('click', () => {
-      loadConversation(conversation.id);
-      closeSidebar();
+      state.sessionId = conversation.id;
+      renderRecentConversations();
+      void loadConversation(conversation.id).then(() => closeSidebar());
+    });
+    item.querySelector('[data-testid="conversation-rename-button"]')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      void renameConversation(conversation);
+    });
+    item.querySelector('[data-testid="conversation-pin-button"]')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      void toggleConversationPin(conversation);
+    });
+    item.querySelector('[data-testid="conversation-archive-button"]')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      void archiveConversation(conversation);
+    });
+    item.querySelector('[data-testid="conversation-delete-button"]')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      void deleteConversation(conversation);
     });
     historyList.appendChild(item);
   });

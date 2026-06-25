@@ -86,7 +86,7 @@ const MIME_TYPES = {
 const server = http.createServer(async (req, res) => {
   // 处理 CORS 预检请求
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
@@ -1469,7 +1469,10 @@ async function handleConversationCreate(req, res) {
   try {
     const body = await parseJsonBody(req);
     const conversation = accountStore.createConversation(auth.user.user_id, {
-      title: body.title || '新对话'
+      title: body.title || '新对话',
+      pinned: body.pinned === true,
+      is_test: body.is_test === true || body.test === true,
+      visibility: body.visibility
     });
     sendJson(res, 201, { conversation });
   } catch (err) {
@@ -1519,6 +1522,9 @@ async function handleConversationResource(req, res, pathname) {
     let updated = null;
     if (typeof body.title === 'string') {
       updated = accountStore.renameConversation(auth.user.user_id, parsed.conversationId, body.title);
+    }
+    if (typeof body.pinned === 'boolean') {
+      updated = accountStore.pinConversation(auth.user.user_id, parsed.conversationId, body.pinned);
     }
     if (body.status === 'archived') {
       updated = accountStore.archiveConversation(auth.user.user_id, parsed.conversationId);

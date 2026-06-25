@@ -283,6 +283,149 @@ async function runTests(): Promise<TestResult[]> {
       evidence: "User isolation prevented cross-user conversation read/write."
     });
 
+    const autoTitleConversation = await fetchJson(`${server.baseUrl}/api/conversations`, {
+      method: "POST",
+      headers: { Cookie: cookieOne },
+      body: JSON.stringify({ title: "新对话" })
+    });
+    assert(autoTitleConversation.res.status === 201, "Auto-title conversation creation must succeed.");
+    const autoTitleConversationId = autoTitleConversation.payload.conversation.conversation_id as string;
+    const autoTitleChat = await fetchJson(`${server.baseUrl}/api/chat`, {
+      method: "POST",
+      headers: { Cookie: cookieOne },
+      body: JSON.stringify({
+        text: "销售团队执行问题需要梳理，trace_abc123 不应该出现在标题里，provider raw key beta2-fake-model 也不应该出现。",
+        conversationId: autoTitleConversationId,
+        messageId: "msg_user_auto_title",
+        runId: "run_auto_title",
+        traceId: "trace_auto_title",
+        activeSkill: "default",
+        contextScope: "existing_conversation"
+      })
+    });
+    assert(autoTitleChat.res.status === 200, "Auto-title chat must succeed.");
+    const autoTitleList = await fetchJson(`${server.baseUrl}/api/conversations`, {
+      method: "GET",
+      headers: { Cookie: cookieOne }
+    });
+    const autoTitled = autoTitleList.payload.conversations.find((item: any) => item.conversation_id === autoTitleConversationId);
+    assert(autoTitled && autoTitled.title !== "新对话", "First chat turn must generate a readable conversation title.");
+    assert(!/trace_|provider|model|runtime|regression|isolation|debug|fixture|server\.js|\/var\/|beta2-fake-model/i.test(autoTitled.title), "Auto title must not expose trace ids, runtime words, server paths, test fixture names, or provider/model raw keys.");
+
+    const manualRename = await fetchJson(`${server.baseUrl}/api/conversations/${autoTitleConversationId}`, {
+      method: "PATCH",
+      headers: { Cookie: cookieOne },
+      body: JSON.stringify({ title: "计划经营 O 单草稿" })
+    });
+    assert(manualRename.res.status === 200, "Manual rename must succeed.");
+    assert(manualRename.payload.conversation.title === "计划经营 O 单草稿", "Manual rename must preserve the requested title.");
+    const emptyRename = await fetchJson(`${server.baseUrl}/api/conversations/${autoTitleConversationId}`, {
+      method: "PATCH",
+      headers: { Cookie: cookieOne },
+      body: JSON.stringify({ title: "   " })
+    });
+    assert(emptyRename.res.status === 400, "Empty manual title must be rejected.");
+    const longRename = await fetchJson(`${server.baseUrl}/api/conversations/${autoTitleConversationId}`, {
+      method: "PATCH",
+      headers: { Cookie: cookieOne },
+      body: JSON.stringify({ title: "这是一个明显超过最小产品标题长度上限的老板会话标题，需要被服务端截断以保持 UI 稳定" })
+    });
+    assert(longRename.res.status === 200, "Long manual title must be accepted with stable truncation.");
+    assert(longRename.payload.conversation.title.length <= 40, "Long manual title must be truncated to a stable maximum length.");
+    await fetchJson(`${server.baseUrl}/api/chat`, {
+      method: "POST",
+      headers: { Cookie: cookieOne },
+      body: JSON.stringify({
+        text: "第二轮不要覆盖手动标题，哪怕包含 debug fixture 或 regression isolation 噪音。",
+        conversationId: autoTitleConversationId,
+        messageId: "msg_user_manual_preserve",
+        runId: "run_manual_preserve",
+        traceId: "trace_manual_preserve",
+        activeSkill: "default",
+        contextScope: "existing_conversation"
+      })
+    });
+    const manualTitleList = await fetchJson(`${server.baseUrl}/api/conversations`, {
+      method: "GET",
+      headers: { Cookie: cookieOne }
+    });
+    const manualTitled = manualTitleList.payload.conversations.find((item: any) => item.conversation_id === autoTitleConversationId);
+    assert(manualTitled.title === longRename.payload.conversation.title, "Auto naming must not overwrite a user-managed title.");
+
+    const pinnedConversation = await fetchJson(`${server.baseUrl}/api/conversations`, {
+      method: "POST",
+      headers: { Cookie: cookieOne },
+      body: JSON.stringify({ title: "年度目标讨论" })
+    });
+    const pinnedConversationId = pinnedConversation.payload.conversation.conversation_id as string;
+    const pinResponse = await fetchJson(`${server.baseUrl}/api/conversations/${pinnedConversationId}`, {
+      method: "PATCH",
+      headers: { Cookie: cookieOne },
+      body: JSON.stringify({ pinned: true })
+    });
+    assert(pinResponse.res.status === 200, "Conversation pin update must succeed.");
+    assert(pinResponse.payload.conversation.pinned === true, "Pinned state must be persisted.");
+    const pinnedList = await fetchJson(`${server.baseUrl}/api/conversations`, {
+      method: "GET",
+      headers: { Cookie: cookieOne }
+    });
+    assert(pinnedList.payload.conversations[0].conversation_id === pinnedConversationId, "Pinned conversations must sort above ordinary conversations.");
+    const unpinResponse = await fetchJson(`${server.baseUrl}/api/conversations/${pinnedConversationId}`, {
+      method: "PATCH",
+      headers: { Cookie: cookieOne },
+      body: JSON.stringify({ pinned: false })
+    });
+    assert(unpinResponse.res.status === 200 && unpinResponse.payload.conversation.pinned === false, "Conversation unpin update must succeed and persist.");
+
+    const archivedConversation = await fetchJson(`${server.baseUrl}/api/conversations`, {
+      method: "POST",
+      headers: { Cookie: cookieOne },
+      body: JSON.stringify({ title: "富老板学习任务" })
+    });
+    const archivedConversationId = archivedConversation.payload.conversation.conversation_id as string;
+    const archiveResponse = await fetchJson(`${server.baseUrl}/api/conversations/${archivedConversationId}`, {
+      method: "PATCH",
+      headers: { Cookie: cookieOne },
+      body: JSON.stringify({ status: "archived" })
+    });
+    assert(archiveResponse.res.status === 200, "Archive update must succeed.");
+    const afterArchiveList = await fetchJson(`${server.baseUrl}/api/conversations`, {
+      method: "GET",
+      headers: { Cookie: cookieOne }
+    });
+    assert(!afterArchiveList.payload.conversations.some((item: any) => item.conversation_id === archivedConversationId), "Archived conversations must be hidden from the default list.");
+
+    const deleteResponse = await fetchJson(`${server.baseUrl}/api/conversations/${pinnedConversationId}`, {
+      method: "DELETE",
+      headers: { Cookie: cookieOne }
+    });
+    assert(deleteResponse.res.status === 200, "Delete must soft-delete the conversation.");
+    const afterDeleteList = await fetchJson(`${server.baseUrl}/api/conversations`, {
+      method: "GET",
+      headers: { Cookie: cookieOne }
+    });
+    assert(!afterDeleteList.payload.conversations.some((item: any) => item.conversation_id === pinnedConversationId), "Deleted conversations must be hidden from the default list.");
+
+    const noisyTestConversation = await fetchJson(`${server.baseUrl}/api/conversations`, {
+      method: "POST",
+      headers: { Cookie: cookieOne },
+      body: JSON.stringify({ title: "Owner Test Regression isolation debug fixture", is_test: true })
+    });
+    assert(noisyTestConversation.res.status === 201, "Marked test conversation creation must succeed.");
+    const afterNoisyTestList = await fetchJson(`${server.baseUrl}/api/conversations`, {
+      method: "GET",
+      headers: { Cookie: cookieOne }
+    });
+    assert(!afterNoisyTestList.payload.conversations.some((item: any) => item.conversation_id === noisyTestConversation.payload.conversation.conversation_id), "Marked test conversations must not appear in the production conversation list.");
+    const persistedStoreAfterManagement = await readStoreFile(tempDir);
+    assert(persistedStoreAfterManagement.conversations.some((item: any) => item.conversation_id === archivedConversationId && item.status === "archived"), "Archive must preserve the underlying record.");
+    assert(persistedStoreAfterManagement.conversations.some((item: any) => item.conversation_id === pinnedConversationId && item.status === "deleted"), "Delete may be soft delete and must preserve audit trace.");
+    results.push({
+      id: "AS-GT-07",
+      result: "Passed",
+      evidence: "Conversation management covered clean auto titles, manual title protection, pin/unpin, archive/delete default hiding, and marked test-session isolation."
+    });
+
     const logout = await fetchJson(`${server.baseUrl}/api/auth/logout`, {
       method: "POST",
       headers: { Cookie: cookieOne }

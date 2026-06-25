@@ -223,6 +223,7 @@ async function runTests(): Promise<TestResult[]> {
   const workspaceShellOpenCss = cssRuleBlock(webchatCss, ".workspace-shell.open");
   const workspaceShellBodyCss = cssRuleBlock(webchatCss, ".workspace-shell-body");
   const messagesCss = cssRuleBlock(webchatCss, ".messages");
+  const historyDetailsCss = cssRuleBlock(webchatCss, ".skill-details, .history-details");
   assert(/max-height\s*:/.test(workspaceShellCss), "Workspace shell must be height-capped so it cannot obscure chat messages.");
   assert(/display\s*:\s*none/.test(workspaceShellCss) && /display\s*:\s*flex/.test(workspaceShellOpenCss) && /flex-direction\s*:\s*column/.test(workspaceShellCss), "Workspace shell must stay hidden by default and use a vertical flex layout only when opened.");
   assert(/overflow-y\s*:\s*auto/.test(workspaceShellBodyCss), "Workspace shell body must scroll internally instead of growing over chat content.");
@@ -256,6 +257,24 @@ async function runTests(): Promise<TestResult[]> {
     id: "UI-GT-II",
     result: "Passed",
     evidence: "Chat-first IA keeps conversation as the primary surface, moves workspaces to auxiliary layers, hides trace by default, and keeps version labeling focused on Beta 2.0."
+  });
+
+  assert(/data-testid="conversation-rename-button"/.test(webchatApp), "Conversation list must expose a rename affordance.");
+  assert(/data-testid="conversation-pin-button"/.test(webchatApp), "Conversation list must expose a pin/unpin affordance.");
+  assert(/data-testid="conversation-archive-button"/.test(webchatApp), "Conversation list must expose an archive affordance.");
+  assert(/data-testid="conversation-delete-button"/.test(webchatApp), "Conversation list must expose a delete affordance.");
+  assert(/renameConversation/.test(webchatApp), "Webchat app must implement manual conversation rename.");
+  assert(/toggleConversationPin/.test(webchatApp), "Webchat app must implement pin/unpin behavior.");
+  assert(/archiveConversation/.test(webchatApp), "Webchat app must implement archive behavior.");
+  assert(/deleteConversation/.test(webchatApp), "Webchat app must implement delete behavior.");
+  assert(/ensureSafeConversationAfterRemoval/.test(webchatApp), "Archiving or deleting the active conversation must return the UI to a safe default state.");
+  assert(/conversation-actions/.test(webchatCss), "Conversation management controls must have stable CSS.");
+  assert(/history-item\.pinned/.test(webchatCss), "Pinned conversations must have a stable visual state.");
+  assert(/flex\s*:\s*1/.test(historyDetailsCss) && /min-width\s*:\s*0/.test(historyDetailsCss), "Conversation titles must keep the row click target stable beside action buttons.");
+  results.push({
+    id: "UI-GT-III",
+    result: "Passed",
+    evidence: "Conversation list exposes rename, pin, archive, and delete controls with a safe active-conversation recovery path."
   });
 
   return results;
