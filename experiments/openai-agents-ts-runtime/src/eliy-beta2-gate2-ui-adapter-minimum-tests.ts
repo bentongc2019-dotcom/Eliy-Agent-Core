@@ -268,6 +268,8 @@ async function runTests(): Promise<TestResult[]> {
   assert(/archiveConversation/.test(webchatApp), "Webchat app must implement archive behavior.");
   assert(/deleteConversation/.test(webchatApp), "Webchat app must implement delete behavior.");
   assert(/ensureSafeConversationAfterRemoval/.test(webchatApp), "Archiving or deleting the active conversation must return the UI to a safe default state.");
+  assert(/title="归档"/.test(webchatApp) && /aria-label="归档"/.test(webchatApp), "User-facing archive action must use 归档 wording.");
+  assert(!/封存/.test(webchatApp), "User-facing webchat copy must not show 封存.");
   assert(/conversation-actions/.test(webchatCss), "Conversation management controls must have stable CSS.");
   assert(/history-item\.pinned/.test(webchatCss), "Pinned conversations must have a stable visual state.");
   assert(/flex\s*:\s*1/.test(historyDetailsCss) && /min-width\s*:\s*0/.test(historyDetailsCss), "Conversation titles must keep the row click target stable beside action buttons.");

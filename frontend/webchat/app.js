@@ -921,10 +921,10 @@ async function archiveConversation(conversation) {
   try {
     await patchConversation(conversation.id, { status: 'archived' });
     await ensureSafeConversationAfterRemoval(conversation.id);
-    setStatus('对话已封存', true);
+    setStatus('对话已归档', true);
   } catch (error) {
-    console.warn('[Conversation] 封存失败:', error);
-    setStatus('封存失败', false);
+    console.warn('[Conversation] 归档失败:', error);
+    setStatus('归档失败', false);
   }
 }
 
@@ -967,7 +967,7 @@ function renderRecentConversations() {
       <div class="conversation-actions" aria-label="会话操作">
         <button class="conversation-action-btn" type="button" data-testid="conversation-rename-button" title="重命名" aria-label="重命名">✎</button>
         <button class="conversation-action-btn" type="button" data-testid="conversation-pin-button" title="${conversation.pinned ? '取消钉选' : '钉选'}" aria-label="${conversation.pinned ? '取消钉选' : '钉选'}">${conversation.pinned ? '⌃' : '⌖'}</button>
-        <button class="conversation-action-btn" type="button" data-testid="conversation-archive-button" title="封存" aria-label="封存">□</button>
+        <button class="conversation-action-btn" type="button" data-testid="conversation-archive-button" title="归档" aria-label="归档">□</button>
         <button class="conversation-action-btn danger" type="button" data-testid="conversation-delete-button" title="删除" aria-label="删除">×</button>
       </div>
     `;
