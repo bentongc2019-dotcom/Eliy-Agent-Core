@@ -145,6 +145,53 @@ function conversationSortValue(item) {
   return new Date(item.updated_at || item.created_at || 0).getTime();
 }
 
+const MAX_AUTO_TITLE_LENGTH = 24;
+const MAX_MANUAL_TITLE_LENGTH = 40;
+
+function stripConversationTitleNoise(value) {
+  return String(value || '')
+    .replace(/^\[当前会话附件:[\s\S]*?\]\s*/m, '')
+    .replace(/(?:^|\s)(?:trace|run|msg|auth|conv)[_-][a-z0-9_-]+/gi, ' ')
+    .replace(/(?:\/[\w.-]+){2,}/g, ' ')
+    .replace(/\b(?:internal\s+version|server\s+path|runtime\s+key|provider\s+raw\s+key|provider|model|runtime|regression|isolation|browser\s+test|owner\s+test\s+fixture|debug\s+fixture|mock\s+test|fixture|debug)\b/gi, ' ')
+    .replace(/\b(?:beta2|deepseek|openai)[a-z0-9_.-]*\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function truncateTitle(value, maxLength) {
+  const text = String(value || '').trim();
+  return text.length > maxLength ? text.slice(0, maxLength).trim() : text;
+}
+
+function createReadableConversationTitle(value) {
+  const beforeInternalNoise = String(value || '').split(/(?:trace[_-]|run[_-]|msg[_-]|auth[_-]|conv[_-]|runtime|regression|isolation|debug|fixture|provider|model|\/var\/|server\.js)/i)[0];
+  const cleaned = stripConversationTitleNoise(beforeInternalNoise || value);
+  const firstClause = cleaned
+    .split(/[。！？!?；;\n]/)[0]
+    .split(/[，,]/)[0]
+    .trim();
+  const compact = firstClause.replace(/\s+/g, '');
+  return truncateTitle(compact || '经营问题讨论', MAX_AUTO_TITLE_LENGTH);
+}
+
+function normalizeManualConversationTitle(value) {
+  const cleaned = stripConversationTitleNoise(value);
+  if (!cleaned) return null;
+  return truncateTitle(cleaned, MAX_MANUAL_TITLE_LENGTH);
+}
+
+function isPlaceholderConversationTitle(value) {
+  const title = String(value || '').trim();
+  return !title || title === '新对话';
+}
+
+function isTestConversationInput(input = {}) {
+  const title = String(input.title || '');
+  const explicit = input.is_test === true || input.test === true || input.visibility === 'test';
+  return explicit || /\b(regression|isolation|browser\s+test|owner\s+test|debug\s+fixture|mock\s+test|fixture)\b/i.test(title);
+}
+
 export function createAccountStore(options = {}) {
   const runtimePaths = resolveRuntimePaths({
     env: options.env || process.env,
@@ -371,10 +418,15 @@ export function createAccountStore(options = {}) {
   function createConversation(userId, input = {}) {
     return mutateState((state) => {
       const now = nowIso();
+      const manualTitle = normalizeManualConversationTitle(input.title);
+      const placeholder = isPlaceholderConversationTitle(input.title);
       const conversation = {
         conversation_id: makeId('conv'),
         user_id: userId,
-        title: input.title || '新对话',
+        title: placeholder ? '新对话' : (manualTitle || '新对话'),
+        title_source: placeholder ? 'system' : 'manual',
+        pinned: Boolean(input.pinned),
+        is_test: isTestConversationInput(input),
         created_at: now,
         updated_at: now,
         status: 'active',
@@ -396,8 +448,11 @@ export function createAccountStore(options = {}) {
   function listConversations(userId) {
     const state = loadState();
     return state.conversations
-      .filter((item) => item.user_id === userId && item.status !== 'deleted')
-      .sort((a, b) => conversationSortValue(b) - conversationSortValue(a))
+      .filter((item) => item.user_id === userId && item.status === 'active' && item.is_test !== true)
+      .sort((a, b) => {
+        if (Boolean(a.pinned) !== Boolean(b.pinned)) return Boolean(a.pinned) ? -1 : 1;
+        return conversationSortValue(b) - conversationSortValue(a);
+      })
       .map((conversation) => {
         const messageCount = state.messages.filter((item) => item.conversation_id === conversation.conversation_id).length;
         const lastMessage = [...state.messages]
@@ -415,7 +470,20 @@ export function createAccountStore(options = {}) {
     return mutateState((state) => {
       const conversation = state.conversations.find((item) => item.conversation_id === conversationId && item.user_id === userId && item.status !== 'deleted');
       if (!conversation) return null;
-      conversation.title = String(title || '').trim() || conversation.title;
+      const normalizedTitle = normalizeManualConversationTitle(title);
+      if (!normalizedTitle) return null;
+      conversation.title = normalizedTitle;
+      conversation.title_source = 'manual';
+      conversation.updated_at = nowIso();
+      return clone(conversation);
+    });
+  }
+
+  function pinConversation(userId, conversationId, pinned) {
+    return mutateState((state) => {
+      const conversation = state.conversations.find((item) => item.conversation_id === conversationId && item.user_id === userId && item.status !== 'deleted');
+      if (!conversation) return null;
+      conversation.pinned = Boolean(pinned);
       conversation.updated_at = nowIso();
       return clone(conversation);
     });
@@ -476,8 +544,9 @@ export function createAccountStore(options = {}) {
       };
       state.messages.push(message);
       conversation.updated_at = message.updated_at;
-      if (conversation.title === '新对话' && message.role === 'user' && String(message.content || '').trim()) {
-        conversation.title = String(message.content).trim().replace(/\s+/g, ' ').slice(0, 24);
+      if (isPlaceholderConversationTitle(conversation.title) && conversation.title_source !== 'manual' && message.role === 'user' && String(message.content || '').trim()) {
+        conversation.title = createReadableConversationTitle(message.content);
+        conversation.title_source = 'auto';
       }
       return clone(message);
     });
@@ -570,6 +639,7 @@ export function createAccountStore(options = {}) {
     getConversation,
     listConversations,
     renameConversation,
+    pinConversation,
     archiveConversation,
     deleteConversation,
     listMessages,
