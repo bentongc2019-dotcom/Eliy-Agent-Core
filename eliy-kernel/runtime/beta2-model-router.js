@@ -123,6 +123,7 @@ export function buildBeta2IdentityInstruction({ activeSkill = 'default', userTex
     'Eliy 的任务不是替代老板判断，而是帮助老板厘清问题、识别经营瓶颈、形成可确认的下一步。',
     'Eliy 保留用户判断权，避免替用户做不可委托的关键经营判断。',
     '回复风格：直接、清楚、少空话、少泛泛鼓励，面向经营行动。',
+    '显式自我介绍只在用户明确询问身份或上下文重置时自然出现；连续经营对话优先用角色、语境、边界与推进方式体现身份，不要每轮重复“我是 Eliy”。',
     '先归纳用户真正要解决的经营问题，再识别关键变量，并给出可执行的下一步。',
     '信息不足时，提炼需要补充的关键点，但不要把所有问题都推回给用户。',
     routingRules,
@@ -143,12 +144,23 @@ export function buildBeta2IdentityReply(userText, { activeSkill = 'default' } = 
     ].join('\n\n');
   }
 
+  if (isIdentityInquiry(prompt)) {
+    return [
+      '我是 Eliy。',
+      '我的角色是帮老板把经营问题说清楚、把关键变量拆出来、再把下一步收敛到可执行动作。',
+      '我会保留老板的最终判断权，不替你做不可委托的关键经营决定。',
+      activeSkill === 'sfocus'
+        ? '当前 S’FOCUS 仍是 shell 状态；如果你要，我可以先用文字帮你收敛瓶颈。'
+        : '如果你愿意，我可以继续把问题拆成 1–3 个关键变量，再给你一个最小下一步。'
+    ].join('\n\n');
+  }
+
   const lead = prompt
     ? `你这个问题可以先拆成三层：现状、关键变量、下一步。当前输入是“${prompt.slice(0, 120)}”。`
     : '你现在在测试 Eliy Beta 2.0 的对话链路。';
 
   const baseReply = [
-    '我是 Eliy。我的角色是帮老板把经营问题说清楚、把关键变量拆出来、再把下一步收敛到可执行动作。',
+    '作为 Eliy，我会帮老板把经营问题说清楚、把关键变量拆出来、再把下一步收敛到可执行动作。',
     lead,
     '我会保留老板的最终判断权，不替你做不可委托的关键经营决定。',
     activeSkill === 'sfocus'
@@ -161,7 +173,7 @@ export function buildBeta2IdentityReply(userText, { activeSkill = 'default' } = 
 
 function hasEliyIdentitySignal(text = '') {
   const value = String(text || '');
-  return /我是\s*(?:Eliy|艾利)/.test(value);
+  return /(?:我是|作为)\s*(?:Eliy|艾利)/.test(value);
 }
 
 function hasBusinessFramingSignal(text = '') {
@@ -169,19 +181,38 @@ function hasBusinessFramingSignal(text = '') {
   return /经营|經營/.test(value);
 }
 
+function isIdentityInquiry(text = '') {
+  const value = String(text || '');
+  return /你是谁|你是誰|who\s*are\s*you|who are you/i.test(value);
+}
+
+function normalizeBusinessIdentityStyle(text = '') {
+  const value = String(text || '').trim();
+  if (!value) return value;
+
+  return value
+    .replace(/^(?:我是|作为)\s*(?:Eliy|艾利)\s*[。．.!！\s]*/, '作为 Eliy。')
+    .replace(/(?:我是|作为)\s*(?:Eliy|艾利)/g, '作为 Eliy');
+}
+
 export function ensureBeta2IdentityBusinessSignals(reply, userText, routingIntent = classifyBeta2IdentityPrompt(userText)) {
   const text = String(reply || '').trim();
   if (!text) return text;
 
-  const needsIdentity = !hasEliyIdentitySignal(text);
-  const needsBusiness = routingIntent !== 'pure_test_signal' && !hasBusinessFramingSignal(text);
-  if (!needsIdentity && !needsBusiness) return text;
+  const identityInquiry = isIdentityInquiry(userText);
+  const explicitIdentityAllowed = identityInquiry || routingIntent === 'pure_test_signal';
+  const normalizedText = explicitIdentityAllowed ? text : normalizeBusinessIdentityStyle(text);
+  const needsIdentity = !hasEliyIdentitySignal(normalizedText);
+  const needsBusiness = routingIntent !== 'pure_test_signal' && !hasBusinessFramingSignal(normalizedText);
+
+  if (!needsIdentity && !needsBusiness && normalizedText === text) return text;
+  if (!needsIdentity && !needsBusiness) return normalizedText;
 
   const prefixParts = [];
-  if (needsIdentity) prefixParts.push('我是 Eliy。');
+  if (needsIdentity) prefixParts.push(explicitIdentityAllowed ? '我是 Eliy。' : '作为 Eliy。');
   if (needsBusiness) prefixParts.push('这个问题我会先当成老板的经营判断问题处理。');
 
-  return `${prefixParts.join(' ')}\n\n${text}`;
+  return `${prefixParts.join(' ')}\n\n${normalizedText}`;
 }
 
 async function callOpenAICompatibleChatCompletion({ providerConfig, messages, temperature = 0.7, maxTokens = 1024 }) {

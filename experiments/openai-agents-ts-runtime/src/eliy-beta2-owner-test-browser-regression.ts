@@ -461,7 +461,7 @@ async function main(): Promise<void> {
       }
     } else {
       const requiredTerms = [
-        "我是 Eliy",
+        "Eliy",
         "老板",
         "经营",
         "判断",
@@ -474,8 +474,12 @@ async function main(): Promise<void> {
       }
 
       assertCheck(
-        latestAssistantText.includes("我是 Eliy") || latestAssistantText.includes("我是Eliy"),
-        "latest assistant reply identifies Eliy"
+        latestAssistantText.includes("Eliy") || latestAssistantText.includes("艾利"),
+        "latest assistant reply keeps Eliy identity signal"
+      );
+      assertCheck(
+        !/^(?:我是\s*Eliy|我是Eliy)/.test(latestAssistantText),
+        "latest assistant reply should not repeatedly start with exact self-introduction"
       );
       for (const term of requiredTerms.slice(1)) {
         assertCheck(latestAssistantText.includes(term), `latest assistant reply contains required term: ${term}`);

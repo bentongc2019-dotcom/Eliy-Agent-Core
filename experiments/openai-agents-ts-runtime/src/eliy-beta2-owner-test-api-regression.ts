@@ -400,10 +400,22 @@ async function main(): Promise<void> {
         );
       }
     } else {
-      assertCheck(
-        assistantText.includes("我是 Eliy") || assistantText.includes("我是Eliy"),
-        "real_llm reply identifies Eliy"
-      );
+      const identityInquiry = prompt.includes("你是谁");
+      if (identityInquiry) {
+        assertCheck(
+          assistantText.includes("我是 Eliy") || assistantText.includes("我是Eliy"),
+          "real_llm reply can still state identity on direct inquiry"
+        );
+      } else {
+        assertCheck(
+          assistantText.includes("Eliy") || assistantText.includes("艾利"),
+          "real_llm reply keeps Eliy identity signal"
+        );
+        assertCheck(
+          !/^(?:我是\s*Eliy|我是Eliy)/.test(assistantText),
+          "real_llm reply should not repeatedly start with exact self-introduction"
+        );
+      }
       assertCheck(
         assistantText.includes("老板") || assistantText.includes("经营"),
         "real_llm reply keeps business context"
