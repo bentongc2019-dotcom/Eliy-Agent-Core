@@ -19,6 +19,40 @@
 ### 测试规则
 * live real_llm 环境下，Conversation Management smoke 以会话管理行为为准，不以单条 assistant 回复措辞作为阻断条件。
 
+## 🧊 2026-06-27: Identity Style Guard main merged baseline frozen
+
+### 冻结记录
+* **冻结 ID**：`CP-ELIY-BETA2-IDENTITY-STYLE-GUARD-MAIN-MERGED-BASELINE-01`
+* **冻结范围**：Identity Style Guard blocked branch 已清障，PR #2 已 squash merge 到 main，post-merge verification passed。
+* **PR**：`#2`
+* **merge method**：squash merge
+* **main merge commit**：`37fac1b08e98fbe571dc5aebb593dc5806d2f91a`
+* **merge title**：`fix(eliy): unblock beta2 identity style guard`
+* **验证结果**：post-merge verification passed，secret redaction passed。
+* **部署状态**：No deploy，No PM2 restart，No hk-beta2 deployment。
+
+### 冻结范围说明
+
+本次冻结表示：
+
+* Identity Style Guard blocked branch 已清障。
+* identity / style guard 已从固定措辞断言调整为行为、边界、角色语境断言。
+* continuous business dialogue 不再被迫重复固定显式自我介绍。
+* Eliy 的身份、老板语境、判断边界与主体型互动风格仍被保留。
+* Conversation Management baseline 未被破坏。
+* post-merge verification passed。
+
+本次冻结不表示：
+
+* 已 deploy hk-beta2。
+* 已 PM2 restart。
+* 已进入 S’FOCUS runtime。
+* 已进入 O 单 runtime。
+* 已进入 Project / Workspace / Company Space。
+* 已修改 provider routing / real LLM config。
+* 已修改 auth / invite / owner-test config。
+* 已继续扩展 identity style guard。
+
 ---
 
 ## 🚀 2026-05-19: 双脑破局 —— DeepSeek V4 强力入驻与多模型无缝热切换
