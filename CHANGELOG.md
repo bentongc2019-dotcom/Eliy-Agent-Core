@@ -4,6 +4,55 @@
 > **更新时间**：2026-05-19  
 > **首席技术合伙人寄语**：富老板，我们完成了本阶段最核心的“感官与大脑”大升级！这次更新不仅让 Eliy 穿上了最顶奢的“紫金高定西装”，还给它装上了“双脑秒级切换”的超级引擎，同时把语音打断与安全防护拉到了商业级天花板。以下是今天为您整理的硬核更新细节：
 
+## 🧊 2026-06-27: Conversation Management hk-beta2 deployed + live smoke baseline frozen
+
+### 冻结记录
+* **冻结 ID**：`CP-ELIY-BETA2-CONVERSATION-MANAGEMENT-HK-DEPLOYED-BASELINE-01`
+* **冻结范围**：Conversation Management 已部署到 hk-beta2，runtime verification passed，owner-test authentication unblock passed，live browser smoke passed。
+* **已验收结果**：自动命名、手动重命名、钉选、归档、删除、状态保留、Beta 1.0 protected、secret redaction、local / remote worktree clean。
+
+### 运维事实
+* hk-beta2 live smoke 依赖 `/etc/eliy-beta2/env` 中的 owner-test 变量。
+* 相关变量名：`ELIY_OWNER_TEST_EMAIL`、`ELIY_OWNER_TEST_INVITE_CODE`
+* 本次记录仅保留变量名，不记录变量值。
+
+### 测试规则
+* live real_llm 环境下，Conversation Management smoke 以会话管理行为为准，不以单条 assistant 回复措辞作为阻断条件。
+
+## 🧊 2026-06-27: Identity Style Guard main merged baseline frozen
+
+### 冻结记录
+* **冻结 ID**：`CP-ELIY-BETA2-IDENTITY-STYLE-GUARD-MAIN-MERGED-BASELINE-01`
+* **冻结范围**：Identity Style Guard blocked branch 已清障，PR #2 已 squash merge 到 main，post-merge verification passed。
+* **PR**：`#2`
+* **merge method**：squash merge
+* **main merge commit**：`37fac1b08e98fbe571dc5aebb593dc5806d2f91a`
+* **merge title**：`fix(eliy): unblock beta2 identity style guard`
+* **验证结果**：post-merge verification passed，secret redaction passed。
+* **部署状态**：No deploy，No PM2 restart，No hk-beta2 deployment。
+
+### 冻结范围说明
+
+本次冻结表示：
+
+* Identity Style Guard blocked branch 已清障。
+* identity / style guard 已从固定措辞断言调整为行为、边界、角色语境断言。
+* continuous business dialogue 不再被迫重复固定显式自我介绍。
+* Eliy 的身份、老板语境、判断边界与主体型互动风格仍被保留。
+* Conversation Management baseline 未被破坏。
+* post-merge verification passed。
+
+本次冻结不表示：
+
+* 已 deploy hk-beta2。
+* 已 PM2 restart。
+* 已进入 S’FOCUS runtime。
+* 已进入 O 单 runtime。
+* 已进入 Project / Workspace / Company Space。
+* 已修改 provider routing / real LLM config。
+* 已修改 auth / invite / owner-test config。
+* 已继续扩展 identity style guard。
+
 ---
 
 ## 🚀 2026-05-19: 双脑破局 —— DeepSeek V4 强力入驻与多模型无缝热切换
