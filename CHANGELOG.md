@@ -4,6 +4,21 @@
 > **更新时间**：2026-05-19  
 > **首席技术合伙人寄语**：富老板，我们完成了本阶段最核心的“感官与大脑”大升级！这次更新不仅让 Eliy 穿上了最顶奢的“紫金高定西装”，还给它装上了“双脑秒级切换”的超级引擎，同时把语音打断与安全防护拉到了商业级天花板。以下是今天为您整理的硬核更新细节：
 
+## 🧊 2026-06-27: Conversation Management hk-beta2 deployed + live smoke baseline frozen
+
+### 冻结记录
+* **冻结 ID**：`CP-ELIY-BETA2-CONVERSATION-MANAGEMENT-HK-DEPLOYED-BASELINE-01`
+* **冻结范围**：Conversation Management 已部署到 hk-beta2，runtime verification passed，owner-test authentication unblock passed，live browser smoke passed。
+* **已验收结果**：自动命名、手动重命名、钉选、归档、删除、状态保留、Beta 1.0 protected、secret redaction、local / remote worktree clean。
+
+### 运维事实
+* hk-beta2 live smoke 依赖 `/etc/eliy-beta2/env` 中的 owner-test 变量。
+* 相关变量名：`ELIY_OWNER_TEST_EMAIL`、`ELIY_OWNER_TEST_INVITE_CODE`
+* 本次记录仅保留变量名，不记录变量值。
+
+### 测试规则
+* live real_llm 环境下，Conversation Management smoke 以会话管理行为为准，不以单条 assistant 回复措辞作为阻断条件。
+
 ---
 
 ## 🚀 2026-05-19: 双脑破局 —— DeepSeek V4 强力入驻与多模型无缝热切换
