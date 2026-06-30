@@ -1,0 +1,3 @@
+data/workspaces/*
+!data/workspaces/.gitkeep
+data/current-workspace.json
