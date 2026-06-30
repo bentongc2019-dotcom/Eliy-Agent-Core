@@ -168,8 +168,19 @@ async function main(): Promise<void> {
     .description("Update OTUnit status")
     .requiredOption("--to <status>")
     .option("--workspace <workspace>")
-    .action((otunit_id, options) => {
-      printResult(runtime().updateOtUnitStatus(otunit_id, options.to, options.workspace));
+    .option("--yes", "Skip confirmation", false)
+    .action(async (otunit_id, options) => {
+      const result = runtime().updateOtUnitStatus(otunit_id, options.to, options.workspace, Boolean(options.yes));
+      if (result.requires_confirmation && !options.yes) {
+        const ok = await confirm("Confirm OTUnit status transition? [y/N] ");
+        if (!ok) {
+          printResult(result);
+          return;
+        }
+        printResult(runtime().updateOtUnitStatus(otunit_id, options.to, options.workspace, true));
+        return;
+      }
+      printResult(result);
     });
 
   otunit

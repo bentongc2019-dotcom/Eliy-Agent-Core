@@ -527,13 +527,18 @@ export class EliyNativeRuntime {
     });
   }
 
-  updateOtUnitStatus(otunitId: string, to: OTUnitStatus, workspaceId?: string): RuntimeResult<{ otunit: OTUnit }> {
+  updateOtUnitStatus(
+    otunitId: string,
+    to: OTUnitStatus,
+    workspaceId?: string,
+    confirmed = false
+  ): RuntimeResult<{ otunit: OTUnit | null; proposal?: Record<string, unknown> }> {
     const workspace_id = this.requireWorkspaceId(workspaceId);
     const otunit = this.store.readOtUnit(workspace_id, otunitId);
     if (!otunit) {
       return this.result("otunit status", {
         workspace_id,
-        data: { otunit: null as never },
+        data: { otunit: null as OTUnit | null },
         errors: [createRuntimeError("NOT_FOUND", `OTUnit ${otunitId} not found`)],
         audit_ids: []
       });
@@ -544,6 +549,23 @@ export class EliyNativeRuntime {
         workspace_id,
         data: { otunit },
         errors: [transition.error],
+        audit_ids: []
+      });
+    }
+    if (transition.requires_confirmation && !confirmed) {
+      const proposal = {
+        action: "update_otunit_status",
+        otunit_id: otunitId,
+        from: otunit.status,
+        to: transition.status,
+        requires_confirmation: true
+      };
+      return this.result("otunit status", {
+        workspace_id,
+        data: { otunit, proposal },
+        candidates: [proposal],
+        requires_confirmation: true,
+        confirmation_action: this.confirmAction("update_otunit_status", otunitId, "Confirm OTUnit status transition"),
         audit_ids: []
       });
     }
@@ -649,6 +671,15 @@ export class EliyNativeRuntime {
         audit_ids: []
       });
     }
+    const otunit = this.store.readOtUnit(workspace_id, candidate.otunit_id);
+    if (!otunit) {
+      return this.result("evidence confirm", {
+        workspace_id,
+        data: { evidence: null as never, candidate, otunit: null as never },
+        errors: [createRuntimeError("NOT_FOUND", `OTUnit ${candidate.otunit_id} not found`)],
+        audit_ids: []
+      });
+    }
     const evidence_id = this.id("evidence");
     const evidence: Evidence = {
       evidence_id,
@@ -667,15 +698,6 @@ export class EliyNativeRuntime {
       updated_at: this.now()
     };
     this.store.writeEvidence(evidence);
-    const otunit = this.store.readOtUnit(workspace_id, candidate.otunit_id);
-    if (!otunit) {
-      return this.result("evidence confirm", {
-        workspace_id,
-        data: { evidence, candidate, otunit: null as never },
-        errors: [createRuntimeError("NOT_FOUND", `OTUnit ${candidate.otunit_id} not found`)],
-        audit_ids: []
-      });
-    }
     const updated: OTUnit = {
       ...otunit,
       evidence_refs: Array.from(new Set([...otunit.evidence_refs, evidence_id])),
@@ -771,10 +793,33 @@ export class EliyNativeRuntime {
         audit_ids: []
       });
     }
+    const stageOne = transitionOtUnitStatus(otunit.status, "adjusting");
+    if (!stageOne.ok) {
+      return this.result("adjust apply", {
+        workspace_id,
+        data: { adjust, otunit, objective: this.store.readObjective(workspace_id, adjust.objective_id) },
+        errors: [stageOne.error],
+        audit_ids: []
+      });
+    }
+    const adjustedOtunit: OTUnit = {
+      ...otunit,
+      status: stageOne.status,
+      updated_at: this.now()
+    };
+    const stageTwo = transitionOtUnitStatus(adjustedOtunit.status, "completed");
+    if (!stageTwo.ok) {
+      return this.result("adjust apply", {
+        workspace_id,
+        data: { adjust, otunit: adjustedOtunit, objective: this.store.readObjective(workspace_id, adjust.objective_id) },
+        errors: [stageTwo.error],
+        audit_ids: []
+      });
+    }
     if (!isConfirmed) {
       return this.result("adjust apply", {
         workspace_id,
-        data: { adjust: null, otunit, objective: this.store.readObjective(workspace_id, adjust.objective_id), proposal: adjust },
+        data: { adjust, otunit, objective: this.store.readObjective(workspace_id, adjust.objective_id), proposal: adjust },
         candidates: [adjust],
         requires_confirmation: true,
         confirmation_action: this.confirmAction("apply_adjust", adjustId, "Confirm apply Adjust"),
@@ -793,39 +838,16 @@ export class EliyNativeRuntime {
       applied_at: this.now(),
       updated_at: this.now()
     };
-    this.store.writeAdjust(applied);
-    const stageOne = transitionOtUnitStatus(otunit.status, "adjusting");
-    if (!stageOne.ok) {
-      return this.result("adjust apply", {
-        workspace_id,
-        data: { adjust: applied, otunit, objective: null },
-        errors: [stageOne.error],
-        audit_ids: []
-      });
-    }
-    const adjustedOtunit: OTUnit = {
-      ...otunit,
-      status: stageOne.status,
+    const completedOtunit: OTUnit = {
+      ...adjustedOtunit,
       adjust_records: otunit.adjust_records.map((record) =>
         record.adjust_id === adjustId ? { ...record, status: "applied", summary: applied.proposal } : record
       ),
-      updated_at: this.now()
-    };
-    const stageTwo = transitionOtUnitStatus(adjustedOtunit.status, "completed");
-    if (!stageTwo.ok) {
-      return this.result("adjust apply", {
-        workspace_id,
-        data: { adjust: applied, otunit: adjustedOtunit, objective: null },
-        errors: [stageTwo.error],
-        audit_ids: []
-      });
-    }
-    const completedOtunit: OTUnit = {
-      ...adjustedOtunit,
       status: stageTwo.status,
       updated_at: this.now()
     };
     this.store.writeOtUnit(completedOtunit);
+    this.store.writeAdjust(applied);
     const objective = this.store.readObjective(workspace_id, completedOtunit.objective_id);
     const audit = this.audit(workspace_id, "adjust.apply", "Adjust", adjustId, `Adjust applied for OTUnit ${adjust.otunit_id}`);
     return this.result("adjust apply", {
@@ -1018,7 +1040,12 @@ export class EliyNativeRuntime {
       company_id: workspace.company.company_id,
       confirmed: true
     }).data!.otunit!;
-    const accepted = this.updateOtUnitStatus(otunitCreate.otunit_id, "accepted", workspace.workspace.workspace_id).data!.otunit;
+    const accepted = this.updateOtUnitStatus(
+      otunitCreate.otunit_id,
+      "accepted",
+      workspace.workspace.workspace_id,
+      true
+    ).data!.otunit!;
     const followup = this.followUpOtUnit({
       otunit_id: accepted.otunit_id,
       text: "今天完成 3 位客户访谈",

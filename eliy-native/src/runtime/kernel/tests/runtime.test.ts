@@ -97,7 +97,7 @@ describe("Eliy Native Runtime Kernel", () => {
     });
     const otunitId = otunitResult.data!.otunit!.otunit_id;
 
-    expect(runtime.updateOtUnitStatus(otunitId, "accepted", workspaceId).ok).toBe(true);
+    expect(runtime.updateOtUnitStatus(otunitId, "accepted", workspaceId, true).ok).toBe(true);
 
     const followup = runtime.followUpOtUnit({
       otunit_id: otunitId,
@@ -180,6 +180,130 @@ describe("Eliy Native Runtime Kernel", () => {
     expect(result.confirmation_action).toMatchObject({ action: "create_otunit" });
     expect(result.candidates).toHaveLength(1);
     expect(runtime.store.listOtUnits(workspaceId)).toHaveLength(0);
+  });
+
+  it("does not persist a required-confirmation OTUnit status transition without confirmation", () => {
+    const workspaceResult = runtime.createWorkspace({ name: "Demo Workspace", company: "Demo Company" });
+    const workspaceId = workspaceResult.data!.workspace.workspace_id;
+    const objective = runtime.createObjective({
+      title: "Q3 收入目标",
+      owner_id: "rich",
+      workspace_id: workspaceId,
+      confirmed: true
+    } as any).data!.objective!;
+    const otunit = runtime.createOtUnit({
+      objective_id: objective.objective_id,
+      title: "完成第一批体验客户访谈",
+      owner_id: "rich",
+      workspace_id: workspaceId,
+      confirmed: true
+    } as any).data!.otunit!;
+    const auditBefore = runtime.store.readAuditLog(workspaceId).length;
+
+    const result = runtime.updateOtUnitStatus(otunit.otunit_id, "accepted", workspaceId);
+
+    expect(result.requires_confirmation).toBe(true);
+    expect(result.confirmation_action).toMatchObject({ action: "update_otunit_status" });
+    expect(result.data!.proposal).toMatchObject({ from: "proposed", to: "accepted" });
+    expect(runtime.store.readOtUnit(workspaceId, otunit.otunit_id)?.status).toBe("proposed");
+    expect(runtime.store.readAuditLog(workspaceId)).toHaveLength(auditBefore);
+  });
+
+  it("persists and audits a confirmed OTUnit status transition", () => {
+    const workspaceResult = runtime.createWorkspace({ name: "Demo Workspace", company: "Demo Company" });
+    const workspaceId = workspaceResult.data!.workspace.workspace_id;
+    const objective = runtime.createObjective({
+      title: "Q3 收入目标",
+      owner_id: "rich",
+      workspace_id: workspaceId,
+      confirmed: true
+    } as any).data!.objective!;
+    const otunit = runtime.createOtUnit({
+      objective_id: objective.objective_id,
+      title: "完成第一批体验客户访谈",
+      owner_id: "rich",
+      workspace_id: workspaceId,
+      confirmed: true
+    } as any).data!.otunit!;
+    const auditBefore = runtime.store.readAuditLog(workspaceId).length;
+
+    const result = runtime.updateOtUnitStatus(otunit.otunit_id, "accepted", workspaceId, true);
+
+    expect(result.requires_confirmation).toBe(false);
+    expect(runtime.store.readOtUnit(workspaceId, otunit.otunit_id)?.status).toBe("accepted");
+    expect(runtime.store.readAuditLog(workspaceId)).toHaveLength(auditBefore + 1);
+  });
+
+  it("does not persist an applied adjust when validation fails", () => {
+    const workspaceResult = runtime.createWorkspace({ name: "Demo Workspace", company: "Demo Company" });
+    const workspaceId = workspaceResult.data!.workspace.workspace_id;
+    const objective = runtime.createObjective({
+      title: "Q3 收入目标",
+      owner_id: "rich",
+      workspace_id: workspaceId,
+      confirmed: true
+    } as any).data!.objective!;
+    const otunit = runtime.createOtUnit({
+      objective_id: objective.objective_id,
+      title: "完成第一批体验客户访谈",
+      owner_id: "rich",
+      workspace_id: workspaceId,
+      confirmed: true
+    } as any).data!.otunit!;
+    const adjustId = "adjust_invalid";
+    runtime.store.writeAdjust({
+      adjust_id: adjustId,
+      workspace_id: workspaceId,
+      company_id: workspaceResult.data!.company.company_id,
+      objective_id: objective.objective_id,
+      otunit_id: otunit.otunit_id,
+      review_id: "review_invalid",
+      proposal: "Invalid transition proposal",
+      status: "proposed",
+      created_at: "2026-06-30T00:00:00.000Z",
+      updated_at: "2026-06-30T00:00:00.000Z",
+      confirmed_at: null,
+      applied_at: null
+    } as any);
+    const auditBefore = runtime.store.readAuditLog(workspaceId).length;
+
+    const result = runtime.applyAdjust(adjustId, workspaceId, true);
+
+    expect(result.ok).toBe(false);
+    expect(runtime.store.readAdjust(workspaceId, adjustId)?.status).toBe("proposed");
+    expect(runtime.store.readOtUnit(workspaceId, otunit.otunit_id)?.status).toBe("proposed");
+    expect(runtime.store.readAuditLog(workspaceId)).toHaveLength(auditBefore);
+  });
+
+  it("does not persist evidence when the linked OTUnit is missing", () => {
+    const workspaceResult = runtime.createWorkspace({ name: "Demo Workspace", company: "Demo Company" });
+    const workspaceId = workspaceResult.data!.workspace.workspace_id;
+    const objective = runtime.createObjective({
+      title: "Q3 收入目标",
+      owner_id: "rich",
+      workspace_id: workspaceId,
+      confirmed: true
+    } as any).data!.objective!;
+    const candidate = runtime.store.writeEvidenceCandidate({
+      candidate_id: "candidate_missing_otunit",
+      workspace_id: workspaceId,
+      company_id: workspaceResult.data!.company.company_id,
+      objective_id: objective.objective_id,
+      otunit_id: "otunit_missing",
+      source_type: "otunit_followup",
+      source_ref: "otunit_missing",
+      content: "今天完成 3 位客户访谈",
+      captured_at: "2026-06-30T00:00:00.000Z",
+      created_at: "2026-06-30T00:00:00.000Z",
+      updated_at: "2026-06-30T00:00:00.000Z"
+    });
+    const auditBefore = runtime.store.readAuditLog(workspaceId).length;
+
+    const result = runtime.confirmEvidence(candidate.candidate_id, "rich", workspaceId);
+
+    expect(result.ok).toBe(false);
+    expect(runtime.store.listEvidence(workspaceId)).toHaveLength(0);
+    expect(runtime.store.readAuditLog(workspaceId)).toHaveLength(auditBefore);
   });
 
   it("persists an OTUnit after explicit confirmation", () => {
