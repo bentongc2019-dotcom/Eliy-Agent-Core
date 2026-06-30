@@ -1,0 +1,14 @@
+{
+  "adjust_id": "adjust_4c7f1839-9791-45ae-ab51-ced1bd4a74c5",
+  "workspace_id": "workspace_9b3905b4-cd46-482d-bb78-50f4badd1cbe",
+  "company_id": "company_63eac449-8bfc-46e5-b1fa-d88173f722bb",
+  "objective_id": "objective_85750935-5542-4d7f-9d89-781063a2da0d",
+  "otunit_id": "otunit_8c8f2e42-682d-4050-9178-9a8cc694ca29",
+  "review_id": "review_342aef50-52f2-4cde-aafd-7e245e7bce10",
+  "proposal": "Apply adjustment based on evidence evidence_66df9c3f-dcc3-46ef-b1fc-f0ca1ac22bbd for OTUnit 完成第一批体验客户访谈.",
+  "status": "applied",
+  "created_at": "2026-06-30T06:34:18.328Z",
+  "updated_at": "2026-06-30T06:34:18.330Z",
+  "confirmed_at": "2026-06-30T06:34:18.330Z",
+  "applied_at": "2026-06-30T06:34:18.330Z"
+}

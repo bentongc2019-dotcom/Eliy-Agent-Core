@@ -1,0 +1,47 @@
+{
+  "policy_id": "policy_b4d20984-b66a-459c-9b7b-5c934c151a02",
+  "workspace_id": "workspace_4b531be0-ff65-4030-93d8-3a6a9e0b3efb",
+  "model": {
+    "mode": "terminal-first",
+    "notes": "L0/L1 local runtime baseline"
+  },
+  "skills": {
+    "enabled": [
+      "o-pdca",
+      "sfocus",
+      "review",
+      "evidence-extract",
+      "language-style"
+    ]
+  },
+  "confirmation": {
+    "required_actions": [
+      "create_objective",
+      "update_objective",
+      "create_otunit",
+      "update_otunit_owner",
+      "update_otunit_due_at",
+      "mark_otunit_completed",
+      "close_otunit",
+      "create_review",
+      "apply_adjust",
+      "update_objective_achievement",
+      "write_memory"
+    ]
+  },
+  "evidence": {
+    "require_confirmation": true,
+    "allow_candidates": true
+  },
+  "otunit": {
+    "default_review_cycle": "weekly"
+  },
+  "hlamt": {
+    "load_on_start": true
+  },
+  "audit": {
+    "record_critical_transitions": true
+  },
+  "created_at": "2026-06-30T06:40:03.871Z",
+  "updated_at": "2026-06-30T06:40:03.871Z"
+}
