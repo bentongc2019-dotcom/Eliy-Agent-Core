@@ -14,14 +14,14 @@ Current scope:
 This subproject uses `pnpm`.
 
 ```bash
-cd /Users/rich1350/Documents/Eliy-Agent-Core/eliy-native
+cd eliy-native
 pnpm install
 ```
 
 ## Test
 
 ```bash
-cd /Users/rich1350/Documents/Eliy-Agent-Core/eliy-native
+cd eliy-native
 pnpm test
 ```
 
