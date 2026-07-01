@@ -218,14 +218,14 @@ Provider adapter is not enabled in this PR.`)
       printResult(runtime().closeOtUnit(otunit_id, options.reason, options.workspace, true));
     });
 
-  const evidence = program.command("evidence").description("evidence commands");
+  const evidence = program.command("evidence").description("Evidence commands");
   evidence
     .command("list")
     .description("List evidence for an OTUnit")
     .requiredOption("--otunit <otunit>")
     .option("--workspace <workspace>")
     .action((options) => {
-      printResult(runtime().list\u0045vidence(options.otunit, options.workspace));
+      printResult(runtime().listEvidence(options.otunit, options.workspace));
     });
 
   evidence
@@ -235,9 +235,9 @@ Provider adapter is not enabled in this PR.`)
     .option("--confirmed-by <user>")
     .option("--yes", "Skip confirmation", false)
     .action(async (candidate_id, options) => {
-      const ok = await confirm("Confirm evidence? [y/N] ", Boolean(options.yes));
+      const ok = await confirm("Confirm Evidence? [y/N] ", Boolean(options.yes));
       if (!ok) return;
-      printResult(runtime().confirm\u0045vidence(candidate_id, options.confirmedBy, options.workspace));
+      printResult(runtime().confirmEvidence(candidate_id, options.confirmedBy, options.workspace));
     });
 
   const review = program.command("review").description("Review commands");

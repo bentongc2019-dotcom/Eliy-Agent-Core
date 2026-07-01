@@ -85,6 +85,12 @@ PR #8 does not:
 - generate package-lock.json
 - merge before review
 
+## Scope Review Boundary
+
+Scope pollution checks for PR #8 apply only to new chat skeleton documents, PR description text, review comments, boundary confirmation, and chat skeleton test descriptions.
+
+They do not require renaming or escaping existing non-chat CLI domain commands, method names, or user-facing terms.
+
 ## Verification Commands
 
 ```bash
