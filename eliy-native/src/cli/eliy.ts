@@ -8,15 +8,31 @@ function printResult<T>(result: RuntimeResult<T>): void {
   console.log(JSON.stringify(result, null, 2));
 }
 
-function printTerminalChatSkeleton(): void {
-  console.log(JSON.stringify({
-    ok: true,
-    command: "chat",
-    mode: "terminal_chat_skeleton",
-    interactive_loop_enabled: false,
-    provider_adapter_enabled: false,
-    message: "Eliy Native terminal chat command skeleton is installed. Interactive loop is not enabled and provider/model adapter is not enabled in this PR."
-  }, null, 2));
+async function runTerminalChatLoop(): Promise<void> {
+  const rl = createInterface({ input, output });
+  console.log("Eliy Native chat loop started. Type /exit to quit.");
+  output.write("> ");
+
+  try {
+    for await (const rawLine of rl) {
+      const line = rawLine.trim();
+      if (line === "/exit") {
+        break;
+      }
+      if (line.length === 0) {
+        console.log("assistant: empty input received.");
+        output.write("> ");
+        continue;
+      }
+      console.log(`assistant: skeleton response received: ${line}`);
+      console.log("assistant: provider/model adapter not enabled; deterministic skeleton response only; no persistence.");
+      output.write("> ");
+    }
+  } finally {
+    rl.close();
+  }
+
+  console.log("Eliy Native chat loop exited.");
 }
 
 async function confirm(message: string, bypass = false): Promise<boolean> {
@@ -40,14 +56,16 @@ async function main(): Promise<void> {
 
   program
     .command("chat")
-    .description("Terminal chat command skeleton")
+    .description("Interactive terminal chat loop")
     .addHelpText("after", `
 
-This is the terminal chat command skeleton.
-Interactive loop is not enabled in this PR.
-Provider adapter is not enabled in this PR.`)
-    .action(() => {
-      printTerminalChatSkeleton();
+This is the deterministic terminal chat loop.
+Type /exit to quit.
+Provider/model adapter is not enabled.
+No session, transcript, or runtime state persistence.
+Non-empty input returns a deterministic skeleton response.`)
+    .action(async () => {
+      await runTerminalChatLoop();
     });
 
   const workspace = program.command("workspace").description("Workspace commands");

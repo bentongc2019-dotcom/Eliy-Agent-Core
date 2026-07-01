@@ -17,10 +17,11 @@ const secretLikePatterns = [
   /Bearer\s+/i
 ];
 
-function runCli(args: string[]) {
+function runCli(args: string[], stdin = "") {
   return spawnSync(process.execPath, ["--import", tsxLoaderPath, cliPath, ...args], {
     cwd: projectRoot,
     encoding: "utf8",
+    input: stdin,
     timeout: 5_000
   });
 }
@@ -42,8 +43,8 @@ describe("Terminal chat command skeleton", () => {
     expect(packageJson.scripts?.smoke).toBe("tsx src/cli/eliy.ts proof terminal");
   });
 
-  it("emits stable terminal chat skeleton semantics without leaking secret-like text", () => {
-    const result = runCli(["chat"]);
+  it("starts and exits the terminal chat loop without leaking secret-like text", () => {
+    const result = runCli(["chat"], "/exit\n");
     const stdout = result.stdout.trim();
     const stderr = result.stderr.trim();
     const combinedOutput = `${stdout}\n${stderr}`;
@@ -51,25 +52,9 @@ describe("Terminal chat command skeleton", () => {
     expect(result.status).toBe(0);
     expect(stdout.length).toBeGreaterThan(0);
     expectNoSecretLikeText(combinedOutput);
-
-    const payload = JSON.parse(stdout) as {
-      ok?: unknown;
-      command?: unknown;
-      mode?: unknown;
-      interactive_loop_enabled?: unknown;
-      provider_adapter_enabled?: unknown;
-      message?: unknown;
-    };
-
-    expect(payload.ok).toBe(true);
-    expect(payload.command).toBe("chat");
-    expect(payload.mode).toBe("terminal_chat_skeleton");
-    expect(payload.interactive_loop_enabled).toBe(false);
-    expect(payload.provider_adapter_enabled).toBe(false);
-    expect(String(payload.message)).toMatch(/chat/i);
-    expect(String(payload.message)).toMatch(/skeleton/i);
-    expect(String(payload.message)).toMatch(/interactive loop (is )?not enabled|interactive loop disabled/i);
-    expect(String(payload.message)).toMatch(/provider(\/model)? adapter (is )?not enabled|provider adapter disabled/i);
+    expect(stdout).toMatch(/chat loop started/i);
+    expect(stdout).toMatch(/\/exit/i);
+    expect(stdout).toMatch(/chat loop exited/i);
   });
 
   it("prints chat skeleton help without leaking secret-like text", () => {
@@ -82,9 +67,9 @@ describe("Terminal chat command skeleton", () => {
     expect(stdout.length).toBeGreaterThan(0);
     expect(stdout).toMatch(/usage/i);
     expect(stdout).toMatch(/chat/i);
-    expect(stdout).toMatch(/skeleton/i);
-    expect(stdout).toMatch(/interactive loop/i);
-    expect(stdout).toMatch(/provider adapter/i);
+    expect(stdout).toMatch(/deterministic terminal chat loop/i);
+    expect(stdout).toMatch(/\/exit/i);
+    expect(stdout).toMatch(/provider\/model adapter/i);
     expectNoSecretLikeText(combinedOutput);
   });
 });
