@@ -42,7 +42,7 @@ tsx src/cli/eliy.ts proof terminal
 
 ## Help Contract
 
-`tsx src/cli/eliy.ts chat --help` must:
+`corepack pnpm exec tsx src/cli/eliy.ts chat --help` must:
 
 - exit with code `0`
 - write non-empty stdout
@@ -76,18 +76,14 @@ PR #8 does not:
 
 - implement an interactive loop
 - read stdin for a continuous conversation
-- connect a provider
-- connect DeepSeek
-- read secrets
-- add model configuration
-- write session data
-- write transcript data
-- write O units
-- write Evidence
+- connect a provider/model adapter
+- read environment variables or secrets
+- write session, transcript, or runtime state
 - modify Runtime Kernel core logic
 - deploy
 - restart PM2
-- change xiaoma, Hermes, or Ollama configuration
+- generate package-lock.json
+- merge before review
 
 ## Verification Commands
 
@@ -99,11 +95,9 @@ corepack pnpm test
 corepack pnpm proof
 corepack pnpm smoke
 corepack pnpm chat
-tsx src/cli/eliy.ts chat --help
+corepack pnpm exec tsx src/cli/eliy.ts chat --help
 ```
 
 ## Next PR Boundary
 
 Real terminal conversation capability is left for a later PR.
-
-Future work may add an interactive loop, provider/model adapter integration, and persistence contracts, but those are outside PR #8.
