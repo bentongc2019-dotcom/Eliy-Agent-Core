@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import { completeChat, readProviderState } from "../provider/openai-compatible.js";
 import { EliyNativeRuntime } from "../runtime/kernel/runtime.js";
 import type { RuntimeResult } from "../runtime/kernel/schemas/index.js";
 
@@ -10,6 +11,7 @@ function printResult<T>(result: RuntimeResult<T>): void {
 
 async function runTerminalChatLoop(): Promise<void> {
   const rl = createInterface({ input, output });
+  const providerState = readProviderState();
   console.log("Eliy Native chat loop started. Type /exit to quit.");
   output.write("> ");
 
@@ -21,6 +23,20 @@ async function runTerminalChatLoop(): Promise<void> {
       }
       if (line.length === 0) {
         console.log("assistant: empty input received.");
+        output.write("> ");
+        continue;
+      }
+      if (providerState.enabled) {
+        try {
+          const providerResponse = await completeChat({
+            config: providerState.config,
+            userInput: line
+          });
+          console.log(`assistant: ${providerResponse}`);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Provider request failed with redacted details.";
+          console.log(`assistant: provider call failed (${message})`);
+        }
         output.write("> ");
         continue;
       }
@@ -61,9 +77,10 @@ async function main(): Promise<void> {
 
 This is the deterministic terminal chat loop.
 Type /exit to quit.
-Provider/model adapter is not enabled.
+Provider config is optional.
+Provider/model adapter is enabled only when config is complete.
 No session, transcript, or runtime state persistence.
-Non-empty input returns a deterministic skeleton response.`)
+Non-empty input returns a deterministic skeleton response when provider config is incomplete.`)
     .action(async () => {
       await runTerminalChatLoop();
     });
