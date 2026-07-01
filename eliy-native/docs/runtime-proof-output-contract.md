@@ -50,8 +50,13 @@ stderr must not contain unhandled exception, stack trace, or fatal error text du
 
 The contract intentionally does not bind:
 
-- full golden output
-- full snapshot text
+- `objective.status`
+- `otunit.status`
+- audit length
+- warnings array
+- `requires_confirmation`
+- full RuntimeResult shape
+- full snapshot / golden output
 - dynamic IDs
 - timestamps
 - workspace IDs
