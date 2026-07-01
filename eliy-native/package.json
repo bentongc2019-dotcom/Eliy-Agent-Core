@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "chat": "tsx src/cli/eliy.ts chat",
     "cli": "tsx src/cli/eliy.ts",
     "proof": "tsx src/cli/eliy.ts proof terminal",
     "smoke": "tsx src/cli/eliy.ts proof terminal",

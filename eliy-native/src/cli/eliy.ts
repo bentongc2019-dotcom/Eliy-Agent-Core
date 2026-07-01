@@ -8,6 +8,17 @@ function printResult<T>(result: RuntimeResult<T>): void {
   console.log(JSON.stringify(result, null, 2));
 }
 
+function printTerminalChatSkeleton(): void {
+  console.log(JSON.stringify({
+    ok: true,
+    command: "chat",
+    mode: "terminal_chat_skeleton",
+    interactive_loop_enabled: false,
+    provider_adapter_enabled: false,
+    message: "Eliy Native terminal chat command skeleton is installed. Interactive loop is not enabled and provider/model adapter is not enabled in this PR."
+  }, null, 2));
+}
+
 async function confirm(message: string, bypass = false): Promise<boolean> {
   if (bypass) return true;
   const rl = createInterface({ input, output });
@@ -26,6 +37,18 @@ function runtime(): EliyNativeRuntime {
 async function main(): Promise<void> {
   const program = new Command();
   program.name("eliy").description("Eliy Native Runtime Kernel CLI").version("0.1.0");
+
+  program
+    .command("chat")
+    .description("Terminal chat command skeleton")
+    .addHelpText("after", `
+
+This is the terminal chat command skeleton.
+Interactive loop is not enabled in this PR.
+Provider adapter is not enabled in this PR.`)
+    .action(() => {
+      printTerminalChatSkeleton();
+    });
 
   const workspace = program.command("workspace").description("Workspace commands");
   workspace
