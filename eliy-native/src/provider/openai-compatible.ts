@@ -38,12 +38,21 @@ export function readProviderState(env: NodeJS.ProcessEnv = process.env): Provide
 export async function completeChat(input: {
   config: ProviderConfig;
   userInput: string;
+  timeoutMs?: number;
 }): Promise<string> {
   const endpoint = `${input.config.baseUrl.replace(/\/+$/, "")}/chat/completions`;
+  const timeoutMs = input.timeoutMs ?? 10_000;
+  const controller = new AbortController();
+  let didTimeout = false;
+  const timeout = setTimeout(() => {
+    didTimeout = true;
+    controller.abort();
+  }, timeoutMs);
   let response: Response;
   try {
     response = await fetch(endpoint, {
       method: "POST",
+      signal: controller.signal,
       headers: {
         "content-type": "application/json",
         authorization: `Bearer ${input.config.apiKey}`
@@ -59,7 +68,12 @@ export async function completeChat(input: {
       })
     });
   } catch {
+    if (didTimeout) {
+      throw new Error("Provider request timed out with redacted details.");
+    }
     throw new Error("Provider request failed with redacted details.");
+  } finally {
+    clearTimeout(timeout);
   }
 
   if (!response.ok) {

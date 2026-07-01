@@ -81,6 +81,7 @@ The response parser supports:
 - API key values are not printed
 - request headers are not printed
 - provider error output is redacted
+- provider requests use a bounded timeout and timeout errors are redacted
 - tests use a local mock HTTP server
 - no real API key is required for tests
 - no real provider call happens in tests

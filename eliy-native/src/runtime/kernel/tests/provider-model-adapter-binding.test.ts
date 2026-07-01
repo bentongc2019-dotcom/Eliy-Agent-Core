@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
+import { completeChat } from "../../../provider/openai-compatible.js";
 
 const projectRoot = resolve(__dirname, "../../../..");
 const cliPath = join(projectRoot, "src/cli/eliy.ts");
@@ -250,6 +251,40 @@ describe("Provider / model adapter binding", () => {
     expect(result.stdout).toMatch(/redacted/i);
     expect(combinedOutput).not.toContain(unsafeBaseUrl);
     expectNoSecretLikeText(combinedOutput);
+  });
+
+  it("times out provider requests with redacted error details", async () => {
+    const provider = await startMockProvider(async (_request, response) => {
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 200));
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: "late mock provider reply"
+            }
+          }
+        ]
+      }));
+    });
+
+    try {
+      await completeChat({
+        config: {
+          baseUrl: provider.baseUrl,
+          apiKey: "dummy-provider-key",
+          model: "test-model"
+        },
+        userInput: "hello",
+        timeoutMs: 50
+      });
+      throw new Error("Expected provider request to time out");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      expect(message).toBe("Provider request timed out with redacted details.");
+      expect(message).not.toContain(provider.baseUrl);
+      expectNoSecretLikeText(message);
+    }
   });
 
   it("preserves existing loop and script contracts", async () => {
