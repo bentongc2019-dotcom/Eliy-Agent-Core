@@ -25,6 +25,7 @@ describe("Local real provider smoke doc", () => {
     expect(doc).toMatch(/ELIY_PROVIDER_BASE_URL/);
     expect(doc).toMatch(/ELIY_PROVIDER_API_KEY/);
     expect(doc).toMatch(/ELIY_PROVIDER_MODEL/);
+    expect(doc).toMatch(/cd eliy-native/);
     expect(doc).toMatch(/printf 'hello\\n\/exit\\n' \| corepack pnpm chat/);
     expect(doc).toMatch(/command used:/i);
     expect(doc).toMatch(/provider enabled: Yes\/No/i);

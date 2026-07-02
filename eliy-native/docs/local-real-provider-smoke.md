@@ -52,7 +52,7 @@ This pre-check prints only `yes` or `no`. It never prints values.
 - Provider enabled: the chat loop prints the provider response in the terminal.
 - Provider disabled or config incomplete: the chat loop prints the deterministic skeleton response.
 - `/exit` still exits cleanly.
-- Empty input still exits cleanly.
+- Empty input is handled cleanly.
 
 ## Safe Evidence Format
 
@@ -85,7 +85,7 @@ Do not paste real keys, real tokens, private endpoints, or account details anywh
 ## Verification Commands
 
 ```bash
-cd /Users/rich1350/Documents/Eliy-Agent-Core/eliy-native
+cd eliy-native
 
 corepack pnpm install --frozen-lockfile
 corepack pnpm typecheck
