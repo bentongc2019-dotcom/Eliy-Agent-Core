@@ -25,6 +25,7 @@ describe("Local real provider smoke doc", () => {
     expect(doc).toMatch(/ELIY_PROVIDER_BASE_URL/);
     expect(doc).toMatch(/ELIY_PROVIDER_API_KEY/);
     expect(doc).toMatch(/ELIY_PROVIDER_MODEL/);
+    expect(doc).toMatch(/ELIY_PROVIDER_TIMEOUT_MS/);
     expect(doc).toMatch(/cd eliy-native/);
     expect(doc).toMatch(/printf 'hello\\n\/exit\\n' \| corepack pnpm chat/);
     expect(doc).toMatch(/command used:/i);
@@ -34,6 +35,7 @@ describe("Local real provider smoke doc", () => {
     expect(doc).toMatch(/package-lock generated: No/i);
     expect(doc).toMatch(/git status:/i);
     expect(doc).toMatch(/do not paste real keys/i);
+    expect(doc).toMatch(/optional `ELIY_PROVIDER_TIMEOUT_MS`/i);
     expect(doc).toMatch(/if config is incomplete, it falls back to the deterministic skeleton response/i);
     expect(doc).toMatch(/no deploy/i);
     expect(doc).toMatch(/no PM2 restart/i);

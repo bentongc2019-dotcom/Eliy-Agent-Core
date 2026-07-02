@@ -23,6 +23,7 @@ Use only these existing environment variables:
 
 If all three are set in the local shell, the chat loop can use provider mode for the smoke.
 If config is incomplete, the chat loop falls back to the deterministic skeleton response.
+An optional `ELIY_PROVIDER_TIMEOUT_MS` may also be set locally, but evidence must not include its value.
 
 ## Manual Smoke Command
 
