@@ -7,6 +7,8 @@ import {
 } from "../../../domain/objective.js";
 import {
   OTUNIT_STATUSES,
+  type OTUnit,
+  confirmOTUnit,
   validateOTUnitTransition,
   validateOTUnit
 } from "../../../domain/otunit.js";
@@ -105,6 +107,134 @@ describe("OTUnit domain kernel skeleton", () => {
     expect(OTUNIT_STATUSES).toEqual(["proposed", "confirmed", "in_progress", "blocked", "closed"]);
     expect(result).toEqual({ valid: true, errors: [] });
   });
+
+  it("keeps a requires-confirmation OTUnit in proposed state before confirmation", () => {
+    const otunit: OTUnit = {
+      id: "otunit-1",
+      objectiveId: "objective-1",
+      title: "Identify next operating constraint",
+      owner: "user",
+      dueDate: "2026-07-09",
+      status: "proposed",
+      evidenceRefs: ["evidence-1"],
+      requiresConfirmation: true,
+      createdAt: "2026-07-02T00:00:00.000Z"
+    } as const;
+
+    expect(otunit.status).toBe("proposed");
+    expect(otunit.requiresConfirmation).toBe(true);
+    expect(validateOTUnit(otunit)).toEqual({ valid: true, errors: [] });
+  });
+
+  it("moves a requires-confirmation OTUnit from proposed to confirmed", () => {
+    const otunit: OTUnit = {
+      id: "otunit-1",
+      objectiveId: "objective-1",
+      title: "Identify next operating constraint",
+      owner: "user",
+      dueDate: "2026-07-09",
+      status: "proposed",
+      evidenceRefs: ["evidence-1"],
+      requiresConfirmation: true,
+      createdAt: "2026-07-02T00:00:00.000Z"
+    } as const;
+
+    const result = confirmOTUnit(otunit);
+
+    expect(result).toEqual({
+      valid: true,
+      otunit: {
+        ...otunit,
+        status: "confirmed",
+        requiresConfirmation: false
+      },
+      errors: []
+    });
+    expect(otunit).toEqual({
+      id: "otunit-1",
+      objectiveId: "objective-1",
+      title: "Identify next operating constraint",
+      owner: "user",
+      dueDate: "2026-07-09",
+      status: "proposed",
+      evidenceRefs: ["evidence-1"],
+      requiresConfirmation: true,
+      createdAt: "2026-07-02T00:00:00.000Z"
+    });
+  });
+
+  it("keeps an already confirmed OTUnit stable", () => {
+    const otunit: OTUnit = {
+      id: "otunit-1",
+      objectiveId: "objective-1",
+      title: "Identify next operating constraint",
+      owner: "user",
+      dueDate: "2026-07-09",
+      status: "confirmed",
+      evidenceRefs: ["evidence-1"],
+      requiresConfirmation: false,
+      createdAt: "2026-07-02T00:00:00.000Z"
+    } as const;
+
+    expect(confirmOTUnit(otunit)).toEqual({
+      valid: true,
+      otunit,
+      errors: []
+    });
+  });
+
+  it.each([
+    {
+      status: "proposed",
+      requiresConfirmation: false
+    },
+    {
+      status: "confirmed",
+      requiresConfirmation: true
+    },
+    {
+      status: "in_progress",
+      requiresConfirmation: true
+    },
+    {
+      status: "in_progress",
+      requiresConfirmation: false
+    },
+    {
+      status: "blocked",
+      requiresConfirmation: true
+    },
+    {
+      status: "closed",
+      requiresConfirmation: false
+    }
+  ] as const)(
+    "rejects OTUnit confirmation for %s with requiresConfirmation %s",
+    ({ status, requiresConfirmation }) => {
+      const otunit: OTUnit = {
+        id: "otunit-1",
+        objectiveId: "objective-1",
+        title: "Identify next operating constraint",
+        owner: "user",
+        dueDate: "2026-07-09",
+        status,
+        evidenceRefs: ["evidence-1"],
+        requiresConfirmation,
+        createdAt: "2026-07-02T00:00:00.000Z"
+      } as const;
+
+      expect(confirmOTUnit(otunit)).toEqual({
+        valid: false,
+        otunit,
+        errors: [
+          {
+            field: "requiresConfirmation",
+            message: `OTUnit confirmation is not allowed for status ${status} with requiresConfirmation ${String(requiresConfirmation)}.`
+          }
+        ]
+      });
+    }
+  );
 
   it.each([
     ["proposed", "confirmed"],
