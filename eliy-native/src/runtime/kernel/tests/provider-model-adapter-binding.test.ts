@@ -9,6 +9,7 @@ import {
   parseProviderTimeoutMs,
   readProviderState
 } from "../../../provider/openai-compatible.js";
+import { ELIY_RUNTIME_SYSTEM_MESSAGE } from "../../../provider/identity-boundary.js";
 
 const projectRoot = resolve(__dirname, "../../../..");
 const cliPath = join(projectRoot, "src/cli/eliy.ts");
@@ -258,11 +259,19 @@ describe("Provider / model adapter binding", () => {
       model: "test-model",
       messages: [
         {
+          role: "system",
+          content: ELIY_RUNTIME_SYSTEM_MESSAGE
+        },
+        {
           role: "user",
           content: "hello"
         }
       ]
     });
+    expect(ELIY_RUNTIME_SYSTEM_MESSAGE).toMatch(/Eliy/);
+    expect(ELIY_RUNTIME_SYSTEM_MESSAGE).toMatch(/Human-Agency-Centered/);
+    expect(ELIY_RUNTIME_SYSTEM_MESSAGE).toMatch(/terminal chat only/);
+    expect(ELIY_RUNTIME_SYSTEM_MESSAGE).toMatch(/Session memory, persistence, and domain object runtime are not enabled/);
     expect(result.stdout).toMatch(/assistant: mock provider reply/i);
     expect(result.stdout).toMatch(/chat loop exited/i);
     expectNoSecretLikeText(combinedOutput);

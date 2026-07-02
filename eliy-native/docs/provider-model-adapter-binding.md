@@ -39,6 +39,19 @@ When provider config is complete:
 
 The provider request timeout defaults to 10 seconds. `ELIY_PROVIDER_TIMEOUT_MS` can override it when set to a valid positive integer in milliseconds. Invalid timeout values fall back to the default. Timeout config is read only at runtime.
 
+## Runtime Identity Boundary
+
+Provider-enabled chat requests include a stable Eliy system message before the user message.
+
+The system message defines Eliy as a Human-Agency-Centered runtime assistant and keeps the current runtime boundary explicit:
+
+- terminal chat only
+- no session memory yet
+- no persistence yet
+- no domain object runtime yet
+
+This PR does not add memory, persistence, or domain object runtime.
+
 ## OpenAI-Compatible Request Contract
 
 The chat loop sends:
