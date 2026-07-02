@@ -42,6 +42,21 @@ OTUnit status values:
 - blocked
 - closed
 
+## OTUnit State Contract
+
+Allowed OTUnit transitions:
+
+- proposed -> confirmed
+- confirmed -> in_progress
+- in_progress -> blocked
+- blocked -> in_progress
+- in_progress -> closed
+- confirmed -> closed
+
+Invalid transitions return a deterministic invalid transition result.
+
+This state contract does not add persistence, AI generation, chat integration, provider integration, Runtime Kernel integration, or deployment behavior.
+
 ## Validation Boundary
 
 Validation checks required fields, non-empty string ids, allowed statuses, evidence references as ids only, and user confirmation requirement through `requiresConfirmation`.
