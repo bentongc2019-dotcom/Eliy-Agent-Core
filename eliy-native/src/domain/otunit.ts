@@ -3,12 +3,41 @@ import {
   createValidResult,
   isNonEmptyString,
   isStringArray,
+  type DomainValidationError,
   type DomainValidationResult
 } from "./validation.js";
 
 export const OTUNIT_STATUSES = ["proposed", "confirmed", "in_progress", "blocked", "closed"] as const;
 
 export type OTUnitStatus = (typeof OTUNIT_STATUSES)[number];
+
+export type OTUnitTransition = {
+  from: OTUnitStatus;
+  to: OTUnitStatus;
+};
+
+export const ALLOWED_OTUNIT_TRANSITIONS: readonly OTUnitTransition[] = [
+  { from: "proposed", to: "confirmed" },
+  { from: "confirmed", to: "in_progress" },
+  { from: "in_progress", to: "blocked" },
+  { from: "blocked", to: "in_progress" },
+  { from: "in_progress", to: "closed" },
+  { from: "confirmed", to: "closed" }
+] as const;
+
+export type OTUnitTransitionResult =
+  | {
+      valid: true;
+      from: OTUnitStatus;
+      to: OTUnitStatus;
+      errors: [];
+    }
+  | {
+      valid: false;
+      from: OTUnitStatus;
+      to: OTUnitStatus;
+      errors: DomainValidationError[];
+    };
 
 export type OTUnit = {
   id: string;
@@ -22,8 +51,38 @@ export type OTUnit = {
   createdAt: string;
 };
 
-function isOTUnitStatus(value: unknown): value is OTUnitStatus {
+export function isOTUnitStatus(value: unknown): value is OTUnitStatus {
   return typeof value === "string" && (OTUNIT_STATUSES as readonly string[]).includes(value);
+}
+
+export function validateOTUnitTransition(
+  from: OTUnitStatus,
+  to: OTUnitStatus
+): OTUnitTransitionResult {
+  const allowed = ALLOWED_OTUNIT_TRANSITIONS.some(
+    (transition) => transition.from === from && transition.to === to
+  );
+
+  if (allowed) {
+    return {
+      valid: true,
+      from,
+      to,
+      errors: []
+    };
+  }
+
+  return {
+    valid: false,
+    from,
+    to,
+    errors: [
+      {
+        field: "status",
+        message: `OTUnit transition from ${from} to ${to} is not allowed.`
+      }
+    ]
+  };
 }
 
 export function validateOTUnit(value: unknown): DomainValidationResult {
@@ -32,7 +91,7 @@ export function validateOTUnit(value: unknown): DomainValidationResult {
   }
 
   const otunit = value as Record<string, unknown>;
-  const errors = [];
+  const errors: DomainValidationError[] = [];
 
   if (!isNonEmptyString(otunit.id)) {
     errors.push({ field: "id", message: "OTUnit id is required." });

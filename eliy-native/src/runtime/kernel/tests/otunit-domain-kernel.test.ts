@@ -7,6 +7,7 @@ import {
 } from "../../../domain/objective.js";
 import {
   OTUNIT_STATUSES,
+  validateOTUnitTransition,
   validateOTUnit
 } from "../../../domain/otunit.js";
 
@@ -103,6 +104,44 @@ describe("OTUnit domain kernel skeleton", () => {
 
     expect(OTUNIT_STATUSES).toEqual(["proposed", "confirmed", "in_progress", "blocked", "closed"]);
     expect(result).toEqual({ valid: true, errors: [] });
+  });
+
+  it.each([
+    ["proposed", "confirmed"],
+    ["confirmed", "in_progress"],
+    ["in_progress", "blocked"],
+    ["blocked", "in_progress"],
+    ["in_progress", "closed"],
+    ["confirmed", "closed"]
+  ] as const)("allows OTUnit transition %s -> %s", (from, to) => {
+    expect(validateOTUnitTransition(from, to)).toEqual({
+      valid: true,
+      from,
+      to,
+      errors: []
+    });
+  });
+
+  it.each([
+    ["proposed", "in_progress"],
+    ["proposed", "closed"],
+    ["blocked", "closed"],
+    ["closed", "in_progress"],
+    ["closed", "proposed"],
+    ["in_progress", "proposed"],
+    ["confirmed", "proposed"]
+  ] as const)("rejects OTUnit transition %s -> %s", (from, to) => {
+    expect(validateOTUnitTransition(from, to)).toEqual({
+      valid: false,
+      from,
+      to,
+      errors: [
+        {
+          field: "status",
+          message: `OTUnit transition from ${from} to ${to} is not allowed.`
+        }
+      ]
+    });
   });
 
   it("rejects invalid OTUnit values", () => {
