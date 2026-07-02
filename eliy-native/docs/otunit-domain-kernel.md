@@ -57,6 +57,20 @@ Invalid transitions return a deterministic invalid transition result.
 
 This state contract does not add persistence, AI generation, chat integration, provider integration, Runtime Kernel integration, or deployment behavior.
 
+## OTUnit User Confirmation Boundary
+
+OTUnit confirmation is deterministic and domain-local.
+
+Confirmation rules:
+
+- an OTUnit that requires user confirmation starts as `proposed`
+- a valid confirmation moves `proposed -> confirmed`
+- confirmed OTUnit sets `requiresConfirmation: false`
+- an already confirmed OTUnit with `requiresConfirmation: false` stays stable
+- invalid confirmation attempts return a deterministic invalid result
+
+This confirmation boundary does not add persistence, AI generation, chat integration, provider integration, Runtime Kernel integration, or deployment behavior.
+
 ## Validation Boundary
 
 Validation checks required fields, non-empty string ids, allowed statuses, evidence references as ids only, and user confirmation requirement through `requiresConfirmation`.
