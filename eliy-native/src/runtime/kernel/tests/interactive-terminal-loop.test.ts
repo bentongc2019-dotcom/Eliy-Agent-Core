@@ -43,7 +43,7 @@ describe("Interactive terminal chat loop", () => {
     expect(packageJson.scripts?.smoke).toBe("tsx src/cli/eliy.ts proof terminal");
   });
 
-  it("prints chat help with loop controls and disabled provider/model semantics", () => {
+  it("prints chat help with loop controls and optional provider/model semantics", () => {
     const result = runCli(["chat", "--help"]);
     const stdout = result.stdout.trim();
     const stderr = result.stderr.trim();
@@ -54,7 +54,8 @@ describe("Interactive terminal chat loop", () => {
     expect(stdout).toMatch(/usage/i);
     expect(stdout).toMatch(/chat/i);
     expect(stdout).toMatch(/\/exit/i);
-    expect(stdout).toMatch(/provider\/model adapter (is )?not enabled/i);
+    expect(stdout).toMatch(/provider config is optional/i);
+    expect(stdout).toMatch(/provider\/model adapter is enabled only when config is complete/i);
     expect(stdout).toMatch(/deterministic skeleton response/i);
     expect(stdout).toMatch(/no session, transcript, or runtime state persistence/i);
     expectNoSecretLikeText(combinedOutput);
