@@ -1,3 +1,5 @@
+import { ELIY_RUNTIME_SYSTEM_MESSAGE } from "./identity-boundary.js";
+
 export type ProviderConfig = {
   baseUrl: string;
   apiKey: string;
@@ -82,6 +84,10 @@ export async function completeChat(input: {
       body: JSON.stringify({
         model: input.config.model,
         messages: [
+          {
+            role: "system",
+            content: ELIY_RUNTIME_SYSTEM_MESSAGE
+          },
           {
             role: "user",
             content: input.userInput
