@@ -4,6 +4,11 @@ import { stdin as input, stdout as output } from "node:process";
 import { completeChat, readProviderState } from "../provider/openai-compatible.js";
 import { EliyNativeRuntime } from "../runtime/kernel/runtime.js";
 import type { RuntimeResult } from "../runtime/kernel/schemas/index.js";
+import {
+  createSessionTranscript,
+  formatSessionTranscriptDebugSummary,
+  recordSessionTranscriptTurn
+} from "./session-transcript.js";
 
 function printResult<T>(result: RuntimeResult<T>): void {
   console.log(JSON.stringify(result, null, 2));
@@ -12,6 +17,8 @@ function printResult<T>(result: RuntimeResult<T>): void {
 async function runTerminalChatLoop(): Promise<void> {
   const rl = createInterface({ input, output });
   const providerState = readProviderState();
+  const transcript = createSessionTranscript();
+  const shouldPrintTranscriptDebugSummary = process.env.ELIY_CHAT_DEBUG_TRANSCRIPT === "1";
   console.log("Eliy Native chat loop started. Type /exit to quit.");
   output.write("> ");
 
@@ -22,10 +29,13 @@ async function runTerminalChatLoop(): Promise<void> {
         break;
       }
       if (line.length === 0) {
+        recordSessionTranscriptTurn(transcript, { role: "user", content: "" });
         console.log("assistant: empty input received.");
+        recordSessionTranscriptTurn(transcript, { role: "assistant", content: "empty input received." });
         output.write("> ");
         continue;
       }
+      recordSessionTranscriptTurn(transcript, { role: "user", content: line });
       if (providerState.enabled) {
         try {
           const providerResponse = await completeChat({
@@ -34,21 +44,37 @@ async function runTerminalChatLoop(): Promise<void> {
             timeoutMs: providerState.config.timeoutMs
           });
           console.log(`assistant: ${providerResponse}`);
+          recordSessionTranscriptTurn(transcript, { role: "assistant", content: providerResponse });
         } catch (error) {
           const message = error instanceof Error ? error.message : "Provider request failed with redacted details.";
           console.log(`assistant: provider call failed (${message})`);
+          recordSessionTranscriptTurn(transcript, {
+            role: "assistant",
+            content: `provider call failed (${message})`
+          });
         }
         output.write("> ");
         continue;
       }
       console.log(`assistant: skeleton response received: ${line}`);
       console.log("assistant: provider/model adapter not enabled; deterministic skeleton response only; no persistence.");
+      recordSessionTranscriptTurn(transcript, {
+        role: "assistant",
+        content: `skeleton response received: ${line}`
+      });
+      recordSessionTranscriptTurn(transcript, {
+        role: "assistant",
+        content: "provider/model adapter not enabled; deterministic skeleton response only; no persistence."
+      });
       output.write("> ");
     }
   } finally {
     rl.close();
   }
 
+  if (shouldPrintTranscriptDebugSummary) {
+    console.log(formatSessionTranscriptDebugSummary(transcript));
+  }
   console.log("Eliy Native chat loop exited.");
 }
 
