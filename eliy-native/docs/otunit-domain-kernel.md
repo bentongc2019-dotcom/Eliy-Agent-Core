@@ -40,7 +40,7 @@ OTUnit status values:
 - confirmed
 - in_progress
 - blocked
-- done
+- closed
 
 ## Validation Boundary
 

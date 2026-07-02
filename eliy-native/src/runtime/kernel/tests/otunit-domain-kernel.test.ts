@@ -101,7 +101,7 @@ describe("OTUnit domain kernel skeleton", () => {
       createdAt: "2026-07-02T00:00:00.000Z"
     });
 
-    expect(OTUNIT_STATUSES).toEqual(["proposed", "confirmed", "in_progress", "blocked", "done"]);
+    expect(OTUNIT_STATUSES).toEqual(["proposed", "confirmed", "in_progress", "blocked", "closed"]);
     expect(result).toEqual({ valid: true, errors: [] });
   });
 

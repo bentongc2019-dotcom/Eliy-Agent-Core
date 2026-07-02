@@ -6,7 +6,7 @@ import {
   type DomainValidationResult
 } from "./validation.js";
 
-export const OTUNIT_STATUSES = ["proposed", "confirmed", "in_progress", "blocked", "done"] as const;
+export const OTUNIT_STATUSES = ["proposed", "confirmed", "in_progress", "blocked", "closed"] as const;
 
 export type OTUnitStatus = (typeof OTUNIT_STATUSES)[number];
 
