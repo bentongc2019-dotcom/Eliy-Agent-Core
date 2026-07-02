@@ -52,6 +52,25 @@ The system message defines Eliy as a Human-Agency-Centered runtime assistant and
 
 This PR does not add memory, persistence, or domain object runtime.
 
+## Session Transcript Boundary
+
+Terminal chat creates a transient in-memory session transcript for each process run.
+
+The transcript boundary is intentionally local and minimal:
+
+- each chat run has a transient session id
+- user and assistant turns are captured in memory during the process
+- transcript summary is only available through an explicit debug/test path
+- transcript is not persisted to disk
+- no long-term memory is added
+- provider secrets are never captured in transcript
+
+The explicit debug/test path is:
+
+`ELIY_CHAT_DEBUG_TRANSCRIPT=1`
+
+This does not add session memory, persistence, or domain object runtime.
+
 ## OpenAI-Compatible Request Contract
 
 The chat loop sends:

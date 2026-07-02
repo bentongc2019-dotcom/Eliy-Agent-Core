@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
@@ -106,6 +106,32 @@ function expectNoSecretLikeText(output: string): void {
   }
 }
 
+function listDataTree(rootPath: string): string[] {
+  if (!existsSync(rootPath)) {
+    return [];
+  }
+
+  const results: string[] = [];
+  const stack: Array<{ path: string; prefix: string }> = [{ path: rootPath, prefix: "" }];
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    if (!current) {
+      continue;
+    }
+
+    for (const entry of readdirSync(current.path, { withFileTypes: true })) {
+      const relativePath = current.prefix ? `${current.prefix}/${entry.name}` : entry.name;
+      results.push(relativePath);
+      if (entry.isDirectory()) {
+        stack.push({ path: join(current.path, entry.name), prefix: relativePath });
+      }
+    }
+  }
+
+  return results.sort();
+}
+
 async function readRequestBody(request: IncomingMessage): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of request) {
@@ -207,6 +233,7 @@ describe("Provider / model adapter binding", () => {
     expect(result.stdout).toMatch(/assistant: skeleton response received: hello/i);
     expect(result.stdout).toMatch(/deterministic skeleton response/i);
     expect(result.stdout).toMatch(/chat loop exited/i);
+    expect(result.stdout).not.toMatch(/Eliy session transcript debug summary/i);
     expectNoSecretLikeText(combinedOutput);
   });
 
@@ -274,6 +301,50 @@ describe("Provider / model adapter binding", () => {
     expect(ELIY_RUNTIME_SYSTEM_MESSAGE).toMatch(/Session memory, persistence, and domain object runtime are not enabled/);
     expect(result.stdout).toMatch(/assistant: mock provider reply/i);
     expect(result.stdout).toMatch(/chat loop exited/i);
+    expect(result.stdout).not.toMatch(/Eliy session transcript debug summary/i);
+    expectNoSecretLikeText(combinedOutput);
+  });
+
+  it("prints a transcript debug summary only through the explicit debug path without capturing secrets", async () => {
+    const dataRoot = join(projectRoot, "data");
+    const beforeEntries = listDataTree(dataRoot);
+    const provider = await startMockProvider((_request, response) => {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: "mock provider reply"
+            }
+          }
+        ]
+      }));
+    });
+
+    const result = await runCli(["chat"], "hello\n/exit\n", {
+      ELIY_PROVIDER_BASE_URL: provider.baseUrl,
+      ELIY_PROVIDER_API_KEY: "dummy-provider-key",
+      ELIY_PROVIDER_MODEL: "test-model",
+      ELIY_CHAT_DEBUG_TRANSCRIPT: "1"
+    });
+    const combinedOutput = `${result.stdout}\n${result.stderr}`;
+    const afterEntries = listDataTree(dataRoot);
+
+    expect(result.status).toBe(0);
+    expect(provider.requests).toHaveLength(1);
+    expect(result.stdout).toMatch(/Eliy session transcript debug summary/);
+    expect(result.stdout).toMatch(/turn_count: 2/);
+    expect(result.stdout).toMatch(/1\. user: hello/);
+    expect(result.stdout).toMatch(/2\. assistant: mock provider reply/);
+    expect(result.stdout).not.toMatch(/dummy-provider-key/);
+    expect(result.stdout).not.toMatch(/Authorization/);
+    expect(result.stdout).not.toMatch(/Bearer/);
+    expect(result.stdout).not.toMatch(/ELIY_PROVIDER_BASE_URL/);
+    expect(result.stdout).not.toMatch(/ELIY_PROVIDER_API_KEY/);
+    expect(result.stdout).not.toMatch(/ELIY_PROVIDER_MODEL/);
+    expect(result.stdout).not.toMatch(/ELIY_PROVIDER_TIMEOUT_MS/);
+    expect(afterEntries).toEqual(beforeEntries);
+    expect(afterEntries.some((entry) => /transcript/i.test(entry))).toBe(false);
     expectNoSecretLikeText(combinedOutput);
   });
 
