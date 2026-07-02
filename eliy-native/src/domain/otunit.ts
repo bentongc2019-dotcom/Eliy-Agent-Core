@@ -39,6 +39,18 @@ export type OTUnitTransitionResult =
       errors: DomainValidationError[];
     };
 
+export type OTUnitConfirmationResult =
+  | {
+      valid: true;
+      otunit: OTUnit;
+      errors: [];
+    }
+  | {
+      valid: false;
+      otunit: OTUnit;
+      errors: DomainValidationError[];
+    };
+
 export type OTUnit = {
   id: string;
   objectiveId: string;
@@ -80,6 +92,39 @@ export function validateOTUnitTransition(
       {
         field: "status",
         message: `OTUnit transition from ${from} to ${to} is not allowed.`
+      }
+    ]
+  };
+}
+
+export function confirmOTUnit(otunit: OTUnit): OTUnitConfirmationResult {
+  if (otunit.status === "confirmed" && otunit.requiresConfirmation === false) {
+    return {
+      valid: true,
+      otunit,
+      errors: []
+    };
+  }
+
+  if (otunit.status === "proposed" && otunit.requiresConfirmation === true) {
+    return {
+      valid: true,
+      otunit: {
+        ...otunit,
+        status: "confirmed",
+        requiresConfirmation: false
+      },
+      errors: []
+    };
+  }
+
+  return {
+    valid: false,
+    otunit,
+    errors: [
+      {
+        field: "requiresConfirmation",
+        message: `OTUnit confirmation is not allowed for status ${otunit.status} with requiresConfirmation ${String(otunit.requiresConfirmation)}.`
       }
     ]
   };
