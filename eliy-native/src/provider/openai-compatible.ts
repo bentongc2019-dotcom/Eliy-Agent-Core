@@ -2,11 +2,14 @@ export type ProviderConfig = {
   baseUrl: string;
   apiKey: string;
   model: string;
+  timeoutMs: number;
 };
 
 export type ProviderState =
   | { enabled: false; reason: "missing_config" }
   | { enabled: true; config: ProviderConfig };
+
+export const DEFAULT_PROVIDER_TIMEOUT_MS = 10_000;
 
 type ChatCompletionResponse = {
   choices?: Array<{
@@ -15,6 +18,24 @@ type ChatCompletionResponse = {
     };
   }>;
 };
+
+export function parseProviderTimeoutMs(value: string | undefined): number {
+  if (!value) {
+    return DEFAULT_PROVIDER_TIMEOUT_MS;
+  }
+
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    return DEFAULT_PROVIDER_TIMEOUT_MS;
+  }
+
+  const parsed = Number(trimmed);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    return DEFAULT_PROVIDER_TIMEOUT_MS;
+  }
+
+  return parsed;
+}
 
 export function readProviderState(env: NodeJS.ProcessEnv = process.env): ProviderState {
   const baseUrl = env.ELIY_PROVIDER_BASE_URL?.trim() ?? "";
@@ -30,7 +51,8 @@ export function readProviderState(env: NodeJS.ProcessEnv = process.env): Provide
     config: {
       baseUrl,
       apiKey,
-      model
+      model,
+      timeoutMs: parseProviderTimeoutMs(env.ELIY_PROVIDER_TIMEOUT_MS)
     }
   };
 }
@@ -41,7 +63,7 @@ export async function completeChat(input: {
   timeoutMs?: number;
 }): Promise<string> {
   const endpoint = `${input.config.baseUrl.replace(/\/+$/, "")}/chat/completions`;
-  const timeoutMs = input.timeoutMs ?? 10_000;
+  const timeoutMs = input.timeoutMs ?? input.config.timeoutMs ?? DEFAULT_PROVIDER_TIMEOUT_MS;
   const controller = new AbortController();
   let didTimeout = false;
   const timeout = setTimeout(() => {

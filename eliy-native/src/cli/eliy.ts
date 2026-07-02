@@ -30,7 +30,8 @@ async function runTerminalChatLoop(): Promise<void> {
         try {
           const providerResponse = await completeChat({
             config: providerState.config,
-            userInput: line
+            userInput: line,
+            timeoutMs: providerState.config.timeoutMs
           });
           console.log(`assistant: ${providerResponse}`);
         } catch (error) {

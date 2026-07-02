@@ -3,7 +3,12 @@ import { readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
-import { completeChat } from "../../../provider/openai-compatible.js";
+import {
+  DEFAULT_PROVIDER_TIMEOUT_MS,
+  completeChat,
+  parseProviderTimeoutMs,
+  readProviderState
+} from "../../../provider/openai-compatible.js";
 
 const projectRoot = resolve(__dirname, "../../../..");
 const cliPath = join(projectRoot, "src/cli/eliy.ts");
@@ -35,7 +40,8 @@ type CapturedRequest = {
 const providerEnvNames = [
   "ELIY_PROVIDER_BASE_URL",
   "ELIY_PROVIDER_API_KEY",
-  "ELIY_PROVIDER_MODEL"
+  "ELIY_PROVIDER_MODEL",
+  "ELIY_PROVIDER_TIMEOUT_MS"
 ];
 
 let stopServer: (() => Promise<void>) | undefined;
@@ -146,6 +152,52 @@ async function startMockProvider(handler: (request: IncomingMessage, response: S
 }
 
 describe("Provider / model adapter binding", () => {
+  it("uses the default timeout when provider config is complete without a timeout override", () => {
+    const state = readProviderState({
+      ELIY_PROVIDER_BASE_URL: "http://127.0.0.1:1234",
+      ELIY_PROVIDER_API_KEY: "dummy-provider-key",
+      ELIY_PROVIDER_MODEL: "test-model"
+    });
+
+    expect(state.enabled).toBe(true);
+    if (state.enabled) {
+      expect(state.config.timeoutMs).toBe(DEFAULT_PROVIDER_TIMEOUT_MS);
+    }
+  });
+
+  it("parses a valid runtime timeout override", () => {
+    const state = readProviderState({
+      ELIY_PROVIDER_BASE_URL: "http://127.0.0.1:1234",
+      ELIY_PROVIDER_API_KEY: "dummy-provider-key",
+      ELIY_PROVIDER_MODEL: "test-model",
+      ELIY_PROVIDER_TIMEOUT_MS: "50"
+    });
+
+    expect(state.enabled).toBe(true);
+    if (state.enabled) {
+      expect(state.config.timeoutMs).toBe(50);
+    }
+    expect(parseProviderTimeoutMs("50")).toBe(50);
+  });
+
+  it.each(["", "   ", "abc", "0", "-1", "1.5", "NaN", "Infinity"])(
+    "falls back to the default timeout for invalid timeout value %j",
+    (timeoutValue) => {
+      const state = readProviderState({
+        ELIY_PROVIDER_BASE_URL: "http://127.0.0.1:1234",
+        ELIY_PROVIDER_API_KEY: "dummy-provider-key",
+        ELIY_PROVIDER_MODEL: "test-model",
+        ELIY_PROVIDER_TIMEOUT_MS: timeoutValue
+      });
+
+      expect(state.enabled).toBe(true);
+      if (state.enabled) {
+        expect(state.config.timeoutMs).toBe(DEFAULT_PROVIDER_TIMEOUT_MS);
+      }
+      expect(parseProviderTimeoutMs(timeoutValue)).toBe(DEFAULT_PROVIDER_TIMEOUT_MS);
+    }
+  );
+
   it("falls back to the deterministic skeleton response when provider config is absent", async () => {
     const result = await runCli(["chat"], "hello\n/exit\n");
     const combinedOutput = `${result.stdout}\n${result.stderr}`;
@@ -216,6 +268,37 @@ describe("Provider / model adapter binding", () => {
     expectNoSecretLikeText(combinedOutput);
   });
 
+  it("uses the configured runtime timeout when provider requests are slow", async () => {
+    const provider = await startMockProvider(async (_request, response) => {
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 200));
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: "late mock provider reply"
+            }
+          }
+        ]
+      }));
+    });
+
+    const result = await runCli(["chat"], "hello\n/exit\n", {
+      ELIY_PROVIDER_BASE_URL: provider.baseUrl,
+      ELIY_PROVIDER_API_KEY: "dummy-provider-key",
+      ELIY_PROVIDER_MODEL: "test-model",
+      ELIY_PROVIDER_TIMEOUT_MS: "50"
+    });
+    const combinedOutput = `${result.stdout}\n${result.stderr}`;
+
+    expect(result.status).toBe(0);
+    expect(provider.requests).toHaveLength(1);
+    expect(result.stdout).toMatch(/assistant: provider call failed/i);
+    expect(result.stdout).toMatch(/timed out/i);
+    expect(result.stdout).toMatch(/redacted/i);
+    expectNoSecretLikeText(combinedOutput);
+  });
+
   it("prints a safe redacted provider error and exits cleanly when provider response fails", async () => {
     const provider = await startMockProvider((_request, response) => {
       response.writeHead(500, { "content-type": "application/json" });
@@ -273,7 +356,8 @@ describe("Provider / model adapter binding", () => {
         config: {
           baseUrl: provider.baseUrl,
           apiKey: "dummy-provider-key",
-          model: "test-model"
+          model: "test-model",
+          timeoutMs: DEFAULT_PROVIDER_TIMEOUT_MS
         },
         userInput: "hello",
         timeoutMs: 50

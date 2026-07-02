@@ -13,6 +13,7 @@ Provider config is read only at runtime from these environment variables:
 - `ELIY_PROVIDER_BASE_URL`
 - `ELIY_PROVIDER_API_KEY`
 - `ELIY_PROVIDER_MODEL`
+- `ELIY_PROVIDER_TIMEOUT_MS`
 
 Provider mode is enabled only when all three values are present and non-empty.
 
@@ -35,6 +36,8 @@ When provider config is complete:
 - the terminal prints the provider response as `assistant: <response text>`
 - `/exit`, empty input, and EOF remain stable
 - no session data, transcript data, or runtime state is written by the chat loop
+
+The provider request timeout defaults to 10 seconds. `ELIY_PROVIDER_TIMEOUT_MS` can override it when set to a valid positive integer in milliseconds. Invalid timeout values fall back to the default. Timeout config is read only at runtime.
 
 ## OpenAI-Compatible Request Contract
 
@@ -82,6 +85,7 @@ The response parser supports:
 - request headers are not printed
 - provider error output is redacted
 - provider requests use a bounded timeout and timeout errors are redacted
+- timeout errors use redacted details only
 - tests use a local mock HTTP server
 - no real API key is required for tests
 - no real provider call happens in tests
