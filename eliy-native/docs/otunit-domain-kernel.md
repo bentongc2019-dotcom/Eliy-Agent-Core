@@ -91,6 +91,30 @@ Evidence reference rules:
 
 This evidence reference boundary does not add evidence persistence, AI generation, real provider integration, chat integration, automatic confirmation, Runtime Kernel integration, or deployment behavior.
 
+## OTUnit Review / Revision Boundary
+
+OTUnit review and revision are deterministic and domain-local.
+
+Review rules:
+
+- review input records review intent only
+- review input does not persist data
+- review input does not store evidence content
+- invalid review input returns deterministic validation errors
+
+Revision rules:
+
+- revision produces a revised OTUnit copy
+- revision keeps OTUnit identity stable
+- revision preserves the evidenceRefs boundary
+- revision preserves the user confirmation boundary
+- revised OTUnit remains `proposed`
+- revised OTUnit requires user confirmation
+- revision cannot automatically confirm an OTUnit
+- invalid revision input returns deterministic validation errors
+
+This review / revision boundary does not add persistence, evidence content storage, AI generation, real provider integration, chat integration, automatic confirmation, Runtime Kernel integration, or deployment behavior.
+
 ## Persistence Boundary
 
 This PR does not persist Objective or OTUnit objects.
