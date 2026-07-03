@@ -316,3 +316,45 @@ Boundary:
 - no mutation-oriented OTUnit CLI command
 - no chat behavior change
 - no Runtime Kernel behavior change beyond the deterministic intent boundary
+
+## Chat-to-OTUnit Draft Preview Boundary
+
+The chat-to-OTUnit draft preview boundary uses the deterministic chat-to-OTUnit draft intent boundary to prepare preview metadata.
+
+This boundary is deterministic and domain-local.
+
+Input includes:
+
+- `sessionId`
+- `userText`
+- `assistantText`
+
+Output behavior:
+
+- positive intent returns preview metadata only
+- preview may include a proposed preview shape
+- no-intent input returns a deterministic no-preview result
+- invalid input returns deterministic validation errors
+
+Confirmation boundary:
+
+- preview does not create an OTUnit
+- preview does not create a confirmed OTUnit
+- preview does not create an `OTUnitDraftInput`
+- preview does not call `createOTUnitDraftFromSession`
+- preview does not call `createProposedOTUnitFromDraft`
+- preview does not call `confirmOTUnit`
+- preview requires user confirmation before any later draft or OTUnit creation work
+
+Boundary:
+
+- no OTUnit creation
+- no confirmed OTUnit creation
+- no automatic confirmation
+- no persistence
+- no evidence content storage
+- no real provider integration
+- no AI generation
+- no mutation-oriented OTUnit CLI command
+- no chat behavior change
+- no Runtime Kernel behavior change beyond deterministic preview boundary

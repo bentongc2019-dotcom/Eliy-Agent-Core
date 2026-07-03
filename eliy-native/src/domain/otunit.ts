@@ -319,6 +319,135 @@ export function detectOTUnitDraftIntent(
   };
 }
 
+// Chat-to-OTUnit Draft Preview Boundary.
+// Uses the deterministic chat-to-OTUnit draft intent boundary to prepare preview metadata.
+// Returns preview metadata only; never creates an OTUnit or OTUnitDraftInput.
+
+export type ChatToOTUnitDraftPreviewInput = {
+  sessionId: string;
+  userText: string;
+  assistantText: string;
+};
+
+export type OTUnitDraftPreview = {
+  title: string;
+  sourceSessionId: string;
+  source: "chat_session";
+  status: "preview";
+  requiresUserConfirmation: true;
+};
+
+export type ChatToOTUnitDraftPreviewResult =
+  | {
+      valid: true;
+      previewAvailable: true;
+      intentDetected: true;
+      intentType: OTUnitDraftIntentType;
+      requiresUserConfirmation: true;
+      draftPreview: OTUnitDraftPreview;
+      reason: string;
+      errors: [];
+    }
+  | {
+      valid: true;
+      previewAvailable: false;
+      intentDetected: false;
+      intentType: null;
+      requiresUserConfirmation: false;
+      draftPreview: null;
+      reason: string;
+      errors: [];
+    }
+  | {
+      valid: false;
+      previewAvailable: false;
+      intentDetected: false;
+      intentType: null;
+      requiresUserConfirmation: false;
+      draftPreview: null;
+      reason: string;
+      errors: DomainValidationError[];
+    };
+
+function firstNonEmptyPreviewLine(value: string): string {
+  for (const line of value.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+
+  return "";
+}
+
+function extractPreviewTitle(input: ChatToOTUnitDraftPreviewInput): string {
+  const fromAssistant = firstNonEmptyPreviewLine(input.assistantText);
+  if (fromAssistant.length > 0) {
+    return fromAssistant.slice(0, 120);
+  }
+
+  const fromUser = firstNonEmptyPreviewLine(input.userText);
+  if (fromUser.length > 0) {
+    return fromUser.slice(0, 120);
+  }
+
+  return "OTUnit draft preview";
+}
+
+export function previewOTUnitDraftFromChat(
+  input: unknown
+): ChatToOTUnitDraftPreviewResult {
+  const intentResult = detectOTUnitDraftIntent(input);
+
+  if (!intentResult.valid) {
+    return {
+      valid: false,
+      previewAvailable: false,
+      intentDetected: false,
+      intentType: null,
+      requiresUserConfirmation: false,
+      draftPreview: null,
+      reason: "Invalid chat-to-OTUnit draft preview input.",
+      errors: intentResult.errors
+    };
+  }
+
+  if (!intentResult.intentDetected) {
+    return {
+      valid: true,
+      previewAvailable: false,
+      intentDetected: false,
+      intentType: null,
+      requiresUserConfirmation: false,
+      draftPreview: null,
+      reason: "No deterministic OTUnit draft intent phrase detected; preview not available.",
+      errors: []
+    };
+  }
+
+  const intentInput = input as ChatToOTUnitDraftPreviewInput;
+
+  const draftPreview: OTUnitDraftPreview = {
+    title: extractPreviewTitle(intentInput),
+    sourceSessionId: intentInput.sessionId,
+    source: "chat_session",
+    status: "preview",
+    requiresUserConfirmation: true
+  };
+
+  return {
+    valid: true,
+    previewAvailable: true,
+    intentDetected: true,
+    intentType: "otunit_draft",
+    requiresUserConfirmation: true,
+    draftPreview,
+    reason: "Detected deterministic OTUnit draft intent and prepared preview metadata.",
+    errors: []
+  };
+}
+
+
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
