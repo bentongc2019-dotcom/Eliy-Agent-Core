@@ -1,6 +1,15 @@
 import { Command } from "commander";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import {
+  ALLOWED_OTUNIT_TRANSITIONS,
+  OTUNIT_STATUSES,
+  confirmOTUnit,
+  createOTUnitReviewIntent,
+  createProposedOTUnitFromDraft,
+  reviseOTUnit,
+  validateEvidenceRefs
+} from "../domain/index.js";
 import { completeChat, readProviderState } from "../provider/openai-compatible.js";
 import { EliyNativeRuntime } from "../runtime/kernel/runtime.js";
 import type { RuntimeResult } from "../runtime/kernel/schemas/index.js";
@@ -10,7 +19,7 @@ import {
   recordSessionTranscriptTurn
 } from "./session-transcript.js";
 
-function printResult<T>(result: RuntimeResult<T>): void {
+function printResult<T>(result: T): void {
   console.log(JSON.stringify(result, null, 2));
 }
 
@@ -186,6 +195,28 @@ Non-empty input returns a deterministic skeleton response when provider config i
     });
 
   const otunit = program.command("otunit").description("OTUnit commands");
+  otunit.action(() => {
+    printResult({
+      ok: true,
+      command: "otunit",
+      mode: "domain_contract_inspection",
+      domain: {
+        otunit: {
+          available: true,
+          statusValues: [...OTUNIT_STATUSES],
+          allowedTransitionsCount: ALLOWED_OTUNIT_TRANSITIONS.length,
+          confirmationBoundaryAvailable: typeof confirmOTUnit === "function",
+          draftBoundaryAvailable: typeof createProposedOTUnitFromDraft === "function",
+          evidenceRefBoundaryAvailable: typeof validateEvidenceRefs === "function",
+          reviewRevisionBoundaryAvailable:
+            typeof createOTUnitReviewIntent === "function" && typeof reviseOTUnit === "function"
+        }
+      },
+      requiresProviderConfig: false,
+      waitsForStdin: false,
+      persistence: false
+    });
+  });
   otunit
     .command("create")
     .description("Create an OTUnit")

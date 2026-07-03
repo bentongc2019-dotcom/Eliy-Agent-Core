@@ -164,6 +164,39 @@ Revision rules:
 
 This review / revision boundary does not add persistence, evidence content storage, AI generation, real provider integration, chat integration, automatic confirmation, Runtime Kernel integration, or deployment behavior.
 
+## OTUnit Runtime Command Skeleton
+
+The OTUnit runtime command skeleton provides deterministic inspection of the OTUnit domain contract surface.
+
+Command:
+
+- `corepack pnpm otunit`
+- direct CLI path: `corepack pnpm exec tsx src/cli/eliy.ts otunit`
+
+Output contract:
+
+- deterministic JSON
+- `ok: true`
+- command name
+- mode
+- OTUnit domain contract availability
+- OTUnit status values
+- allowed transition count
+- confirmation boundary availability
+- draft boundary availability
+- evidence ref boundary availability
+- review / revision boundary availability
+
+Boundary:
+
+- does not require provider config
+- does not wait for stdin
+- does not persist data
+- does not store evidence content
+- does not call AI or provider integrations
+- does not automatically confirm OTUnits
+- does not change existing proof, smoke, or chat behavior
+
 ## Persistence Boundary
 
 This PR does not persist Objective or OTUnit objects.
