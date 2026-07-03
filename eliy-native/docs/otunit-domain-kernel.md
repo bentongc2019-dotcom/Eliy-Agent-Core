@@ -75,6 +75,22 @@ This confirmation boundary does not add persistence, AI generation, chat integra
 
 Validation checks required fields, non-empty string ids, allowed statuses, evidence references as ids only, and user confirmation requirement through `requiresConfirmation`.
 
+## OTUnit Evidence Reference Boundary
+
+OTUnit evidence references are deterministic ids/references only.
+
+Evidence reference rules:
+
+- `evidenceRefs` stores ids/references only
+- each evidence ref must be a non-empty string id
+- empty strings are invalid
+- whitespace-only strings are invalid
+- non-string refs are invalid
+- duplicate refs are invalid
+- evidence content is not stored inside OTUnit evidenceRefs
+
+This evidence reference boundary does not add evidence persistence, AI generation, real provider integration, chat integration, automatic confirmation, Runtime Kernel integration, or deployment behavior.
+
 ## Persistence Boundary
 
 This PR does not persist Objective or OTUnit objects.

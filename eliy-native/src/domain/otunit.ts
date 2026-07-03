@@ -2,7 +2,6 @@ import {
   createInvalidResult,
   createValidResult,
   isNonEmptyString,
-  isStringArray,
   type DomainValidationError,
   type DomainValidationResult
 } from "./validation.js";
@@ -58,10 +57,44 @@ export type OTUnit = {
   owner: string;
   dueDate: string;
   status: OTUnitStatus;
-  evidenceRefs: string[];
+  evidenceRefs: EvidenceRef[];
   requiresConfirmation: boolean;
   createdAt: string;
 };
+
+export type EvidenceRef = string;
+
+const INVALID_EVIDENCE_REFS_ERROR: DomainValidationError = {
+  field: "evidenceRefs",
+  message: "evidenceRefs must be an array of non-empty string ids."
+};
+
+const DUPLICATE_EVIDENCE_REFS_ERROR: DomainValidationError = {
+  field: "evidenceRefs",
+  message: "evidenceRefs must not contain duplicate refs."
+};
+
+export function validateEvidenceRefs(value: unknown): DomainValidationResult {
+  if (!Array.isArray(value)) {
+    return createInvalidResult([INVALID_EVIDENCE_REFS_ERROR]);
+  }
+
+  const seen = new Set<string>();
+
+  for (const evidenceRef of value) {
+    if (typeof evidenceRef !== "string" || evidenceRef.trim().length === 0) {
+      return createInvalidResult([INVALID_EVIDENCE_REFS_ERROR]);
+    }
+
+    if (seen.has(evidenceRef)) {
+      return createInvalidResult([DUPLICATE_EVIDENCE_REFS_ERROR]);
+    }
+
+    seen.add(evidenceRef);
+  }
+
+  return createValidResult();
+}
 
 export function isOTUnitStatus(value: unknown): value is OTUnitStatus {
   return typeof value === "string" && (OTUNIT_STATUSES as readonly string[]).includes(value);
@@ -156,8 +189,9 @@ export function validateOTUnit(value: unknown): DomainValidationResult {
   if (!isOTUnitStatus(otunit.status)) {
     errors.push({ field: "status", message: "OTUnit status is invalid." });
   }
-  if (!isStringArray(otunit.evidenceRefs)) {
-    errors.push({ field: "evidenceRefs", message: "OTUnit evidenceRefs must be a string id array." });
+  const evidenceRefsValidation = validateEvidenceRefs(otunit.evidenceRefs);
+  if (!evidenceRefsValidation.valid) {
+    errors.push(...evidenceRefsValidation.errors);
   }
   if (typeof otunit.requiresConfirmation !== "boolean") {
     errors.push({ field: "requiresConfirmation", message: "OTUnit requiresConfirmation is required." });
@@ -179,7 +213,7 @@ export type OTUnitDraftInput = {
   title: string;
   owner: string;
   dueDate: string;
-  evidenceRefs: string[];
+  evidenceRefs: EvidenceRef[];
 };
 
 export type OTUnitDraftBuildResult =
@@ -231,8 +265,9 @@ export function createProposedOTUnitFromDraft(input: unknown): OTUnitDraftBuildR
   if (!isNonEmptyString(draft.dueDate)) {
     errors.push({ field: "dueDate", message: "OTUnit draft dueDate is required." });
   }
-  if (!isStringArray(draft.evidenceRefs)) {
-    errors.push({ field: "evidenceRefs", message: "OTUnit draft evidenceRefs must be a string array." });
+  const evidenceRefsValidation = validateEvidenceRefs(draft.evidenceRefs);
+  if (!evidenceRefsValidation.valid) {
+    errors.push(...evidenceRefsValidation.errors);
   }
 
   if (errors.length > 0) {
@@ -246,7 +281,7 @@ export function createProposedOTUnitFromDraft(input: unknown): OTUnitDraftBuildR
     owner: draft.owner as string,
     dueDate: draft.dueDate as string,
     status: "proposed",
-    evidenceRefs: draft.evidenceRefs as string[],
+    evidenceRefs: draft.evidenceRefs as EvidenceRef[],
     requiresConfirmation: true,
     createdAt: OTUNIT_DRAFT_CREATED_AT
   };

@@ -7,10 +7,12 @@ import {
 } from "../../../domain/objective.js";
 import {
   OTUNIT_STATUSES,
+  type EvidenceRef,
   type OTUnit,
   type OTUnitDraftInput,
   confirmOTUnit,
   createProposedOTUnitFromDraft,
+  validateEvidenceRefs,
   validateOTUnitTransition,
   validateOTUnit
 } from "../../../domain/otunit.js";
@@ -41,6 +43,8 @@ function expectNoForbiddenText(text: string): void {
 }
 
 describe("OTUnit domain kernel skeleton", () => {
+  const validEvidenceRefs: EvidenceRef[] = ["evidence-1", "evidence-2"];
+
   it("validates a minimal Objective", () => {
     const result = validateObjective({
       id: "objective-1",
@@ -101,13 +105,66 @@ describe("OTUnit domain kernel skeleton", () => {
       owner: "user",
       dueDate: "2026-07-09",
       status: "proposed",
-      evidenceRefs: ["evidence-1", "evidence-2"],
+      evidenceRefs: validEvidenceRefs,
       requiresConfirmation: true,
       createdAt: "2026-07-02T00:00:00.000Z"
     });
 
     expect(OTUNIT_STATUSES).toEqual(["proposed", "confirmed", "in_progress", "blocked", "closed"]);
     expect(result).toEqual({ valid: true, errors: [] });
+  });
+
+  it("validates evidence refs that are non-empty string ids", () => {
+    expect(validateEvidenceRefs(validEvidenceRefs)).toEqual({ valid: true, errors: [] });
+    expect(validateOTUnit({
+      id: "otunit-1",
+      objectiveId: "objective-1",
+      title: "Identify next operating constraint",
+      owner: "user",
+      dueDate: "2026-07-09",
+      status: "proposed",
+      evidenceRefs: validEvidenceRefs,
+      requiresConfirmation: true,
+      createdAt: "2026-07-02T00:00:00.000Z"
+    })).toEqual({ valid: true, errors: [] });
+  });
+
+  it.each([
+    ["object evidence content", [{ id: "evidence-1", content: "do not store content here" }]],
+    ["number ref", [123]],
+    ["null ref", [null]],
+    ["boolean ref", [true]],
+    ["empty string ref", [""]],
+    ["whitespace-only ref", ["   "]],
+    ["mixed empty string ref", ["evidence-1", ""]],
+    ["mixed whitespace-only ref", ["evidence-1", "   "]],
+    ["mixed non-string ref", ["evidence-1", 123]]
+  ] as const)("rejects invalid evidence refs: %s", (_name, evidenceRefs) => {
+    expect(validateEvidenceRefs(evidenceRefs)).toEqual({
+      valid: false,
+      errors: [
+        {
+          field: "evidenceRefs",
+          message: "evidenceRefs must be an array of non-empty string ids."
+        }
+      ]
+    });
+  });
+
+  it.each([
+    ["single duplicate", ["evidence-1", "evidence-1"]],
+    ["duplicate after distinct ref", ["evidence-1", "evidence-2", "evidence-1"]]
+  ] as const)("rejects duplicate evidence refs: %s", (_name, evidenceRefs) => {
+    expect(() => validateEvidenceRefs(evidenceRefs)).not.toThrow();
+    expect(validateEvidenceRefs(evidenceRefs)).toEqual({
+      valid: false,
+      errors: [
+        {
+          field: "evidenceRefs",
+          message: "evidenceRefs must not contain duplicate refs."
+        }
+      ]
+    });
   });
 
   it("keeps a requires-confirmation OTUnit in proposed state before confirmation", () => {
@@ -346,7 +403,7 @@ describe("OTUnit domain kernel skeleton", () => {
       createdAt: "2026-07-02T00:00:00.000Z"
     })).toEqual({
       valid: false,
-      errors: [{ field: "evidenceRefs", message: "OTUnit evidenceRefs must be a string id array." }]
+      errors: [{ field: "evidenceRefs", message: "evidenceRefs must be an array of non-empty string ids." }]
     });
 
     expect(validateOTUnit({
@@ -361,7 +418,7 @@ describe("OTUnit domain kernel skeleton", () => {
       createdAt: "2026-07-02T00:00:00.000Z"
     })).toEqual({
       valid: false,
-      errors: [{ field: "evidenceRefs", message: "OTUnit evidenceRefs must be a string id array." }]
+      errors: [{ field: "evidenceRefs", message: "evidenceRefs must be an array of non-empty string ids." }]
     });
 
     expect(validateOTUnit({
@@ -376,7 +433,22 @@ describe("OTUnit domain kernel skeleton", () => {
       createdAt: "2026-07-02T00:00:00.000Z"
     })).toEqual({
       valid: false,
-      errors: [{ field: "evidenceRefs", message: "OTUnit evidenceRefs must be a string id array." }]
+      errors: [{ field: "evidenceRefs", message: "evidenceRefs must be an array of non-empty string ids." }]
+    });
+
+    expect(validateOTUnit({
+      id: "otunit-1",
+      objectiveId: "objective-1",
+      title: "Identify next operating constraint",
+      owner: "user",
+      dueDate: "2026-07-09",
+      status: "proposed",
+      evidenceRefs: ["evidence-1", "evidence-1"],
+      requiresConfirmation: true,
+      createdAt: "2026-07-02T00:00:00.000Z"
+    })).toEqual({
+      valid: false,
+      errors: [{ field: "evidenceRefs", message: "evidenceRefs must not contain duplicate refs." }]
     });
 
     expect(validateOTUnit({
@@ -517,7 +589,10 @@ describe("OTUnit AI-to-OTUnit draft boundary", () => {
     ["missing dueDate", { id: "otunit-1", objectiveId: "objective-1", title: "t", owner: "u", evidenceRefs: ["evidence-1"] }, "dueDate"],
     ["missing evidenceRefs", { id: "otunit-1", objectiveId: "objective-1", title: "t", owner: "u", dueDate: "2026-07-09" }, "evidenceRefs"],
     ["evidenceRefs not array", { id: "otunit-1", objectiveId: "objective-1", title: "t", owner: "u", dueDate: "2026-07-09", evidenceRefs: "evidence-1" }, "evidenceRefs"],
-    ["evidenceRefs contains empty string", { id: "otunit-1", objectiveId: "objective-1", title: "t", owner: "u", dueDate: "2026-07-09", evidenceRefs: ["evidence-1", ""] }, "evidenceRefs"]
+    ["evidenceRefs contains empty string", { id: "otunit-1", objectiveId: "objective-1", title: "t", owner: "u", dueDate: "2026-07-09", evidenceRefs: ["evidence-1", ""] }, "evidenceRefs"],
+    ["evidenceRefs contains whitespace-only string", { id: "otunit-1", objectiveId: "objective-1", title: "t", owner: "u", dueDate: "2026-07-09", evidenceRefs: ["evidence-1", "   "] }, "evidenceRefs"],
+    ["evidenceRefs contains non-string value", { id: "otunit-1", objectiveId: "objective-1", title: "t", owner: "u", dueDate: "2026-07-09", evidenceRefs: ["evidence-1", 123] }, "evidenceRefs"],
+    ["evidenceRefs contains duplicate ref", { id: "otunit-1", objectiveId: "objective-1", title: "t", owner: "u", dueDate: "2026-07-09", evidenceRefs: ["evidence-1", "evidence-1"] }, "evidenceRefs"]
   ] as const)("rejects invalid draft input: %s", (_name, input, field) => {
     const result = createProposedOTUnitFromDraft(input);
 
@@ -529,4 +604,27 @@ describe("OTUnit AI-to-OTUnit draft boundary", () => {
     expect(result.errors.length).toBeGreaterThan(0);
     expect(result.errors.some((error) => error.field === field)).toBe(true);
   });
+
+  it.each([
+    ["empty string", { ...validDraft, evidenceRefs: [""] }],
+    ["whitespace-only string", { ...validDraft, evidenceRefs: ["   "] }],
+    ["non-string value", { ...validDraft, evidenceRefs: ["evidence-1", 123] }],
+    ["duplicate refs", { ...validDraft, evidenceRefs: ["evidence-1", "evidence-1"] }]
+  ] as const)(
+    "returns deterministic evidenceRefs errors for invalid draft evidence refs: %s",
+    (_name, input) => {
+      expect(createProposedOTUnitFromDraft(input)).toEqual({
+        valid: false,
+        otunit: null,
+        errors: [
+          {
+            field: "evidenceRefs",
+            message: input.evidenceRefs[0] === "evidence-1" && input.evidenceRefs[1] === "evidence-1"
+              ? "evidenceRefs must not contain duplicate refs."
+              : "evidenceRefs must be an array of non-empty string ids."
+          }
+        ]
+      });
+    }
+  );
 });
