@@ -36,6 +36,15 @@ function runDirectOtunitCommand(env: NodeJS.ProcessEnv = process.env): ReturnTyp
   });
 }
 
+function runOtunitCommand(args: string[], env: NodeJS.ProcessEnv = process.env): ReturnType<typeof spawnSync> {
+  return spawnSync(process.execPath, ["--import", tsxLoaderPath, cliPath, "otunit", ...args], {
+    cwd: projectRoot,
+    encoding: "utf8",
+    env,
+    timeout: 5_000
+  });
+}
+
 function parseJsonOutput(stdout: string): OtunitCommandOutput {
   return JSON.parse(stdout) as OtunitCommandOutput;
 }
@@ -103,6 +112,22 @@ describe("OTUnit runtime command skeleton", () => {
     expect(output.persistence).toBe(false);
   });
 
+  it("prints help without exposing mutation subcommands", () => {
+    const result = runOtunitCommand(["--help"]);
+
+    expect(result.status).toBe(0);
+    expect(result.error).toBeUndefined();
+
+    const helpOutput = `${String(result.stdout)}\n${String(result.stderr)}`;
+    expect(helpOutput).toMatch(/OTUnit commands/i);
+    expect(helpOutput).not.toMatch(/\bcreate\b/);
+    expect(helpOutput).not.toMatch(/\bdraft\b/);
+    expect(helpOutput).not.toMatch(/\blist\b/);
+    expect(helpOutput).not.toMatch(/\bshow\b/);
+    expect(helpOutput).not.toMatch(/\bstatus\b/);
+    expect(helpOutput).not.toMatch(/\bclose\b/);
+  });
+
   it("does not require provider config to run", () => {
     const env = { ...process.env };
     delete env.ELIY_PROVIDER_BASE_URL;
@@ -115,6 +140,17 @@ describe("OTUnit runtime command skeleton", () => {
     expect(result.status).toBe(0);
     expect(result.error).toBeUndefined();
     expect(parseJsonOutput((result.stdout as string).trim()).command).toBe("otunit");
+  });
+
+  it("does not accept mutation-oriented otunit subcommands", () => {
+    const result = runOtunitCommand(["create"]);
+
+    expect(result.status).not.toBe(0);
+    expect(result.error).toBeUndefined();
+
+    const combinedOutput = `${String(result.stdout)}\n${String(result.stderr)}`;
+    expect(combinedOutput).not.toMatch(/"ok"\s*:\s*true/);
+    expect(combinedOutput).toMatch(/Unknown command|error/i);
   });
 
   it("completes without waiting for stdin", () => {

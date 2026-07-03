@@ -168,6 +168,12 @@ This review / revision boundary does not add persistence, evidence content stora
 
 The OTUnit runtime command skeleton provides deterministic inspection of the OTUnit domain contract surface.
 
+The PR #22 OTUnit command is inspection-only.
+
+It does not expose OTUnit create, draft-create, list, show, status, close, or other mutation-oriented subcommands.
+
+The root command `corepack pnpm otunit` prints deterministic domain contract inspection JSON only.
+
 Command:
 
 - `corepack pnpm otunit`
