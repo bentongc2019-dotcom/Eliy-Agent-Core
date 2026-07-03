@@ -44,6 +44,7 @@ describe("OTUnit domain public contract", () => {
     expect(typeof domain.validateEvidenceRefs).toBe("function");
     expect(typeof domain.createOTUnitReviewIntent).toBe("function");
     expect(typeof domain.reviseOTUnit).toBe("function");
+    expect(typeof domain.detectOTUnitDraftIntent).toBe("function");
   });
 
   it("keeps OTUnit type exports importable", () => {

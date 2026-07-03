@@ -275,3 +275,44 @@ Draft-to-OTUnit rules:
 - valid draft output still requires user confirmation before it can become confirmed
 
 This draft boundary does not add persistence, AI generation, real provider integration, chat integration, automatic confirmation, Runtime Kernel integration, or deployment behavior.
+
+## Chat-to-OTUnit Draft Intent Boundary
+
+The chat-to-OTUnit draft intent boundary detects whether chat or session text expresses intent to create an OTUnit draft.
+
+This boundary is deterministic and domain-local.
+
+Input includes:
+
+- `sessionId`
+- `userText`
+- `assistantText`
+
+Output behavior:
+
+- positive intent returns intent metadata only
+- negative intent returns a deterministic no-intent result
+- invalid input returns deterministic validation errors
+- the helper does not create an OTUnit
+- the helper does not create an `OTUnitDraftInput`
+- the helper does not call `createOTUnitDraftFromSession`
+- the helper does not call `createProposedOTUnitFromDraft`
+
+Confirmation boundary:
+
+- positive intent does not create, confirm, persist, or mutate an OTUnit
+- positive intent only indicates that user confirmation would be required before later draft or OTUnit creation work
+- no automatic confirmation is performed
+
+Boundary:
+
+- no OTUnit creation
+- no OTUnitDraftInput creation
+- no automatic confirmation
+- no persistence
+- no evidence content storage
+- no real provider integration
+- no AI generation
+- no mutation-oriented OTUnit CLI command
+- no chat behavior change
+- no Runtime Kernel behavior change beyond the deterministic intent boundary

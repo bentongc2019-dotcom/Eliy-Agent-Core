@@ -148,6 +148,177 @@ export function validateEvidenceRefs(value: unknown): DomainValidationResult {
 
   return createValidResult();
 }
+// Chat-to-OTUnit Draft Intent Boundary.
+// Detects whether chat or session text expresses intent to create an OTUnit draft.
+// Returns intent metadata only; never creates an OTUnit or OTUnitDraftInput.
+
+export type ChatToOTUnitDraftIntentInput = {
+  sessionId: string;
+  userText: string;
+  assistantText: string;
+};
+
+export type OTUnitDraftIntentType = "otunit_draft";
+
+export type OTUnitDraftIntentConfidenceLevel = "none" | "high";
+
+export type ChatToOTUnitDraftIntentResult =
+  | {
+      valid: true;
+      intentDetected: true;
+      intentType: OTUnitDraftIntentType;
+      confidenceLevel: "high";
+      reason: string;
+      requiresUserConfirmation: true;
+      errors: [];
+    }
+  | {
+      valid: true;
+      intentDetected: false;
+      intentType: null;
+      confidenceLevel: "none";
+      reason: string;
+      requiresUserConfirmation: false;
+      errors: [];
+    }
+  | {
+      valid: false;
+      intentDetected: false;
+      intentType: null;
+      confidenceLevel: "none";
+      reason: string;
+      requiresUserConfirmation: false;
+      errors: DomainValidationError[];
+    };
+
+const OTUNIT_DRAFT_INTENT_PHRASES: readonly string[] = [
+  "create otunit draft",
+  "create an otunit draft",
+  "make otunit draft",
+  "draft an otunit",
+  "turn this into an otunit draft",
+  "convert this session into an otunit draft",
+  "prepare otunit draft",
+  "otunit draft",
+  "行动单元草稿",
+  "建立行动单元草稿",
+  "创建行动单元草稿",
+  "產生行動單元草稿",
+  "建立 otunit 草稿"
+];
+
+function normalizeIntentText(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function detectIntentPhrase(text: string): boolean {
+  const normalized = normalizeIntentText(text);
+  return OTUNIT_DRAFT_INTENT_PHRASES.some(
+    (phrase) => normalized.includes(phrase)
+  );
+}
+
+export function detectOTUnitDraftIntent(
+  input: unknown
+): ChatToOTUnitDraftIntentResult {
+  if (typeof input !== "object" || input === null) {
+    return {
+      valid: false,
+      intentDetected: false,
+      intentType: null,
+      confidenceLevel: "none",
+      reason: "Invalid chat-to-OTUnit draft intent input.",
+      requiresUserConfirmation: false,
+      errors: [
+        {
+          field: "sessionId",
+          message: "Chat-to-OTUnit draft intent sessionId must be a non-empty string."
+        }
+      ]
+    };
+  }
+
+  const record = input as Record<string, unknown>;
+
+  if (!isNonEmptyString(record.sessionId)) {
+    return {
+      valid: false,
+      intentDetected: false,
+      intentType: null,
+      confidenceLevel: "none",
+      reason: "Invalid chat-to-OTUnit draft intent input.",
+      requiresUserConfirmation: false,
+      errors: [
+        {
+          field: "sessionId",
+          message: "Chat-to-OTUnit draft intent sessionId must be a non-empty string."
+        }
+      ]
+    };
+  }
+
+  if (!isNonEmptyString(record.userText)) {
+    return {
+      valid: false,
+      intentDetected: false,
+      intentType: null,
+      confidenceLevel: "none",
+      reason: "Invalid chat-to-OTUnit draft intent input.",
+      requiresUserConfirmation: false,
+      errors: [
+        {
+          field: "userText",
+          message: "Chat-to-OTUnit draft intent userText must be a non-empty string."
+        }
+      ]
+    };
+  }
+
+  if (typeof record.assistantText !== "string") {
+    return {
+      valid: false,
+      intentDetected: false,
+      intentType: null,
+      confidenceLevel: "none",
+      reason: "Invalid chat-to-OTUnit draft intent input.",
+      requiresUserConfirmation: false,
+      errors: [
+        {
+          field: "assistantText",
+          message: "Chat-to-OTUnit draft intent assistantText must be a string."
+        }
+      ]
+    };
+  }
+
+  const userText = record.userText as string;
+  const assistantText = record.assistantText as string;
+
+  const hasIntent = detectIntentPhrase(userText) || detectIntentPhrase(assistantText);
+
+  if (hasIntent) {
+    return {
+      valid: true,
+      intentDetected: true,
+      intentType: "otunit_draft",
+      confidenceLevel: "high",
+      reason: "Detected deterministic OTUnit draft intent phrase.",
+      requiresUserConfirmation: true,
+      errors: []
+    };
+  }
+
+  return {
+    valid: true,
+    intentDetected: false,
+    intentType: null,
+    confidenceLevel: "none",
+    reason: "No deterministic OTUnit draft intent phrase detected.",
+    requiresUserConfirmation: false,
+    errors: []
+  };
+}
+
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
