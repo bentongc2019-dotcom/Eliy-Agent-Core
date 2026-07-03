@@ -49,6 +49,20 @@ The OTUnit domain contract currently exposes deterministic, domain-local helpers
 - revision preserves user confirmation
 - revision does not automatically confirm an OTUnit
 
+### Repository Boundary
+
+- OTUnit in-memory repository since PR #30
+- `OTUnitRepository` type provides `save`, `getById`, `listByObjectiveId`, `clear`
+- `createInMemoryOTUnitRepository` returns a deterministic process-local in-memory implementation
+- stored OTUnits are validated before storage
+- stored OTUnits preserve status and requiresConfirmation exactly as provided
+- duplicate id upserts/replaces the existing OTUnit (deterministic, no duplicates)
+- returned OTUnits are cloned copies; external mutation does not affect stored state
+- missing OTUnits return `undefined` from getById
+- invalid OTUnits are rejected with deterministic validation errors
+- repository does not auto-confirm OTUnits
+- repository does not bypass existing validation, transition, preview, creation, or confirmation contracts
+
 This contract summary does not add persistence, evidence content storage, AI generation, real provider integration, chat integration, automatic confirmation, Runtime Kernel integration, deployment behavior, or any new OTUnit capability.
 
 ## Objective
@@ -246,7 +260,8 @@ Boundary:
 
 ## Persistence Boundary
 
-This PR does not persist Objective or OTUnit objects.
+PR #22 did not persist Objective or OTUnit objects.
+PR #30 adds a deterministic process-local in-memory repository boundary that does not use a database, filesystem persistence, network storage, provider integration, AI generation, or chat behavior change.
 
 ## Runtime Boundary
 
@@ -444,3 +459,53 @@ Confirmation boundary:
 - no mutation-oriented OTUnit CLI command
 - no chat behavior change
 - no Runtime Kernel behavior change beyond the deterministic confirmation boundary
+## OTUnit Repository Boundary
+
+The OTUnit repository boundary provides a deterministic process-local in-memory store for OTUnits.
+
+This boundary is deterministic and domain-local.
+
+### Repository Type
+
+The `OTUnitRepository` type exposes the following methods:
+
+- `save(otunit)` — validates and stores an OTUnit. Invalid OTUnits are rejected with deterministic errors. Duplicate id upserts/replaces.
+- `getById(id)` — returns a cloned OTUnit or `undefined`.
+- `listByObjectiveId(objectiveId)` — returns cloned OTUnits sorted by id.
+- `clear()` — removes all stored OTUnits.
+
+### In-Memory Implementation
+
+`createInMemoryOTUnitRepository()` returns a repository instance backed by a plain `Map<string, OTUnit>`.
+
+### Storage Contract
+
+- stored OTUnits are validated via `validateOTUnit` before storage
+- stored OTUnits remain valid OTUnits
+- stored OTUnits preserve `status` and `requiresConfirmation` exactly as provided
+- duplicate id upserts/replaces — never creates duplicates
+- returned objects are deep clones (`structuredClone`); external mutation does not affect stored state
+- `clear()` resets all state for test isolation
+
+### Error Contract
+
+- invalid OTUnit input to `save` returns deterministic validation errors from `validateOTUnit`
+- missing ids from `getById` return `undefined`
+- non-matching objectiveIds from `listByObjectiveId` return an empty array
+
+### Confirmation Contract
+
+- repository does not auto-confirm proposed OTUnits
+- repository does not bypass existing validation, transition, preview, creation, or confirmation contracts
+- repository does not call `confirmOTUnit`, `createProposedOTUnitFromDraft`, `createOTUnitDraftFromSession`, `previewOTUnitDraftFromChat`, `detectOTUnitDraftIntent`, `confirmProposedOTUnit`, `createProposedOTUnitFromConfirmedPreview`, `reviseOTUnit`, or `createOTUnitReviewIntent`
+
+### Boundary
+
+- no database
+- no filesystem persistence
+- no network storage
+- no provider integration
+- no AI generation
+- no chat behavior change
+- no mutation-oriented OTUnit CLI command
+- no deployment behavior
