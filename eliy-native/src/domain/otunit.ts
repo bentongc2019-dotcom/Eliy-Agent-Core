@@ -64,6 +64,53 @@ export type OTUnit = {
 
 export type EvidenceRef = string;
 
+export type OTUnitReviewInput = {
+  otunitId: string;
+  reviewNote: string;
+  difference: string;
+  action: string;
+};
+
+export type OTUnitReviewIntent = {
+  otunitId: string;
+  reviewNote: string;
+  difference: string;
+  action: string;
+};
+
+export type OTUnitReviewResult =
+  | {
+      valid: true;
+      review: OTUnitReviewIntent;
+      errors: [];
+    }
+  | {
+      valid: false;
+      review: null;
+      errors: DomainValidationError[];
+    };
+
+export type OTUnitRevisionInput = {
+  otunitId: string;
+  title: string;
+  owner: string;
+  dueDate: string;
+  evidenceRefs: EvidenceRef[];
+  requiresConfirmation: boolean;
+};
+
+export type OTUnitRevisionResult =
+  | {
+      valid: true;
+      otunit: OTUnit;
+      errors: [];
+    }
+  | {
+      valid: false;
+      otunit: null;
+      errors: DomainValidationError[];
+    };
+
 const INVALID_EVIDENCE_REFS_ERROR: DomainValidationError = {
   field: "evidenceRefs",
   message: "evidenceRefs must be an array of non-empty string ids."
@@ -94,6 +141,24 @@ export function validateEvidenceRefs(value: unknown): DomainValidationResult {
   }
 
   return createValidResult();
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function createOTUnitReviewFieldError(field: keyof OTUnitReviewInput): DomainValidationError {
+  return {
+    field,
+    message: `OTUnit review ${field} must be a non-empty string.`
+  };
+}
+
+function createOTUnitRevisionFieldError(field: keyof OTUnitRevisionInput | "id" | "objectiveId" | "status" | "createdAt"): DomainValidationError {
+  return {
+    field,
+    message: `OTUnit revision cannot set ${field}.`
+  };
 }
 
 export function isOTUnitStatus(value: unknown): value is OTUnitStatus {
@@ -160,6 +225,41 @@ export function confirmOTUnit(otunit: OTUnit): OTUnitConfirmationResult {
         message: `OTUnit confirmation is not allowed for status ${otunit.status} with requiresConfirmation ${String(otunit.requiresConfirmation)}.`
       }
     ]
+  };
+}
+
+export function createOTUnitReviewIntent(input: unknown): OTUnitReviewResult {
+  if (!isRecord(input)) {
+    return {
+      valid: false,
+      review: null,
+      errors: [createOTUnitReviewFieldError("otunitId")]
+    };
+  }
+
+  const fields: (keyof OTUnitReviewInput)[] = ["otunitId", "reviewNote", "difference", "action"];
+
+  for (const field of fields) {
+    if (!isNonEmptyString(input[field])) {
+      return {
+        valid: false,
+        review: null,
+        errors: [createOTUnitReviewFieldError(field)]
+      };
+    }
+  }
+
+  const review: OTUnitReviewIntent = {
+    otunitId: input.otunitId as string,
+    reviewNote: input.reviewNote as string,
+    difference: input.difference as string,
+    action: input.action as string
+  };
+
+  return {
+    valid: true,
+    review,
+    errors: []
   };
 }
 
@@ -287,4 +387,115 @@ export function createProposedOTUnitFromDraft(input: unknown): OTUnitDraftBuildR
   };
 
   return { valid: true, otunit, errors: [] };
+}
+
+export function reviseOTUnit(otunit: OTUnit, input: unknown): OTUnitRevisionResult {
+  const otunitValidation = validateOTUnit(otunit);
+  if (!otunitValidation.valid) {
+    return {
+      valid: false,
+      otunit: null,
+      errors: otunitValidation.errors
+    };
+  }
+
+  if (!isRecord(input)) {
+    return {
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "otunit",
+          message: "OTUnit revision input must be an object."
+        }
+      ]
+    };
+  }
+
+  for (const field of ["id", "objectiveId", "status", "createdAt"] as const) {
+    if (Object.prototype.hasOwnProperty.call(input, field)) {
+      return {
+        valid: false,
+        otunit: null,
+        errors: [createOTUnitRevisionFieldError(field)]
+      };
+    }
+  }
+
+  if (!isNonEmptyString(input.otunitId)) {
+    return {
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "otunitId",
+          message: "OTUnit revision otunitId must be a non-empty string."
+        }
+      ]
+    };
+  }
+
+  if (input.otunitId !== otunit.id) {
+    return {
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "otunitId",
+          message: "OTUnit revision otunitId must match the target OTUnit id."
+        }
+      ]
+    };
+  }
+
+  for (const field of ["title", "owner", "dueDate"] as const) {
+    if (!isNonEmptyString(input[field])) {
+      return {
+        valid: false,
+        otunit: null,
+        errors: [
+          {
+            field,
+            message: `OTUnit revision ${field} must be a non-empty string.`
+          }
+        ]
+      };
+    }
+  }
+
+  const evidenceRefsValidation = validateEvidenceRefs(input.evidenceRefs);
+  if (!evidenceRefsValidation.valid) {
+    return {
+      valid: false,
+      otunit: null,
+      errors: evidenceRefsValidation.errors
+    };
+  }
+
+  if (input.requiresConfirmation !== true) {
+    return {
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "requiresConfirmation",
+          message: "OTUnit revision requiresConfirmation must be true."
+        }
+      ]
+    };
+  }
+
+  return {
+    valid: true,
+    otunit: {
+      ...otunit,
+      title: input.title as string,
+      owner: input.owner as string,
+      dueDate: input.dueDate as string,
+      evidenceRefs: [...(input.evidenceRefs as EvidenceRef[])],
+      status: "proposed",
+      requiresConfirmation: true
+    },
+    errors: []
+  };
 }

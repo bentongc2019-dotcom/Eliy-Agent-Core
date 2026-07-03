@@ -10,9 +10,13 @@ import {
   type EvidenceRef,
   type OTUnit,
   type OTUnitDraftInput,
+  type OTUnitRevisionInput,
+  type OTUnitReviewInput,
   confirmOTUnit,
+  createOTUnitReviewIntent,
   createProposedOTUnitFromDraft,
   validateEvidenceRefs,
+  reviseOTUnit,
   validateOTUnitTransition,
   validateOTUnit
 } from "../../../domain/otunit.js";
@@ -627,4 +631,186 @@ describe("OTUnit AI-to-OTUnit draft boundary", () => {
       });
     }
   );
+});
+
+describe("OTUnit review / revision boundary", () => {
+  const otunit: OTUnit = {
+    id: "otunit-1",
+    objectiveId: "objective-1",
+    title: "Identify next operating constraint",
+    owner: "user",
+    dueDate: "2026-07-09",
+    status: "proposed",
+    evidenceRefs: ["evidence-1"],
+    requiresConfirmation: true,
+    createdAt: "2026-07-02T00:00:00.000Z"
+  } as const;
+
+  const reviewInput: OTUnitReviewInput = {
+    otunitId: "otunit-1",
+    reviewNote: "Review next operating constraint",
+    difference: "Need clearer owner and due date",
+    action: "revise"
+  };
+
+  const revisionInput: OTUnitRevisionInput = {
+    otunitId: "otunit-1",
+    title: "Revised OTUnit title",
+    owner: "user",
+    dueDate: "2026-07-16",
+    evidenceRefs: ["evidence-1", "evidence-2"],
+    requiresConfirmation: true
+  };
+
+  it("creates a valid OTUnit review intent", () => {
+    expect(createOTUnitReviewIntent(reviewInput)).toEqual({
+      valid: true,
+      review: reviewInput,
+      errors: []
+    });
+  });
+
+  it.each([
+    ["null", null],
+    ["non-object", "review"]
+  ] as const)("rejects invalid OTUnit review input shape: %s", (_name, input) => {
+    expect(createOTUnitReviewIntent(input)).toEqual({
+      valid: false,
+      review: null,
+      errors: [
+        {
+          field: "otunitId",
+          message: "OTUnit review otunitId must be a non-empty string."
+        }
+      ]
+    });
+  });
+
+  it.each([
+    ["null", null, "otunitId", "OTUnit review otunitId must be a non-empty string."],
+    ["non-object", "review", "otunitId", "OTUnit review otunitId must be a non-empty string."],
+    ["missing otunitId", { reviewNote: "Review next operating constraint", difference: "Need clearer owner and due date", action: "revise" }, "otunitId", "OTUnit review otunitId must be a non-empty string."],
+    ["empty otunitId", { ...reviewInput, otunitId: "  " }, "otunitId", "OTUnit review otunitId must be a non-empty string."],
+    ["whitespace-only reviewNote", { ...reviewInput, reviewNote: "   " }, "reviewNote", "OTUnit review reviewNote must be a non-empty string."],
+    ["missing difference", { otunitId: "otunit-1", reviewNote: "Review next operating constraint", action: "revise" }, "difference", "OTUnit review difference must be a non-empty string."],
+    ["empty action", { ...reviewInput, action: "" }, "action", "OTUnit review action must be a non-empty string."]
+  ] as const)(
+    "rejects invalid OTUnit review input: %s",
+    (_name, input, field, message) => {
+      const result = createOTUnitReviewIntent(input);
+
+      expect(result).toEqual({
+        valid: false,
+        review: null,
+        errors: [{ field, message }]
+      });
+    }
+  );
+
+  it("creates a revised OTUnit copy while preserving identity and confirmation boundaries", () => {
+    const original = { ...otunit };
+    const result = reviseOTUnit(otunit, revisionInput);
+
+    expect(result).toEqual({
+      valid: true,
+      otunit: {
+        ...otunit,
+        title: "Revised OTUnit title",
+        owner: "user",
+        dueDate: "2026-07-16",
+        evidenceRefs: ["evidence-1", "evidence-2"],
+        status: "proposed",
+        requiresConfirmation: true
+      },
+      errors: []
+    });
+
+    if (!result.valid) {
+      throw new Error("expected valid revision result");
+    }
+
+    expect(validateOTUnit(result.otunit)).toEqual({ valid: true, errors: [] });
+    expect(otunit).toEqual(original);
+  });
+
+  it("rejects revision input when the target OTUnit id does not match", () => {
+    const result = reviseOTUnit(otunit, { ...revisionInput, otunitId: "otunit-2" });
+
+    expect(result).toEqual({
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "otunitId",
+          message: "OTUnit revision otunitId must match the target OTUnit id."
+        }
+      ]
+    });
+  });
+
+  it.each([
+    ["null", null],
+    ["non-object", "revision"]
+  ] as const)("rejects invalid OTUnit revision input shape: %s", (_name, input) => {
+    expect(reviseOTUnit(otunit, input)).toEqual({
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "otunit",
+          message: "OTUnit revision input must be an object."
+        }
+      ]
+    });
+  });
+
+  it.each([
+    ["id", { ...revisionInput, id: "otunit-2" }],
+    ["objectiveId", { ...revisionInput, objectiveId: "objective-2" }],
+    ["status", { ...revisionInput, status: "confirmed" }],
+    ["createdAt", { ...revisionInput, createdAt: "2026-07-03T00:00:00.000Z" }]
+  ] as const)("rejects injected OTUnit revision field: %s", (field, input) => {
+    expect(reviseOTUnit(otunit, input)).toEqual({
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field,
+          message: `OTUnit revision cannot set ${field}.`
+        }
+      ]
+    });
+  });
+
+  it.each([
+    ["empty string", { ...revisionInput, evidenceRefs: [""] }, "evidenceRefs must be an array of non-empty string ids."],
+    ["whitespace-only string", { ...revisionInput, evidenceRefs: ["   "] }, "evidenceRefs must be an array of non-empty string ids."],
+    ["non-string value", { ...revisionInput, evidenceRefs: ["evidence-1", 123] }, "evidenceRefs must be an array of non-empty string ids."],
+    ["duplicate refs", { ...revisionInput, evidenceRefs: ["evidence-1", "evidence-1"] }, "evidenceRefs must not contain duplicate refs."],
+    ["evidence content object", { ...revisionInput, evidenceRefs: [{ id: "evidence-1", content: "do not store content here" }] }, "evidenceRefs must be an array of non-empty string ids."]
+  ] as const)("rejects invalid revision evidence refs: %s", (_name, input, expectedMessage) => {
+    expect(reviseOTUnit(otunit, input)).toEqual({
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "evidenceRefs",
+          message: expectedMessage
+        }
+      ]
+    });
+  });
+
+  it("rejects revision input that disables confirmation", () => {
+    expect(reviseOTUnit(otunit, { ...revisionInput, requiresConfirmation: false })).toEqual({
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "requiresConfirmation",
+          message: "OTUnit revision requiresConfirmation must be true."
+        }
+      ]
+    });
+  });
 });
