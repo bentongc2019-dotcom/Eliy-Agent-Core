@@ -1,6 +1,15 @@
 import { Command } from "commander";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import {
+  ALLOWED_OTUNIT_TRANSITIONS,
+  OTUNIT_STATUSES,
+  confirmOTUnit,
+  createOTUnitReviewIntent,
+  createProposedOTUnitFromDraft,
+  reviseOTUnit,
+  validateEvidenceRefs
+} from "../domain/index.js";
 import { completeChat, readProviderState } from "../provider/openai-compatible.js";
 import { EliyNativeRuntime } from "../runtime/kernel/runtime.js";
 import type { RuntimeResult } from "../runtime/kernel/schemas/index.js";
@@ -10,7 +19,7 @@ import {
   recordSessionTranscriptTurn
 } from "./session-transcript.js";
 
-function printResult<T>(result: RuntimeResult<T>): void {
+function printResult<T>(result: T): void {
   console.log(JSON.stringify(result, null, 2));
 }
 
@@ -185,100 +194,31 @@ Non-empty input returns a deterministic skeleton response when provider config i
       printResult(runtime().objectiveStatus(objective_id, options.workspace));
     });
 
-  const otunit = program.command("otunit").description("OTUnit commands");
-  otunit
-    .command("create")
-    .description("Create an OTUnit")
-    .requiredOption("--objective <objective>")
-    .requiredOption("--title <title>")
-    .requiredOption("--owner <owner>")
-    .option("--review-at <reviewAt>")
-    .option("--due-at <dueAt>")
-    .option("--description <description>")
-    .option("--plan <plan>")
-    .option("--next-action <nextAction>")
-    .option("--priority <priority>", "low|medium|high|critical", "medium")
-    .option("--workspace <workspace>")
-    .option("--yes", "Skip confirmation", false)
-    .action(async (options) => {
-      const ok = await confirm("Confirm create OTUnit? [y/N] ", Boolean(options.yes));
-      if (!ok) return;
-      printResult(runtime().createOtUnit({
-        objective_id: options.objective,
-        title: options.title,
-        owner_id: options.owner,
-        review_at: options.reviewAt,
-        due_at: options.dueAt,
-        description: options.description,
-        plan: options.plan,
-        next_action: options.nextAction,
-        priority: options.priority,
-        workspace_id: options.workspace,
-        confirmed: true
-      }));
-    });
-
-  otunit
-    .command("list")
-    .description("List OTUnits for an objective")
-    .requiredOption("--objective <objective>")
-    .option("--workspace <workspace>")
-    .action((options) => {
-      printResult(runtime().listOtUnits(options.objective, options.workspace));
-    });
-
-  otunit
-    .command("show <otunit_id>")
-    .description("Show OTUnit")
-    .option("--workspace <workspace>")
-    .action((otunit_id, options) => {
-      printResult(runtime().showOtUnit(otunit_id, options.workspace));
-    });
-
-  otunit
-    .command("followup <otunit_id>")
-    .description("Record an OTUnit follow-up")
-    .requiredOption("--text <text>")
-    .option("--workspace <workspace>")
-    .action((otunit_id, options) => {
-      printResult(runtime().followUpOtUnit({
-        otunit_id,
-        text: options.text,
-        workspace_id: options.workspace
-      }));
-    });
-
-  otunit
-    .command("status <otunit_id>")
-    .description("Update OTUnit status")
-    .requiredOption("--to <status>")
-    .option("--workspace <workspace>")
-    .option("--yes", "Skip confirmation", false)
-    .action(async (otunit_id, options) => {
-      const result = runtime().updateOtUnitStatus(otunit_id, options.to, options.workspace, Boolean(options.yes));
-      if (result.requires_confirmation && !options.yes) {
-        const ok = await confirm("Confirm OTUnit status transition? [y/N] ");
-        if (!ok) {
-          printResult(result);
-          return;
+  program
+    .command("otunit")
+    .description("OTUnit commands")
+    .action(() => {
+    printResult({
+      ok: true,
+      command: "otunit",
+      mode: "domain_contract_inspection",
+      domain: {
+        otunit: {
+          available: true,
+          statusValues: [...OTUNIT_STATUSES],
+          allowedTransitionsCount: ALLOWED_OTUNIT_TRANSITIONS.length,
+          confirmationBoundaryAvailable: typeof confirmOTUnit === "function",
+          draftBoundaryAvailable: typeof createProposedOTUnitFromDraft === "function",
+          evidenceRefBoundaryAvailable: typeof validateEvidenceRefs === "function",
+          reviewRevisionBoundaryAvailable:
+            typeof createOTUnitReviewIntent === "function" && typeof reviseOTUnit === "function"
         }
-        printResult(runtime().updateOtUnitStatus(otunit_id, options.to, options.workspace, true));
-        return;
-      }
-      printResult(result);
+      },
+      requiresProviderConfig: false,
+      waitsForStdin: false,
+      persistence: false
     });
-
-  otunit
-    .command("close <otunit_id>")
-    .description("Close an OTUnit")
-    .requiredOption("--reason <reason>")
-    .option("--workspace <workspace>")
-    .option("--yes", "Skip confirmation", false)
-    .action(async (otunit_id, options) => {
-      const ok = await confirm("Confirm close OTUnit? [y/N] ", Boolean(options.yes));
-      if (!ok) return;
-      printResult(runtime().closeOtUnit(otunit_id, options.reason, options.workspace, true));
-    });
+  });
 
   const evidence = program.command("evidence").description("Evidence commands");
   evidence
