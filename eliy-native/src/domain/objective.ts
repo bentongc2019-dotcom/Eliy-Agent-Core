@@ -16,7 +16,7 @@ export type Objective = {
   createdAt: string;
 };
 
-function isObjectiveStatus(value: unknown): value is ObjectiveStatus {
+export function isObjectiveStatus(value: unknown): value is ObjectiveStatus {
   return typeof value === "string" && (OBJECTIVE_STATUSES as readonly string[]).includes(value);
 }
 

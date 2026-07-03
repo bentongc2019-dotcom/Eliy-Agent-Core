@@ -50,6 +50,7 @@ export type OTUnitConfirmationResult =
       errors: DomainValidationError[];
     };
 
+// Core OTUnit domain shape.
 export type OTUnit = {
   id: string;
   objectiveId: string;
@@ -62,8 +63,10 @@ export type OTUnit = {
   createdAt: string;
 };
 
+// Contract surface: evidence refs are ids/references only.
 export type EvidenceRef = string;
 
+// Contract surface: review intent is deterministic and in-memory only.
 export type OTUnitReviewInput = {
   otunitId: string;
   reviewNote: string;
@@ -90,6 +93,7 @@ export type OTUnitReviewResult =
       errors: DomainValidationError[];
     };
 
+// Contract surface: revision produces a copy without changing the domain model shape.
 export type OTUnitRevisionInput = {
   otunitId: string;
   title: string;
@@ -111,6 +115,8 @@ export type OTUnitRevisionResult =
       errors: DomainValidationError[];
     };
 
+// Deterministic evidence ref validation helpers.
+// Contract surface: validation helpers stay pure and deterministic.
 const INVALID_EVIDENCE_REFS_ERROR: DomainValidationError = {
   field: "evidenceRefs",
   message: "evidenceRefs must be an array of non-empty string ids."
@@ -161,6 +167,7 @@ function createOTUnitRevisionFieldError(field: keyof OTUnitRevisionInput | "id" 
   };
 }
 
+// Status and transition contract.
 export function isOTUnitStatus(value: unknown): value is OTUnitStatus {
   return typeof value === "string" && (OTUNIT_STATUSES as readonly string[]).includes(value);
 }
