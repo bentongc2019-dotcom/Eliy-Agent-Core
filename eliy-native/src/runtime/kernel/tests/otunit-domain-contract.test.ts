@@ -21,7 +21,9 @@ import type {
   PlanAwareDraftPreview,
   PlanAwareDraftPreviewChecklistItem,
   PlanAwareDraftPreviewChecklistKey,
-  OTUnitTransition
+  OTUnitTransition,
+  ConfirmedPreviewToProposedOTUnitInput,
+  ConfirmedPreviewToProposedOTUnitResult,
 } from "../../../domain/index.js";
 
 describe("OTUnit domain public contract", () => {
@@ -47,6 +49,7 @@ describe("OTUnit domain public contract", () => {
     expect(typeof domain.createOTUnitDraftFromSession).toBe("function");
     expect(typeof domain.validateEvidenceRefs).toBe("function");
     expect(typeof domain.createOTUnitReviewIntent).toBe("function");
+    expect(typeof domain.createProposedOTUnitFromConfirmedPreview).toBe("function");
     expect(typeof domain.reviseOTUnit).toBe("function");
     expect(typeof domain.detectOTUnitDraftIntent).toBe("function");
     expect(typeof domain.previewOTUnitDraftFromChat).toBe("function");

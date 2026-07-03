@@ -1065,3 +1065,247 @@ export function reviseOTUnit(otunit: OTUnit, input: unknown): OTUnitRevisionResu
     errors: []
   };
 }
+
+// User-Confirmed OTUnit Draft Creation Boundary.
+// Creates a proposed OTUnit only after explicit user confirmation of a plan-aware draft preview.
+// Does not confirm the OTUnit. Does not persist. Does not call provider or AI.
+
+export type ConfirmedPreviewToProposedOTUnitInput = {
+  draftPreview: OTUnitDraftPreview | null;
+  userConfirmationSignal: string;
+  objectiveId: string;
+  owner: string;
+  dueDate: string;
+  createdAt: string;
+};
+
+export type ConfirmedPreviewToProposedOTUnitResult = {
+  valid: boolean;
+  otunit: OTUnit | null;
+  errors: DomainValidationError[];
+};
+
+const ACCEPTED_CONFIRMATION_SIGNALS: readonly string[] = [
+  "confirm",
+  "confirmed",
+  "user_confirmed",
+  "确认",
+  "我确认",
+  "明确确认"
+];
+
+const AMBIGUOUS_CONFIRMATION_SIGNALS: readonly string[] = [
+  "差不多",
+  "应该可以",
+  "你看着办",
+  "大概这样",
+  "之后再说",
+  "maybe",
+  "probably",
+  "looks good"
+];
+
+function isAcceptedConfirmationSignal(signal: string): boolean {
+  const normalized = signal.trim().toLowerCase();
+  return ACCEPTED_CONFIRMATION_SIGNALS.some((s) => normalized === s.toLowerCase()) ||
+    ACCEPTED_CONFIRMATION_SIGNALS.some((s) => normalized.includes(s.toLowerCase()));
+}
+
+function isAmbiguousConfirmationSignal(signal: string): boolean {
+  const normalized = signal.trim().toLowerCase();
+  return AMBIGUOUS_CONFIRMATION_SIGNALS.some(
+    (s) => normalized.includes(s.toLowerCase())
+  );
+}
+
+export function createProposedOTUnitFromConfirmedPreview(
+  input: unknown
+): ConfirmedPreviewToProposedOTUnitResult {
+  if (typeof input !== "object" || input === null) {
+    return {
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "draftPreview",
+          message: "Confirmed preview to proposed OTUnit input must be an object."
+        }
+      ]
+    };
+  }
+
+  const record = input as Record<string, unknown>;
+  const errors: DomainValidationError[] = [];
+
+  const draftPreview = record.draftPreview;
+  if (!draftPreview || typeof draftPreview !== "object") {
+    return {
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "draftPreview",
+          message: "Confirmed preview to proposed OTUnit requires a non-null draftPreview."
+        }
+      ]
+    };
+  }
+
+  const preview = draftPreview as Record<string, unknown>;
+
+  if (preview.status !== "preview") {
+    return {
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "draftPreview.status",
+          message: "Confirmed preview draftPreview must have status 'preview'."
+        }
+      ]
+    };
+  }
+
+  if (preview.source !== "chat_session") {
+    return {
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "draftPreview.source",
+          message: "Confirmed preview draftPreview must have source 'chat_session'."
+        }
+      ]
+    };
+  }
+
+  if (preview.requiresUserConfirmation !== true) {
+    return {
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "draftPreview.requiresUserConfirmation",
+          message: "Confirmed preview draftPreview must have requiresUserConfirmation true."
+        }
+      ]
+    };
+  }
+
+  if (!preview.planAware || typeof preview.planAware !== "object") {
+    return {
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "draftPreview.planAware",
+          message: "Confirmed preview draftPreview must have a planAware object."
+        }
+      ]
+    };
+  }
+
+  if (!isNonEmptyString(record.userConfirmationSignal)) {
+    errors.push({
+      field: "userConfirmationSignal",
+      message: "Confirmed preview to proposed OTUnit userConfirmationSignal must be a non-empty string."
+    });
+  }
+
+  if (!isNonEmptyString(record.objectiveId)) {
+    errors.push({
+      field: "objectiveId",
+      message: "Confirmed preview to proposed OTUnit objectiveId must be a non-empty string."
+    });
+  }
+
+  if (!isNonEmptyString(record.owner)) {
+    errors.push({
+      field: "owner",
+      message: "Confirmed preview to proposed OTUnit owner must be a non-empty string."
+    });
+  }
+
+  if (!isNonEmptyString(record.dueDate)) {
+    errors.push({
+      field: "dueDate",
+      message: "Confirmed preview to proposed OTUnit dueDate must be a non-empty string."
+    });
+  }
+
+  if (!isNonEmptyString(record.createdAt)) {
+    errors.push({
+      field: "createdAt",
+      message: "Confirmed preview to proposed OTUnit createdAt must be a non-empty string."
+    });
+  }
+
+  if (errors.length > 0) {
+    return {
+      valid: false,
+      otunit: null,
+      errors
+    };
+  }
+
+  const confirmationSignal = record.userConfirmationSignal as string;
+
+  if (isAmbiguousConfirmationSignal(confirmationSignal)) {
+    return {
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "userConfirmationSignal",
+          message: "Confirmation signal is ambiguous. Explicit user confirmation is required."
+        }
+      ]
+    };
+  }
+
+  if (!isAcceptedConfirmationSignal(confirmationSignal)) {
+    return {
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "userConfirmationSignal",
+          message: "Confirmation signal is not recognized. Explicit user confirmation is required."
+        }
+      ]
+    };
+  }
+
+  const planAware = preview.planAware as Record<string, unknown>;
+  const title = typeof preview.title === "string" ? preview.title : "OTUnit draft preview";
+  const evidenceRefs = Array.isArray(planAware.evidenceRefs) ? planAware.evidenceRefs as string[] : [];
+
+  const draft = {
+    id: `session-confirmed-preview-otunit`,
+    objectiveId: record.objectiveId as string,
+    title: title.slice(0, 120),
+    owner: record.owner as string,
+    dueDate: record.dueDate as string,
+    evidenceRefs
+  };
+
+  const proposed = createProposedOTUnitFromDraft(draft);
+
+  if (!proposed.valid) {
+    return {
+      valid: false,
+      otunit: null,
+      errors: proposed.errors
+    };
+  }
+
+  const otunit = proposed.otunit!;
+  otunit.createdAt = record.createdAt as string;
+
+  return {
+    valid: true,
+    otunit,
+    errors: []
+  };
+}
+
