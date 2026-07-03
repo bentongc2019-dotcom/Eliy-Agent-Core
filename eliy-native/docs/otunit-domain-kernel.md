@@ -407,3 +407,40 @@ Boundary:
 - no mutation-oriented OTUnit CLI command
 - no chat behavior change
 - no Runtime Kernel behavior change beyond the deterministic confirmed preview boundary
+
+## Proposed OTUnit Confirmation Boundary
+
+The proposed OTUnit confirmation boundary confirms a proposed OTUnit only after explicit user confirmation.
+
+This boundary is deterministic and domain-local.
+
+Input includes:
+
+- `otunit` (a proposed OTUnit)
+- `userConfirmationSignal` (explicit confirmation text)
+- `confirmedAt` (timestamp string)
+
+Confirmation behavior:
+
+- confirms only a proposed OTUnit with status `"proposed"`
+- confirmed OTUnit has status `"confirmed"`
+- confirmed OTUnit has `requiresConfirmation: false`
+- explicit confirmation uses the existing `confirmOTUnit` domain boundary
+
+Rejection behavior:
+
+- ambiguous confirmation signals are rejected
+- non-proposed OTUnits are rejected
+- missing required fields return deterministic errors
+- non-object input returns deterministic errors
+
+Confirmation boundary:
+
+- no automatic confirmation
+- no persistence
+- no evidence content storage
+- no real provider integration
+- no AI generation
+- no mutation-oriented OTUnit CLI command
+- no chat behavior change
+- no Runtime Kernel behavior change beyond the deterministic confirmation boundary

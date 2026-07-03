@@ -1309,3 +1309,181 @@ export function createProposedOTUnitFromConfirmedPreview(
   };
 }
 
+
+// Proposed OTUnit Confirmation Boundary.
+// Confirms a proposed OTUnit only after explicit user confirmation.
+// Does not persist. Does not call provider or AI.
+
+export type ConfirmProposedOTUnitInput = {
+  otunit: OTUnit;
+  userConfirmationSignal: string;
+  confirmedAt: string;
+};
+
+export type ConfirmProposedOTUnitResult =
+  | {
+      valid: true;
+      otunit: OTUnit;
+      errors: [];
+    }
+  | {
+      valid: false;
+      otunit: null;
+      errors: DomainValidationError[];
+    };
+
+const ACCEPTED_PROPOSED_CONFIRMATION_SIGNALS: readonly string[] = [
+  "confirm",
+  "confirmed",
+  "user_confirmed",
+  "确认",
+  "我确认",
+  "明确确认"
+];
+
+const AMBIGUOUS_PROPOSED_CONFIRMATION_SIGNALS: readonly string[] = [
+  "差不多",
+  "应该可以",
+  "你看着办",
+  "大概这样",
+  "之后再说",
+  "maybe",
+  "probably",
+  "looks good"
+];
+
+function isAcceptedProposedConfirmationSignal(signal: string): boolean {
+  const normalized = signal.trim().toLowerCase();
+  return ACCEPTED_PROPOSED_CONFIRMATION_SIGNALS.some((s) => normalized === s.toLowerCase()) ||
+    ACCEPTED_PROPOSED_CONFIRMATION_SIGNALS.some((s) => normalized.includes(s.toLowerCase()));
+}
+
+function isAmbiguousProposedConfirmationSignal(signal: string): boolean {
+  const normalized = signal.trim().toLowerCase();
+  return AMBIGUOUS_PROPOSED_CONFIRMATION_SIGNALS.some(
+    (s) => normalized.includes(s.toLowerCase())
+  );
+}
+
+export function confirmProposedOTUnit(
+  input: unknown
+): ConfirmProposedOTUnitResult {
+  if (typeof input !== "object" || input === null) {
+    return {
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "otunit",
+          message: "Proposed OTUnit confirmation input must be an object."
+        }
+      ]
+    };
+  }
+
+  const record = input as Record<string, unknown>;
+  const errors: DomainValidationError[] = [];
+
+  if (typeof record.otunit !== "object" || record.otunit === null) {
+    return {
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "otunit",
+          message: "Proposed OTUnit confirmation requires a non-null OTUnit."
+        }
+      ]
+    };
+  }
+
+  if (!isNonEmptyString(record.userConfirmationSignal)) {
+    errors.push({
+      field: "userConfirmationSignal",
+      message: "Proposed OTUnit confirmation userConfirmationSignal must be a non-empty string."
+    });
+  }
+
+  if (!isNonEmptyString(record.confirmedAt)) {
+    errors.push({
+      field: "confirmedAt",
+      message: "Proposed OTUnit confirmation confirmedAt must be a non-empty string."
+    });
+  }
+
+  if (errors.length > 0) {
+    return {
+      valid: false,
+      otunit: null,
+      errors
+    };
+  }
+
+  const confirmationSignal = record.userConfirmationSignal as string;
+
+  if (isAmbiguousProposedConfirmationSignal(confirmationSignal)) {
+    return {
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "userConfirmationSignal",
+          message: "Confirmation signal is ambiguous. Explicit user confirmation is required."
+        }
+      ]
+    };
+  }
+
+  if (!isAcceptedProposedConfirmationSignal(confirmationSignal)) {
+    return {
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "userConfirmationSignal",
+          message: "Confirmation signal is not recognized. Explicit user confirmation is required."
+        }
+      ]
+    };
+  }
+
+  const otunit = record.otunit as OTUnit;
+  const confirmedAt = record.confirmedAt as string;
+
+  if (otunit.status !== "proposed") {
+    return {
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "otunit.status",
+          message: "Proposed OTUnit confirmation requires an OTUnit with status 'proposed'."
+        }
+      ]
+    };
+  }
+
+  const confirmationResult = confirmOTUnit(otunit);
+
+  if (!confirmationResult.valid) {
+    return {
+      valid: false,
+      otunit: null,
+      errors: [
+        {
+          field: "otunit",
+          message: "Proposed OTUnit confirmation is not allowed for the given OTUnit state."
+        }
+      ]
+    };
+  }
+
+  const confirmedOTUnit = confirmationResult.otunit;
+
+  return {
+    valid: true,
+    otunit: confirmedOTUnit,
+    errors: []
+  };
+}
+
