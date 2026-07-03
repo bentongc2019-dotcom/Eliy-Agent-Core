@@ -8,7 +8,9 @@ import {
 import {
   OTUNIT_STATUSES,
   type OTUnit,
+  type OTUnitDraftInput,
   confirmOTUnit,
+  createProposedOTUnitFromDraft,
   validateOTUnitTransition,
   validateOTUnit
 } from "../../../domain/otunit.js";
@@ -426,5 +428,105 @@ describe("OTUnit domain kernel skeleton", () => {
       const content = readFileSync(join(projectRoot, relativePath), "utf8");
       expectNoForbiddenText(content);
     }
+  });
+});
+
+describe("OTUnit AI-to-OTUnit draft boundary", () => {
+  const validDraft: OTUnitDraftInput = {
+    id: "otunit-1",
+    objectiveId: "objective-1",
+    title: "Identify next operating constraint",
+    owner: "user",
+    dueDate: "2026-07-09",
+    evidenceRefs: ["evidence-1"]
+  };
+
+  it("creates a proposed OTUnit from a valid draft input", () => {
+    const result = createProposedOTUnitFromDraft(validDraft);
+
+    expect(result.valid).toBe(true);
+    if (!result.valid) {
+      throw new Error("expected valid draft result");
+    }
+
+    expect(result).toEqual({
+      valid: true,
+      otunit: {
+        id: "otunit-1",
+        objectiveId: "objective-1",
+        title: "Identify next operating constraint",
+        owner: "user",
+        dueDate: "2026-07-09",
+        status: "proposed",
+        evidenceRefs: ["evidence-1"],
+        requiresConfirmation: true,
+        createdAt: "draft-created-at"
+      },
+      errors: []
+    });
+    expect(validateOTUnit(result.otunit)).toEqual({ valid: true, errors: [] });
+  });
+
+  it.each(["confirmed", "in_progress", "blocked", "closed"] as const)(
+    "rejects draft input that attempts to set status %s",
+    (status) => {
+      const result = createProposedOTUnitFromDraft({ ...validDraft, status });
+
+      expect(result).toEqual({
+        valid: false,
+        otunit: null,
+        errors: [
+          { field: "status", message: "OTUnit draft input cannot set status." }
+        ]
+      });
+    }
+  );
+
+  it("rejects draft input that attempts to set requiresConfirmation false", () => {
+    const result = createProposedOTUnitFromDraft({ ...validDraft, requiresConfirmation: false });
+
+    expect(result).toEqual({
+      valid: false,
+      otunit: null,
+      errors: [
+        { field: "requiresConfirmation", message: "OTUnit draft input cannot set requiresConfirmation." }
+      ]
+    });
+  });
+
+  it("rejects draft input that attempts to set requiresConfirmation true", () => {
+    const result = createProposedOTUnitFromDraft({ ...validDraft, requiresConfirmation: true });
+
+    expect(result).toEqual({
+      valid: false,
+      otunit: null,
+      errors: [
+        { field: "requiresConfirmation", message: "OTUnit draft input cannot set requiresConfirmation." }
+      ]
+    });
+  });
+
+  it.each([
+    ["null", null, "draft"],
+    ["non-object string", "not-an-object", "draft"],
+    ["missing id", { objectiveId: "objective-1", title: "t", owner: "u", dueDate: "2026-07-09", evidenceRefs: ["evidence-1"] }, "id"],
+    ["empty id", { id: "  ", objectiveId: "objective-1", title: "t", owner: "u", dueDate: "2026-07-09", evidenceRefs: ["evidence-1"] }, "id"],
+    ["missing objectiveId", { id: "otunit-1", title: "t", owner: "u", dueDate: "2026-07-09", evidenceRefs: ["evidence-1"] }, "objectiveId"],
+    ["missing title", { id: "otunit-1", objectiveId: "objective-1", owner: "u", dueDate: "2026-07-09", evidenceRefs: ["evidence-1"] }, "title"],
+    ["missing owner", { id: "otunit-1", objectiveId: "objective-1", title: "t", dueDate: "2026-07-09", evidenceRefs: ["evidence-1"] }, "owner"],
+    ["missing dueDate", { id: "otunit-1", objectiveId: "objective-1", title: "t", owner: "u", evidenceRefs: ["evidence-1"] }, "dueDate"],
+    ["missing evidenceRefs", { id: "otunit-1", objectiveId: "objective-1", title: "t", owner: "u", dueDate: "2026-07-09" }, "evidenceRefs"],
+    ["evidenceRefs not array", { id: "otunit-1", objectiveId: "objective-1", title: "t", owner: "u", dueDate: "2026-07-09", evidenceRefs: "evidence-1" }, "evidenceRefs"],
+    ["evidenceRefs contains empty string", { id: "otunit-1", objectiveId: "objective-1", title: "t", owner: "u", dueDate: "2026-07-09", evidenceRefs: ["evidence-1", ""] }, "evidenceRefs"]
+  ] as const)("rejects invalid draft input: %s", (_name, input, field) => {
+    const result = createProposedOTUnitFromDraft(input);
+
+    expect(result.valid).toBe(false);
+    if (result.valid) {
+      throw new Error("expected invalid draft result");
+    }
+    expect(result.otunit).toBeNull();
+    expect(result.errors.length).toBeGreaterThan(0);
+    expect(result.errors.some((error) => error.field === field)).toBe(true);
   });
 });

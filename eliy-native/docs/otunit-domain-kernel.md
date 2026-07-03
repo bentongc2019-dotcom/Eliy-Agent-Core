@@ -82,3 +82,27 @@ This PR does not persist Objective or OTUnit objects.
 ## Runtime Boundary
 
 This PR does not add AI generation, chat integration, provider integration, Runtime Kernel integration, long-term memory, or domain object runtime.
+
+## AI-to-OTUnit Draft Boundary
+
+AI/provider draft data can only be converted into a proposed OTUnit through a deterministic domain boundary.
+
+Draft input fields:
+
+- id
+- objectiveId
+- title
+- owner
+- dueDate
+- evidenceRefs
+
+Draft-to-OTUnit rules:
+
+- created OTUnit always has `status: "proposed"`
+- created OTUnit always has `requiresConfirmation: true`
+- draft input cannot create confirmed, in_progress, blocked, or closed OTUnits
+- draft input cannot set `requiresConfirmation: false`
+- invalid draft input returns deterministic validation errors
+- valid draft output still requires user confirmation before it can become confirmed
+
+This draft boundary does not add persistence, AI generation, real provider integration, chat integration, automatic confirmation, Runtime Kernel integration, or deployment behavior.
