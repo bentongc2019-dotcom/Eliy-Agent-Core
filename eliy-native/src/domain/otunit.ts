@@ -172,3 +172,84 @@ export function validateOTUnit(value: unknown): DomainValidationResult {
 
   return createValidResult();
 }
+
+export type OTUnitDraftInput = {
+  id: string;
+  objectiveId: string;
+  title: string;
+  owner: string;
+  dueDate: string;
+  evidenceRefs: string[];
+};
+
+export type OTUnitDraftBuildResult =
+  | {
+      valid: true;
+      otunit: OTUnit;
+      errors: [];
+    }
+  | {
+      valid: false;
+      otunit: null;
+      errors: DomainValidationError[];
+    };
+
+const OTUNIT_DRAFT_CREATED_AT = "draft-created-at";
+
+export function createProposedOTUnitFromDraft(input: unknown): OTUnitDraftBuildResult {
+  if (typeof input !== "object" || input === null) {
+    return {
+      valid: false,
+      otunit: null,
+      errors: [
+        { field: "draft", message: "OTUnit draft input must be an object." }
+      ]
+    };
+  }
+
+  const draft = input as Record<string, unknown>;
+  const errors: DomainValidationError[] = [];
+
+  if ("status" in draft) {
+    errors.push({ field: "status", message: "OTUnit draft input cannot set status." });
+  }
+  if ("requiresConfirmation" in draft) {
+    errors.push({ field: "requiresConfirmation", message: "OTUnit draft input cannot set requiresConfirmation." });
+  }
+  if (!isNonEmptyString(draft.id)) {
+    errors.push({ field: "id", message: "OTUnit draft id is required." });
+  }
+  if (!isNonEmptyString(draft.objectiveId)) {
+    errors.push({ field: "objectiveId", message: "OTUnit draft objectiveId is required." });
+  }
+  if (!isNonEmptyString(draft.title)) {
+    errors.push({ field: "title", message: "OTUnit draft title is required." });
+  }
+  if (!isNonEmptyString(draft.owner)) {
+    errors.push({ field: "owner", message: "OTUnit draft owner is required." });
+  }
+  if (!isNonEmptyString(draft.dueDate)) {
+    errors.push({ field: "dueDate", message: "OTUnit draft dueDate is required." });
+  }
+  if (!isStringArray(draft.evidenceRefs)) {
+    errors.push({ field: "evidenceRefs", message: "OTUnit draft evidenceRefs must be a string array." });
+  }
+
+  if (errors.length > 0) {
+    return { valid: false, otunit: null, errors };
+  }
+
+  const otunit: OTUnit = {
+    id: draft.id as string,
+    objectiveId: draft.objectiveId as string,
+    title: draft.title as string,
+    owner: draft.owner as string,
+    dueDate: draft.dueDate as string,
+    status: "proposed",
+    evidenceRefs: draft.evidenceRefs as string[],
+    requiresConfirmation: true,
+    createdAt: OTUNIT_DRAFT_CREATED_AT
+  };
+
+  return { valid: true, otunit, errors: [] };
+}
