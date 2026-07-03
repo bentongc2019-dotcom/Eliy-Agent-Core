@@ -23,6 +23,8 @@ import type {
   PlanAwareDraftPreviewChecklistKey,
   OTUnitTransition,
   ConfirmedPreviewToProposedOTUnitInput,
+  ConfirmProposedOTUnitInput,
+  ConfirmProposedOTUnitResult,
   ConfirmedPreviewToProposedOTUnitResult,
 } from "../../../domain/index.js";
 
@@ -52,6 +54,7 @@ describe("OTUnit domain public contract", () => {
     expect(typeof domain.createProposedOTUnitFromConfirmedPreview).toBe("function");
     expect(typeof domain.reviseOTUnit).toBe("function");
     expect(typeof domain.detectOTUnitDraftIntent).toBe("function");
+    expect(typeof domain.confirmProposedOTUnit).toBe("function");
     expect(typeof domain.previewOTUnitDraftFromChat).toBe("function");
   });
 
