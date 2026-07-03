@@ -2,6 +2,55 @@
 
 This document describes the minimal deterministic domain kernel for Objective and OTUnit.
 
+## OTUnit Domain Contract Summary
+
+The OTUnit domain contract currently exposes deterministic, domain-local helpers for the following areas:
+
+### Domain Skeleton
+
+- Objective validation
+- OTUnit validation
+- stable Objective and OTUnit status values
+- pure domain validation without persistence or runtime side effects
+
+### State Transitions
+
+- deterministic allowed transition table
+- invalid transitions return deterministic validation errors
+- transition validation does not persist state
+
+### User Confirmation
+
+- proposed OTUnits that require confirmation can be confirmed
+- confirmed OTUnits that no longer require confirmation remain stable
+- invalid confirmation attempts return deterministic validation errors
+- confirmation remains user-bound and does not run automatically
+
+### AI-to-Draft Boundary
+
+- draft input can produce a proposed OTUnit
+- draft output requires user confirmation
+- draft input cannot create confirmed, in-progress, blocked, or closed OTUnits
+- draft input cannot bypass confirmation
+
+### Evidence Reference Boundary
+
+- evidenceRefs are ids/references only
+- evidenceRefs must be non-empty string ids
+- whitespace-only refs, non-string refs, and duplicate refs are invalid
+- evidence content is not stored inside evidenceRefs
+
+### Review / Revision Boundary
+
+- review input records review intent only
+- revision input produces a revised OTUnit copy
+- revision preserves OTUnit identity
+- revision preserves evidenceRefs validation
+- revision preserves user confirmation
+- revision does not automatically confirm an OTUnit
+
+This contract summary does not add persistence, evidence content storage, AI generation, real provider integration, chat integration, automatic confirmation, Runtime Kernel integration, deployment behavior, or any new OTUnit capability.
+
 ## Objective
 
 Fields:
