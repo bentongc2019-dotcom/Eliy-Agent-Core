@@ -358,3 +358,52 @@ Boundary:
 - no mutation-oriented OTUnit CLI command
 - no chat behavior change
 - no Runtime Kernel behavior change beyond deterministic preview boundary
+
+## User-confirmed OTUnit Draft Creation Boundary
+
+The user-confirmed OTUnit draft creation boundary creates a proposed OTUnit only after explicit user confirmation of a plan-aware draft preview.
+
+This boundary is deterministic and domain-local.
+
+Input includes:
+
+- `draftPreview` (plan-aware OTUnitDraftPreview)
+- `userConfirmationSignal` (explicit confirmation text)
+- `objectiveId`
+- `owner`
+- `dueDate`
+- `createdAt`
+
+Creation behavior:
+
+- only creates a proposed OTUnit
+- created OTUnit keeps `status: "proposed"`
+- created OTUnit keeps `requiresConfirmation: true`
+- preview confirmation is authorization to create a proposed OTUnit only
+- preview confirmation does not confirm the OTUnit
+- preview confirmation does not set status to confirmed / in_progress / blocked / closed
+
+Rejection behavior:
+
+- no-intent or no-preview input does not create an OTUnit
+- ambiguous confirmation signals do not create an OTUnit
+- missing required fields return deterministic errors
+- non-preview draftPreview does not create an OTUnit
+
+Confirmation boundary:
+
+- explicit preview confirmation only authorizes proposed OTUnit creation
+- it must not confirm the OTUnit
+- `confirmOTUnit` is not called by this boundary
+
+Boundary:
+
+- no confirmed OTUnit creation
+- no automatic confirmation
+- no persistence
+- no evidence content storage
+- no real provider integration
+- no AI generation
+- no mutation-oriented OTUnit CLI command
+- no chat behavior change
+- no Runtime Kernel behavior change beyond the deterministic confirmed preview boundary
