@@ -203,6 +203,47 @@ Boundary:
 - does not automatically confirm OTUnits
 - does not change existing proof, smoke, or chat behavior
 
+## Session-to-OTUnit Draft Boundary
+
+The session-to-OTUnit draft boundary converts a session transcript input into an `OTUnitDraftInput`.
+
+This boundary is deterministic and domain-local.
+
+Input includes:
+
+- `sessionId`
+- `objectiveId`
+- `userText`
+- `assistantText`
+- `owner`
+- `dueDate`
+- `evidenceRefs`
+
+Output behavior:
+
+- valid input returns an OTUnit draft input
+- invalid input returns deterministic validation errors
+- the helper does not create an OTUnit directly
+- the draft may be passed to `createProposedOTUnitFromDraft`
+
+Confirmation boundary:
+
+- session transcript input cannot create confirmed, in_progress, blocked, or closed OTUnits
+- session transcript input cannot bypass user confirmation
+- proposed OTUnits created from the draft still have `status: "proposed"`
+- proposed OTUnits created from the draft still have `requiresConfirmation: true`
+
+Boundary:
+
+- no real provider integration
+- no automatic confirmation
+- no persistence
+- no evidence content storage
+- no AI generation
+- no mutation-oriented OTUnit CLI command
+- no chat behavior change
+- no Runtime Kernel behavior change beyond the deterministic domain boundary
+
 ## Persistence Boundary
 
 This PR does not persist Objective or OTUnit objects.

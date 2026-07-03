@@ -9,6 +9,8 @@ import type {
   OTUnitConfirmationResult,
   OTUnitDraftBuildResult,
   OTUnitDraftInput,
+  SessionToOTUnitDraftInput,
+  SessionToOTUnitDraftResult,
   OTUnitReviewInput,
   OTUnitReviewIntent,
   OTUnitReviewResult,
@@ -38,6 +40,7 @@ describe("OTUnit domain public contract", () => {
     expect(typeof domain.validateOTUnitTransition).toBe("function");
     expect(typeof domain.confirmOTUnit).toBe("function");
     expect(typeof domain.createProposedOTUnitFromDraft).toBe("function");
+    expect(typeof domain.createOTUnitDraftFromSession).toBe("function");
     expect(typeof domain.validateEvidenceRefs).toBe("function");
     expect(typeof domain.createOTUnitReviewIntent).toBe("function");
     expect(typeof domain.reviseOTUnit).toBe("function");
@@ -87,6 +90,22 @@ describe("OTUnit domain public contract", () => {
       evidenceRefs: ["evidence-1"]
     };
 
+    const sessionDraftInput: SessionToOTUnitDraftInput = {
+      sessionId: "session-1",
+      objectiveId: "objective-1",
+      userText: "We need a tighter owner split.",
+      assistantText: "Draft next OTUnit\nwith a clearer due date.",
+      owner: "user",
+      dueDate: "2026-07-24",
+      evidenceRefs: ["evidence-1"]
+    };
+
+    const sessionDraftResult: SessionToOTUnitDraftResult = {
+      valid: true,
+      draft,
+      errors: []
+    };
+
     const draftResult: OTUnitDraftBuildResult = {
       valid: true,
       otunit,
@@ -129,6 +148,8 @@ describe("OTUnit domain public contract", () => {
     expect(transition).toEqual({ from: "proposed", to: "confirmed" });
     expect(draft.evidenceRefs).toEqual(["evidence-1"]);
     expect(draftResult.valid).toBe(true);
+    expect(sessionDraftInput.sessionId).toBe("session-1");
+    expect(sessionDraftResult.valid).toBe(true);
     expect(reviewInput.action).toBe("revise");
     expect(reviewResult.review).toEqual(reviewIntent);
     expect(revisionInput.requiresConfirmation).toBe(true);
