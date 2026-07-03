@@ -238,3 +238,88 @@ describe("Chat-to-OTUnit draft preview boundary", () => {
     expect(resultRecord).not.toHaveProperty("provider");
   });
 });
+
+  // Plan-aware preview boundary tests
+
+  it("positive intent returns plan-aware preview metadata", () => {
+    const result = previewOTUnitDraftFromChat(validPositiveInput);
+
+    expect(result.valid).toBe(true);
+    expect(result.previewAvailable).toBe(true);
+    expect(result.draftPreview).not.toBeNull();
+
+    const planAware = result.draftPreview!.planAware;
+    expect(planAware).not.toBeNull();
+    expect(planAware.objective).toBeNull();
+    expect(planAware.owner).toBeNull();
+    expect(planAware.dueDateOrCheckTime).toBeNull();
+    expect(planAware.judgmentCriteria).toBeNull();
+    expect(planAware.planOrActionItems).toEqual([]);
+    expect(planAware.evidenceRefs).toEqual([]);
+    expect(planAware.missingInformation).toContain("objective");
+    expect(planAware.missingInformation).toContain("owner");
+    expect(planAware.missingInformation).toContain("due_date_or_check_time");
+    expect(planAware.missingInformation).toContain("judgment_criteria");
+    expect(planAware.missingInformation).toContain("plan_or_action_items");
+    expect(planAware.missingInformation).toContain("evidence_refs");
+    expect(planAware.checklist).toHaveLength(7);
+  });
+
+  it("checklist includes user_confirmation_required as required", () => {
+    const result = previewOTUnitDraftFromChat(validPositiveInput);
+
+    const confirmationItem = result.draftPreview!.planAware.checklist.find(
+      (item) => item.key === "user_confirmation_required"
+    );
+    expect(confirmationItem).not.toBeUndefined();
+    expect(confirmationItem!.required).toBe(true);
+    expect(confirmationItem!.status).toBe("required");
+  });
+
+  it("missing plan-aware fields do not invalidate preview", () => {
+    const result = previewOTUnitDraftFromChat({
+      sessionId: "session-1",
+      userText: "Create an OTUnit draft.",
+      assistantText: "Proceed with draft creation."
+    });
+
+    expect(result.valid).toBe(true);
+    expect(result.previewAvailable).toBe(true);
+    expect(result.errors).toEqual([]);
+
+    const planAware = result.draftPreview!.planAware;
+    expect(planAware.missingInformation.length).toBeGreaterThan(0);
+    expect(planAware.owner).toBeNull();
+  });
+
+  it("no OTUnit status values appear in plan-aware preview", () => {
+    const result = previewOTUnitDraftFromChat(validPositiveInput);
+
+    const resultRecord = result as Record<string, unknown>;
+    const otunitStatuses = ["proposed", "confirmed", "in_progress", "blocked", "closed"];
+    expect(otunitStatuses).not.toContain(resultRecord.status);
+    expect(result.draftPreview!.status).toBe("preview");
+    expect(otunitStatuses).not.toContain(result.draftPreview!.status);
+  });
+
+  it("no-creation boundary holds in plan-aware result", () => {
+    const result = previewOTUnitDraftFromChat(validPositiveInput);
+
+    const resultRecord = result as Record<string, unknown>;
+    const forbiddenKeys = [
+      "otunit",
+      "OTUnit",
+      "otunitId",
+      "objectiveId",
+      "createdAt",
+      "created_at",
+      "confirmedAt",
+      "confirmed_at",
+      "requiresConfirmation"
+    ];
+    for (const key of forbiddenKeys) {
+      expect(resultRecord).not.toHaveProperty(key);
+    }
+    // requiresUserConfirmation is allowed and required
+    expect(result.requiresUserConfirmation).toBe(true);
+  });
