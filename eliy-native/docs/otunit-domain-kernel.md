@@ -509,3 +509,41 @@ The `OTUnitRepository` type exposes the following methods:
 - no chat behavior change
 - no mutation-oriented OTUnit CLI command
 - no deployment behavior
+## OTUnit Runtime Repository Wiring Boundary
+
+PR #31 wires the in-memory OTUnit repository (PR #30) into a deterministic runtime/test-harness inspection boundary.
+
+### Runtime Inspection Boundary
+
+The otunit CLI command now exposes repository boundary availability through deterministic inspection:
+
+```
+corepack pnpm otunit
+```
+
+Output includes:
+
+- `domain.otunit.repositoryBoundaryAvailable` -- proves the repository can be constructed at the runtime boundary
+- `repository.implementation: "in_memory"` -- confirms the in-memory implementation is wired
+- `repository.persistence: false` -- no durable persistence
+- `repository.durableRuntimeState: false` -- no durable runtime state
+- `repository.chatWrites: false` -- no chat writes
+
+### Wiring
+
+- `createInMemoryOTUnitRepository` is called inside the `otunit` CLI action callback
+- Repository availability is exposed through deterministic runtime/test inspection only
+- Repository is not wired into chat input flow
+- Repository is not wired into normal chat save flow
+- No mutation-oriented OTUnit CLI commands are added
+
+### Boundary
+
+- no database
+- no filesystem persistence
+- no network storage
+- no provider integration
+- no AI generation
+- no chat behavior change
+- no durable runtime state
+- no deployment action
