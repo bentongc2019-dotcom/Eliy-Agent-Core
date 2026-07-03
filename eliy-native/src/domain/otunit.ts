@@ -323,6 +323,28 @@ export type OTUnitDraftInput = {
   evidenceRefs: EvidenceRef[];
 };
 
+export type SessionToOTUnitDraftInput = {
+  sessionId: string;
+  objectiveId: string;
+  userText: string;
+  assistantText: string;
+  owner: string;
+  dueDate: string;
+  evidenceRefs: EvidenceRef[];
+};
+
+export type SessionToOTUnitDraftResult =
+  | {
+      valid: true;
+      draft: OTUnitDraftInput;
+      errors: [];
+    }
+  | {
+      valid: false;
+      draft: null;
+      errors: DomainValidationError[];
+    };
+
 export type OTUnitDraftBuildResult =
   | {
       valid: true;
@@ -336,6 +358,94 @@ export type OTUnitDraftBuildResult =
     };
 
 const OTUNIT_DRAFT_CREATED_AT = "draft-created-at";
+
+function firstNonEmptyLine(value: string): string {
+  for (const line of value.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+
+  return "";
+}
+
+function createSessionToOTUnitDraftFieldError(field: keyof SessionToOTUnitDraftInput): DomainValidationError {
+  return {
+    field,
+    message: `Session-to-OTUnit draft ${field} must be a non-empty string.`
+  };
+}
+
+export function createOTUnitDraftFromSession(input: unknown): SessionToOTUnitDraftResult {
+  if (!isRecord(input)) {
+    return {
+      valid: false,
+      draft: null,
+      errors: [
+        {
+          field: "sessionId",
+          message: "Session-to-OTUnit draft input must be an object."
+        }
+      ]
+    };
+  }
+
+  const fields: (keyof Omit<SessionToOTUnitDraftInput, "evidenceRefs">)[] = [
+    "sessionId",
+    "objectiveId",
+    "userText",
+    "assistantText",
+    "owner",
+    "dueDate"
+  ];
+
+  for (const field of fields) {
+    if (!isNonEmptyString(input[field])) {
+      return {
+        valid: false,
+        draft: null,
+        errors: [createSessionToOTUnitDraftFieldError(field)]
+      };
+    }
+  }
+
+  const evidenceRefsValidation = validateEvidenceRefs(input.evidenceRefs);
+  if (!evidenceRefsValidation.valid) {
+    return {
+      valid: false,
+      draft: null,
+      errors: evidenceRefsValidation.errors
+    };
+  }
+
+  const titleSource = firstNonEmptyLine(input.assistantText as string) || firstNonEmptyLine(input.userText as string);
+  if (titleSource.length === 0) {
+    return {
+      valid: false,
+      draft: null,
+      errors: [
+        {
+          field: "assistantText",
+          message: "Session-to-OTUnit draft assistantText must contain a non-empty line."
+        }
+      ]
+    };
+  }
+
+  return {
+    valid: true,
+    draft: {
+      id: `session-${input.sessionId as string}-otunit-draft`,
+      objectiveId: input.objectiveId as string,
+      title: titleSource.slice(0, 120),
+      owner: input.owner as string,
+      dueDate: input.dueDate as string,
+      evidenceRefs: [...(input.evidenceRefs as EvidenceRef[])]
+    },
+    errors: []
+  };
+}
 
 export function createProposedOTUnitFromDraft(input: unknown): OTUnitDraftBuildResult {
   if (typeof input !== "object" || input === null) {
