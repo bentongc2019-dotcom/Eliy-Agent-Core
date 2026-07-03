@@ -329,11 +329,159 @@ export type ChatToOTUnitDraftPreviewInput = {
   assistantText: string;
 };
 
+// Plan-aware draft preview types.
+// These are deterministic preview metadata only.
+// They align with the Plan Management Semantic Contract.
+
+export type PlanAwareDraftPreviewChecklistKey =
+  | "objective"
+  | "owner"
+  | "due_date_or_check_time"
+  | "judgment_criteria"
+  | "plan_or_action_items"
+  | "evidence_refs"
+  | "user_confirmation_required";
+
+export type PlanAwareDraftPreviewChecklistItem = {
+  key: PlanAwareDraftPreviewChecklistKey;
+  label: string;
+  required: boolean;
+  status: "present" | "missing" | "required";
+  reason: string;
+};
+
+export type PlanAwareDraftPreview = {
+  objective: string | null;
+  owner: string | null;
+  dueDateOrCheckTime: string | null;
+  judgmentCriteria: string | null;
+  planOrActionItems: string[];
+  evidenceRefs: string[];
+  missingInformation: PlanAwareDraftPreviewChecklistKey[];
+  checklist: PlanAwareDraftPreviewChecklistItem[];
+};
+
+function buildPlanAwareChecklist(
+  objective: string | null,
+  owner: string | null,
+  dueDateOrCheckTime: string | null,
+  judgmentCriteria: string | null,
+  planOrActionItems: string[],
+  evidenceRefs: string[]
+): PlanAwareDraftPreviewChecklistItem[] {
+  return [
+    {
+      key: "objective",
+      label: "Objective / 目标",
+      required: true,
+      status: objective !== null ? "present" : "missing",
+      reason:
+        objective !== null
+          ? "Preview includes an objective field."
+          : "Preview does not yet include an explicit objective."
+    },
+    {
+      key: "owner",
+      label: "负责人",
+      required: true,
+      status: owner !== null ? "present" : "missing",
+      reason:
+        owner !== null
+          ? "Preview includes an owner field."
+          : "Preview does not yet include an explicit owner."
+    },
+    {
+      key: "due_date_or_check_time",
+      label: "完成时间 / 检查时间",
+      required: true,
+      status: dueDateOrCheckTime !== null ? "present" : "missing",
+      reason:
+        dueDateOrCheckTime !== null
+          ? "Preview includes a due date or check time."
+          : "Preview does not yet include an explicit due date or check time."
+    },
+    {
+      key: "judgment_criteria",
+      label: "判断标准",
+      required: true,
+      status: judgmentCriteria !== null ? "present" : "missing",
+      reason:
+        judgmentCriteria !== null
+          ? "Preview includes judgment criteria."
+          : "Preview does not yet include explicit judgment criteria."
+    },
+    {
+      key: "plan_or_action_items",
+      label: "计划 / 行动项目",
+      required: true,
+      status: planOrActionItems.length > 0 ? "present" : "missing",
+      reason:
+        planOrActionItems.length > 0
+          ? "Preview includes plan or action items."
+          : "Preview does not yet include plan or action items."
+    },
+    {
+      key: "evidence_refs",
+      label: "依据 / 证据",
+      required: true,
+      status: evidenceRefs.length > 0 ? "present" : "missing",
+      reason:
+        evidenceRefs.length > 0
+          ? "Preview includes evidence references."
+          : "Preview does not yet include evidence references."
+    },
+    {
+      key: "user_confirmation_required",
+      label: "用户确认",
+      required: true,
+      status: "required",
+      reason:
+        "User confirmation is required before any later OTUnit draft or OTUnit creation work."
+    }
+  ];
+}
+
+function buildPlanAwareDraftPreview(): PlanAwareDraftPreview {
+  const objective = null;
+  const owner = null;
+  const dueDateOrCheckTime = null;
+  const judgmentCriteria = null;
+  const planOrActionItems: string[] = [];
+  const evidenceRefs: string[] = [];
+
+  const missingInformation: PlanAwareDraftPreviewChecklistKey[] = [];
+  if (objective === null) missingInformation.push("objective");
+  if (owner === null) missingInformation.push("owner");
+  if (dueDateOrCheckTime === null) missingInformation.push("due_date_or_check_time");
+  if (judgmentCriteria === null) missingInformation.push("judgment_criteria");
+  if (planOrActionItems.length === 0) missingInformation.push("plan_or_action_items");
+  if (evidenceRefs.length === 0) missingInformation.push("evidence_refs");
+
+  return {
+    objective,
+    owner,
+    dueDateOrCheckTime,
+    judgmentCriteria,
+    planOrActionItems,
+    evidenceRefs,
+    missingInformation,
+    checklist: buildPlanAwareChecklist(
+      objective,
+      owner,
+      dueDateOrCheckTime,
+      judgmentCriteria,
+      planOrActionItems,
+      evidenceRefs
+    )
+  };
+}
+
 export type OTUnitDraftPreview = {
   title: string;
   sourceSessionId: string;
   source: "chat_session";
   status: "preview";
+  planAware: PlanAwareDraftPreview;
   requiresUserConfirmation: true;
 };
 
@@ -432,6 +580,7 @@ export function previewOTUnitDraftFromChat(
     sourceSessionId: intentInput.sessionId,
     source: "chat_session",
     status: "preview",
+    planAware: buildPlanAwareDraftPreview(),
     requiresUserConfirmation: true
   };
 

@@ -17,6 +17,10 @@ import type {
   OTUnitRevisionInput,
   OTUnitRevisionResult,
   OTUnitStatus,
+  OTUnitDraftPreview,
+  PlanAwareDraftPreview,
+  PlanAwareDraftPreviewChecklistItem,
+  PlanAwareDraftPreviewChecklistKey,
   OTUnitTransition
 } from "../../../domain/index.js";
 
