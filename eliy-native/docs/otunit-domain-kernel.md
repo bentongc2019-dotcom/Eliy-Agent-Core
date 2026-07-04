@@ -684,3 +684,61 @@ After a successful flow:
 - no durable runtime state
 - no mutation-oriented OTUnit CLI command
 - no deployment action
+
+## Structured Context Snapshot Boundary (Terminal Core Loop)
+
+PR #38 adds process-local structured context retention to the dedicated
+otunit-core-loop terminal skeleton.
+
+### Structured Context Definition
+
+A structured context snapshot is a process-local read-only object linked by confirmed OTUnit id:
+
+```
+{
+  objective: string;
+  title: string;
+  owner: string;
+  dueDate: string;
+  judgmentCriteria: string;
+  planOrActionItems: string[];
+  evidenceRefs: string[];
+}
+```
+
+### Retention Rules
+
+- Snapshot is created only after confirmed OTUnit creation succeeds
+- Snapshot is linked by the confirmed OTUnit id
+- Snapshot exists only in process-local session memory (Map<string, StructuredContextSnapshot>)
+- Snapshot does not persist after process exit
+- Snapshot is read-only; no mutation commands are available
+
+### List / Show Behavior
+
+- `list` command includes `structuredContextAvailable: true|false` per OTUnit
+- `show <id>` displays human-readable O 单 detail when structured context is available
+- `show <id>` returns deterministic message when structured context is not available
+- Missing structured context does not crash
+- All operations remain read-only
+- Machine-readable JSON is preserved for tests
+
+### Commands
+
+- `exit` is an alias for `/exit` in the otunit> command loop
+- Unrecognized command message includes: "You are inside the OTUnit session command loop. Use list, show <id>, /exit, or exit."
+
+### Boundary
+
+- No database
+- No filesystem persistence
+- No network storage
+- No provider integration
+- No AI generation
+- No chat behavior change
+- No chat writes
+- No durable runtime state
+- No mutation-oriented OTUnit CLI command
+- No follow-up record behavior
+- No deployment action
+- Existing otunit command remains inspection-only

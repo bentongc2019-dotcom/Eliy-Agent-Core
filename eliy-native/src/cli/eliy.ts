@@ -114,10 +114,23 @@ async function runTerminalChatLoop(): Promise<void> {
 async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
   const rl = createInterface({ input, output });
   const now = new Date().toISOString();
-  const repo = createInMemoryOTUnitRepository();
-  const objectiveId = "default-objective";
+ const repo = createInMemoryOTUnitRepository();
+ const objectiveId = "default-objective";
 
-  console.log("Eliy Native OTUnit core loop started. Type /exit to quit.");
+ // Structured context snapshot: process-local session memory only.
+ // Linked by confirmed OTUnit id. Read-only after confirmed OTUnit creation.
+ // Does not persist after process exit.
+ const structuredContextSnapshots = new Map<string, {
+   objective: string;
+   title: string;
+   owner: string;
+   dueDate: string;
+   judgmentCriteria: string;
+   planOrActionItems: string[];
+   evidenceRefs: string[];
+ }>();
+
+ console.log("Eliy Native OTUnit core loop started. Type /exit to quit.");
 
   // Line reader using async iterator to support both pipe and interactive modes.
   const lineIterator = rl[Symbol.asyncIterator]();
@@ -492,14 +505,27 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
     const repositorySaved = saveResult.valid;
     structuredFieldBase.repositorySaved = repositorySaved;
 
-    if (!repositorySaved) {
-      printSummary(buildFailureFlags({ stepReached: "confirmed_otunit_created" }));
-      return;
-    }
+   if (!repositorySaved) {
+     printSummary(buildFailureFlags({ stepReached: "confirmed_otunit_created" }));
+     return;
+   }
 
-    // ---- Step 12: Verify getById ----
-    const retrieved = repo.getById(confirmedOTUnit.id);
-    const repositoryGetByIdVerified =
+   // Store structured context snapshot linked by confirmed OTUnit id.
+   // Read-only snapshot, process-local session memory only.
+   // Does not persist after process exit.
+   structuredContextSnapshots.set(confirmedOTUnit.id, {
+     objective: objective,
+     title: businessText,
+     owner: owner,
+     dueDate: dueDate,
+     judgmentCriteria: judgmentCriteria,
+     planOrActionItems: planOrActionItems,
+     evidenceRefs: parsedEvidenceRefs
+   });
+
+   // ---- Step 12: Verify getById ----
+   const retrieved = repo.getById(confirmedOTUnit.id);
+   const repositoryGetByIdVerified =
       retrieved !== undefined && retrieved.id === confirmedOTUnit.id && retrieved.status === "confirmed";
     structuredFieldBase.repositoryGetByIdVerified = repositoryGetByIdVerified;
 
@@ -558,12 +584,12 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
         return;
       }
 
-      const trimmed = commandLine.trim();
+     const trimmed = commandLine.trim();
 
-      if (trimmed === "/exit") {
-        console.log("\nEliy Native OTUnit core loop exited.");
-        return;
-      }
+     if (trimmed === "/exit" || trimmed === "exit") {
+       console.log("\nEliy Native OTUnit core loop exited.");
+       return;
+     }
 
       if (trimmed.length === 0) {
         continue;
@@ -580,15 +606,17 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
           persistence: false,
           durableRuntimeState: false,
           readOnly: true,
-          otunits: allOTUnits.map((u) => ({
-            id: u.id,
-            title: u.title,
-            objectiveId: u.objectiveId,
-            owner: u.owner,
-            dueDate: u.dueDate,
-            status: u.status,
-            requiresConfirmation: u.requiresConfirmation
-          }))
+         otunits: allOTUnits.map((u) => ({
+           id: u.id,
+           title: u.title,
+           objectiveId: u.objectiveId,
+           owner: u.owner,
+           dueDate: u.dueDate,
+           status: u.status,
+           requiresConfirmation: u.requiresConfirmation
+           ,
+          structuredContextAvailable: structuredContextSnapshots.has(u.id)
+         }))
         };
         console.log(JSON.stringify(listOutput, null, 2));
         continue;
@@ -606,39 +634,74 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
           continue;
         }
 
-        const foundOTUnit = repo.getById(showId);
+       const foundOTUnit = repo.getById(showId);
 
-        if (foundOTUnit === undefined) {
-          console.log(JSON.stringify({
-            ok: false, ...summaryBase, action: "show", found: false, id: showId,
-            message: "OTUnit not found in this process-local session repository.",
-            persistence: false, durableRuntimeState: false, readOnly: true
-          }, null, 2));
-          continue;
-        }
+       if (foundOTUnit === undefined) {
+         console.log(JSON.stringify({
+           ok: false, ...summaryBase, action: "show", found: false, id: showId,
+           message: "OTUnit not found in this process-local session repository.",
+           persistence: false, durableRuntimeState: false, readOnly: true
+         }, null, 2));
+         continue;
+       }
 
-        console.log(JSON.stringify({
-          ok: true, ...summaryBase, action: "show", found: true, id: foundOTUnit.id,
-          repositorySource: "process_local_in_memory",
-          persistence: false, durableRuntimeState: false, readOnly: true,
-          otunit: {
-            id: foundOTUnit.id, title: foundOTUnit.title,
-            objectiveId: foundOTUnit.objectiveId,
-            owner: foundOTUnit.owner, dueDate: foundOTUnit.dueDate,
-            status: foundOTUnit.status,
-            requiresConfirmation: foundOTUnit.requiresConfirmation,
-            evidenceRefs: foundOTUnit.evidenceRefs,
-            createdAt: foundOTUnit.createdAt
-          }
-        }, null, 2));
-        continue;
+       const context = structuredContextSnapshots.get(showId);
+       const structuredContextAvailable = context !== undefined;
+
+       if (structuredContextAvailable && context !== undefined) {
+         console.log("\n--- O 单 Detail ---");
+         console.log("Objective: " + context.objective);
+         console.log("OTUnit: " + context.title);
+         console.log("Owner: " + context.owner);
+         console.log("Due / Check Time: " + context.dueDate);
+         console.log("Judgment Criteria: " + context.judgmentCriteria);
+        console.log("Plan / Action Items:");
+        context.planOrActionItems.forEach((item) => console.log(item));
+        console.log("Evidence Refs: " + context.evidenceRefs.join(", "));
+         console.log("Status: " + foundOTUnit.status);
+         console.log("Repository: process-local in-memory");
+         console.log("Persistence: false");
+       } else {
+         console.log("Structured context snapshot not available for this OTUnit in the current process-local session.");
+       }
+
+      const showOutput: Record<string, unknown> = {
+         ok: true, ...summaryBase, action: "show", found: true, id: foundOTUnit.id,
+         repositorySource: "process_local_in_memory",
+         persistence: false, durableRuntimeState: false, readOnly: true,
+         otunit: {
+           id: foundOTUnit.id, title: foundOTUnit.title,
+           objectiveId: foundOTUnit.objectiveId,
+           owner: foundOTUnit.owner, dueDate: foundOTUnit.dueDate,
+           status: foundOTUnit.status,
+           requiresConfirmation: foundOTUnit.requiresConfirmation,
+           evidenceRefs: foundOTUnit.evidenceRefs,
+           createdAt: foundOTUnit.createdAt
+         },
+         structuredContextAvailable: structuredContextAvailable
+       };
+
+       if (structuredContextAvailable && context !== undefined) {
+         showOutput.structuredContext = {
+           objective: context.objective,
+           title: context.title,
+           owner: context.owner,
+           dueDate: context.dueDate,
+           judgmentCriteria: context.judgmentCriteria,
+           planOrActionItems: context.planOrActionItems,
+           evidenceRefs: context.evidenceRefs
+         };
+       }
+
+       console.log(JSON.stringify(showOutput, null, 2));
+       continue;
       }
 
-      console.log(JSON.stringify({
-        ok: false, ...summaryBase, action: "unrecognized",
-        message: "Unrecognized command: " + trimmed + ". Type 'list', 'show <id>', or '/exit'.",
-        persistence: false, durableRuntimeState: false, readOnly: true
-      }, null, 2));
+     console.log(JSON.stringify({
+       ok: false, ...summaryBase, action: "unrecognized",
+       message: "Unrecognized command: " + trimmed + ". You are inside the OTUnit session command loop. Use list, show <id>, /exit, or exit.",
+       persistence: false, durableRuntimeState: false, readOnly: true
+     }, null, 2));
     }
   } finally {
     rl.close();

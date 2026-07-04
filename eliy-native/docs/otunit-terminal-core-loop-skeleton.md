@@ -208,3 +208,115 @@ After the summary is printed, the following commands are available:
 - List/show reflect captured owner and dueDate
 - List/show do not persist after process exit
 - List/show do not create, confirm, mutate, or delete OTUnits
+
+### Structured Context Snapshot
+
+After confirmed OTUnit creation, the terminal skeleton retains a process-local structured
+context snapshot linked by the confirmed OTUnit id. This snapshot is read-only and exists
+only in process-local session memory. It does not persist after process exit.
+
+The snapshot includes:
+
+- objective text
+- title / business text
+- owner
+- due date or check time
+- judgment criteria
+- plan / action items
+- evidence refs
+
+#### Available Commands (Updated)
+
+After the summary is printed, the following commands are available:
+
+- `list` — prints all OTUnits from the session-local in-memory repository as JSON, with `structuredContextAvailable` field
+- `show <id>` — prints human-readable O 单 detail (if structured context is available) followed by machine-readable JSON
+- `/exit` or `exit` — exits the loop
+
+`list` output (updated):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ok` | boolean | `true` |
+| `action` | string | `"list"` |
+| `repositorySource` | string | `"process_local_in_memory"` |
+| `count` | number | Number of OTUnits listed |
+| `persistence` | boolean | `false` |
+| `durableRuntimeState` | boolean | `false` |
+| `readOnly` | boolean | `true` |
+| `otunits` | array | List of OTUnit summaries with id, title, objectiveId, owner, dueDate, status, requiresConfirmation, structuredContextAvailable |
+
+`show <id>` output (found, with structured context):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ok` | boolean | `true` |
+| `action` | string | `"show"` |
+| `found` | boolean | `true` |
+| `id` | string | The requested OTUnit id |
+| `repositorySource` | string | `"process_local_in_memory"` |
+| `persistence` | boolean | `false` |
+| `durableRuntimeState` | boolean | `false` |
+| `readOnly` | boolean | `true` |
+| `otunit` | object | Full OTUnit detail (existing fields) |
+| `structuredContextAvailable` | boolean | Whether structured context snapshot is available for this OTUnit |
+| `structuredContext` | object | Structured context snapshot (objective, title, owner, dueDate, judgmentCriteria, planOrActionItems, evidenceRefs) |
+
+`show <id>` output (found, without structured context):
+
+| Field | Value |
+|-------|-------|
+| `structuredContextAvailable` | `false` |
+| (human-readable) | `"Structured context snapshot not available for this OTUnit in the current process-local session."` |
+
+`show <missing-id>` output (not found):
+
+| Field | Value |
+|-------|-------|
+| `ok` | `false` |
+| `found` | `false` |
+| `id` | The requested id |
+| `message` | `"OTUnit not found in this process-local session repository."` |
+| `persistence` | `false` |
+| `durableRuntimeState` | `false` |
+| `readOnly` | `true` |
+
+#### Unrecognized Command Behavior
+
+An unrecognized command in the otunit> command loop returns a deterministic message:
+
+```
+Unrecognized command: <command>. You are inside the OTUnit session command loop. Use list, show <id>, /exit, or exit.
+```
+
+#### Human-readable show detail example
+
+```
+--- O 单 Detail ---
+Objective: Q3 收入目标
+OTUnit: 完成第一批体验客户访谈
+Owner: rich
+Due / Check Time: 2026-12-31
+Judgment Criteria: 完成 3 位体验客户访谈并形成记录
+Plan / Action Items:
+1. 约访客户
+2. 完成访谈
+3. 记录结论
+Evidence Refs: ref1, ref2, ref3, ref4
+Status: confirmed
+Repository: process-local in-memory
+Persistence: false
+```
+
+### Boundary Additions (Structured Context)
+
+- Structured context snapshot is process-local session memory only
+- Snapshot is linked by confirmed OTUnit id
+- Snapshot does not persist after process exit
+- list shows structuredContextAvailable for each OTUnit
+- show <id> displays human-readable O 单 detail when structured context is available
+- Missing structured context returns deterministic message without crashing
+- exit is an alias for /exit in the otunit> command loop
+- Unrecognized command message clearly indicates OTUnit session context
+- No database / no filesystem persistence / no provider integration / no follow-up record behavior
+- Existing otunit command remains inspection-only
