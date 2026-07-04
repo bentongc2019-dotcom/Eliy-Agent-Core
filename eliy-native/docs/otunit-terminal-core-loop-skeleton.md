@@ -320,3 +320,173 @@ Persistence: false
 - Unrecognized command message clearly indicates OTUnit session context
 - No database / no filesystem persistence / no provider integration / no follow-up record behavior
 - Existing otunit command remains inspection-only
+
+### Follow-up Record Behavior (PR #39)
+
+After a confirmed OTUnit exists in the process-local session repository, the otunit-core-loop supports
+the `follow <id>` command to add a single follow-up record text.
+
+#### Available Commands (Updated)
+
+After the summary is printed, the following commands are available:
+
+- `list` — prints all OTUnits from the session-local in-memory repository as JSON, with `structuredContextAvailable` and `followUpRecordCount` fields
+- `show <id>` — prints human-readable O 单 detail (if structured context is available) and follow-up records, followed by machine-readable JSON
+- `follow <id>` — adds a follow-up record for a confirmed OTUnit (see follow flow below)
+- `/exit` or `exit` — exits the loop
+
+#### Follow-up Record Flow
+
+The `follow <id>` command:
+
+1. Verifies the OTUnit exists in the process-local repository via `getById`.
+2. If the OTUnit is not found, returns a deterministic not-found message and does not prompt/save.
+3. Prompts the user for follow-up record text.
+4. If the follow-up text is blank, returns a deterministic blank-text stop message and does not save.
+5. Prints a human-readable follow-up preview showing the OTUnit title, id, follow-up text, repository source, and persistence flag.
+6. Asks for explicit confirmation to save.
+7. If the confirmation signal is not `confirm` or `确认`, stops deterministically without saving.
+8. If confirmed, saves the follow-up record to process-local session memory linked by the confirmed OTUnit id.
+9. Prints machine-readable success output with the saved follow-up record details.
+
+#### Follow-up Record Properties
+
+- Records are process-local session memory only (`Map<string, FollowUpRecord[]>`)
+- Records are linked by confirmed OTUnit id
+- Records are not persisted after process exit
+- Records do not change OTUnit status, confirmation state, review state, check records, adjust records, revision records, evidence records, or repository persistence
+- Records do not create review/check/adjust/revision behavior
+- Records do not mutate the OTUnit itself
+- Record IDs are deterministic: `session-follow-up-1`, `session-follow-up-2`, etc.
+
+#### Follow-up Record Shape
+
+```
+{
+  id: string;           // deterministic: session-follow-up-1, session-follow-up-2, etc.
+  otunitId: string;     // confirmed OTUnit id
+  text: string;         // follow-up record text
+  createdAt: string;    // ISO timestamp
+}
+```
+
+#### Follow-up Preview Example
+
+```
+--- Follow-up Preview ---
+OTUnit: 完成第一批体验客户访谈
+OTUnit ID: session-confirmed-preview-otunit
+Follow-up Text: 今天完成 2 位客户访谈，并约好第 3 位
+Repository: process-local in-memory
+Persistence: false
+
+Confirm save follow-up record? (confirm to save, /exit to quit):
+```
+
+#### Follow-up Command Machine-readable Output (Success)
+
+```
+{
+  "ok": true,
+  "action": "follow",
+  "found": true,
+  "id": "session-confirmed-preview-otunit",
+  "followUpSaved": true,
+  "followUpRecord": {
+    "id": "session-follow-up-1",
+    "otunitId": "session-confirmed-preview-otunit",
+    "text": "今天完成 2 位客户访谈，并约好第 3 位",
+    "createdAt": "<ISO timestamp>"
+  },
+  "otunitMutated": false,
+  "otunitStatusChanged": false,
+  "repositorySource": "process_local_in_memory",
+  "persistence": false,
+  "durableRuntimeState": false,
+  "providerRequired": false,
+  "chatWrites": false
+}
+```
+
+#### Follow-up Missing-id Output
+
+```
+{
+  "ok": false,
+  "action": "follow",
+  "found": false,
+  "id": "missing-id",
+  "message": "OTUnit not found in this process-local session repository.",
+  "followUpSaved": false,
+  ...
+}
+```
+
+#### Follow-up Blank-text Output
+
+```
+{
+  "ok": false,
+  "action": "follow",
+  "found": true,
+  "id": "<otunit-id>",
+  "message": "Blank follow-up text. No follow-up record saved.",
+  "followUpSaved": false,
+  ...
+}
+```
+
+#### Follow-up Ambiguous Confirmation Output
+
+```
+{
+  "ok": false,
+  "action": "follow",
+  "found": true,
+  "id": "<otunit-id>",
+  "followUpPreviewPrinted": true,
+  "followUpConfirmed": false,
+  "followUpSaved": false,
+  ...
+}
+```
+
+#### list Output (Updated)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| ... | ... | (all existing fields) |
+| `otunits[].followUpRecordCount` | number | Number of follow-up records for this OTUnit |
+
+#### show Output (Updated)
+
+After a follow-up record is saved, `show <id>` displays:
+
+Human-readable:
+```
+--- O 单 Detail ---
+...
+Status: confirmed
+...
+
+--- Follow-up Records ---
+1. <follow-up text>
+```
+
+Machine-readable (extended with):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `followUpRecordCount` | number | Number of follow-up records for this OTUnit |
+| `followUpRecords` | array | Array of follow-up record objects with id, otunitId, text, createdAt |
+
+#### Boundary
+
+- Follow-up records are process-local session memory only
+- No database, no filesystem persistence, no network storage
+- No provider integration, no AI generation
+- No normal chat writes
+- No durable runtime state
+- No OTUnit mutation (status, confirmation, review, adjust, revision)
+- Existing otunit command remains inspection-only
+- No mutation subcommands under existing otunit

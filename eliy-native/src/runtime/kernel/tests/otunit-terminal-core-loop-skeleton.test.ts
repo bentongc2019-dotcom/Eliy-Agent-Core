@@ -632,7 +632,7 @@ describe("OTUnit terminal core loop session-local list/show", () => {
     const stdout = result.stdout as string;
 
     expect(stdout).toMatch(/You are inside the OTUnit session command loop/);
-    expect(stdout).toMatch(/list, show <id>, \/exit, or exit/);
+    expect(stdout).toMatch(/list, show <id>, follow <id>, \/exit, or exit/);
   });
 
   it("unrecognized command does not mutate state", () => {
@@ -796,5 +796,236 @@ describe("OTUnit terminal core loop evidence ref delimiter normalization", () =>
     expect(summary.ok).toBe(true);
     expect(summary.stepReached).toBe("confirmed_otunit_repository_verified");
     expect(summary.evidenceRefsValid).toBe(true);
+  });
+});
+
+describe("OTUnit terminal core loop follow-up records", () => {
+  it("follow <id> after confirmed OTUnit saves one process-local follow-up record", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nfollow session-confirmed-preview-otunit\n今天完成 2 位客户访谈，并约好第 3 位\n确认\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.error).toBeUndefined();
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"followUpSaved":\s*true/);
+    expect(stdout).toMatch(/"otunitMutated":\s*false/);
+    expect(stdout).toMatch(/"otunitStatusChanged":\s*false/);
+    expect(stdout).toMatch(/"repositorySource":\s*"process_local_in_memory"/);
+    expect(stdout).toMatch(/"persistence":\s*false/);
+    expect(stdout).toMatch(/"followUpRecord":/);
+    expect(stdout).toMatch(/"id":\s*"session-follow-up-1"/);
+    expect(stdout).toMatch(/"otunitId":\s*"session-confirmed-preview-otunit"/);
+    expect(stdout).toMatch(/"text":\s*"今天完成 2 位客户访谈，并约好第 3 位"/);
+    expect(stdout).toMatch(/"createdAt":/);
+  });
+
+  it("follow-up record is linked by confirmed OTUnit id", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nfollow session-confirmed-preview-otunit\n今天完成 2 位客户访谈，并约好第 3 位\n确认\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"otunitId":\s*"session-confirmed-preview-otunit"/);
+  });
+
+  it("follow-up record contains deterministic id, otunitId, text, createdAt", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nfollow session-confirmed-preview-otunit\n今天完成 2 位客户访谈，并约好第 3 位\n确认\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"id":\s*"session-follow-up-1"/);
+    expect(stdout).toMatch(/"otunitId":\s*"session-confirmed-preview-otunit"/);
+    expect(stdout).toMatch(/"text":\s*"今天完成 2 位客户访谈，并约好第 3 位"/);
+    expect(stdout).toMatch(/"createdAt":/);
+  });
+
+  it("follow-up preview is printed before save", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nfollow session-confirmed-preview-otunit\n今天完成 2 位客户访谈，并约好第 3 位\n确认\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/--- Follow-up Preview ---/);
+    expect(stdout).toMatch(/OTUnit: 完成第一批体验客户访谈/);
+    expect(stdout).toMatch(/OTUnit ID: session-confirmed-preview-otunit/);
+    expect(stdout).toMatch(/Follow-up Text: 今天完成 2 位客户访谈，并约好第 3 位/);
+    expect(stdout).toMatch(/Repository: process-local in-memory/);
+    expect(stdout).toMatch(/Persistence: false/);
+  });
+
+  it("explicit confirmation is required before save", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nfollow session-confirmed-preview-otunit\n今天完成 2 位客户访谈，并约好第 3 位\n确认\n/exit\n"
+    );
+
+    // The test does not test ambiguous confirmation here (separate test).
+    // It tests that explicit confirmation (确认) does save.
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/"followUpSaved":\s*true/);
+  });
+
+  it("ambiguous follow-up confirmation stops without saving", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nfollow session-confirmed-preview-otunit\n今天完成 2 位客户访谈，并约好第 3 位\n大概这样\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.error).toBeUndefined();
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"followUpPreviewPrinted":\s*true/);
+    expect(stdout).toMatch(/"followUpConfirmed":\s*false/);
+    expect(stdout).toMatch(/"followUpSaved":\s*false/);
+    expect(stdout).not.toMatch(/"followUpRecord":/);
+  });
+
+  it("blank follow-up text stops without saving", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nfollow session-confirmed-preview-otunit\n\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.error).toBeUndefined();
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"followUpSaved":\s*false/);
+    expect(stdout).toMatch(/"message":\s*"Blank follow-up text/);
+    expect(stdout).toMatch(/"found":\s*true/);
+    expect(stdout).not.toMatch(/"followUpRecord":/);
+  });
+
+  it("follow missing-id returns deterministic no-crash not-found behavior", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nfollow missing-id\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.error).toBeUndefined();
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"action":\s*"follow"/);
+    expect(stdout).toMatch(/"found":\s*false/);
+    expect(stdout).toMatch(/"id":\s*"missing-id"/);
+    expect(stdout).toMatch(/"followUpSaved":\s*false/);
+    expect(stdout).toMatch(/OTUnit not found in this process-local session repository/);
+  });
+
+  it("follow-up record does not change OTUnit status", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nfollow session-confirmed-preview-otunit\n今天完成 2 位客户访谈，并约好第 3 位\n确认\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    // The follow command output says otunitMutated and otunitStatusChanged are false
+    expect(stdout).toMatch(/"otunitMutated":\s*false/);
+    expect(stdout).toMatch(/"otunitStatusChanged":\s*false/);
+  });
+
+  it("list includes followUpRecordCount after follow-up", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nfollow session-confirmed-preview-otunit\n今天完成 2 位客户访谈，并约好第 3 位\n确认\nlist\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"followUpRecordCount":\s*1/);
+  });
+
+  it("show <id> displays follow-up records in human-readable output", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nfollow session-confirmed-preview-otunit\n今天完成 2 位客户访谈，并约好第 3 位\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/--- O 单 Detail ---/);
+    expect(stdout).toMatch(/--- Follow-up Records ---/);
+    expect(stdout).toMatch(/今天完成 2 位客户访谈，并约好第 3 位/);
+  });
+
+  it("show <id> preserves machine-readable followUpRecordCount and followUpRecords", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nfollow session-confirmed-preview-otunit\n今天完成 2 位客户访谈，并约好第 3 位\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"followUpRecordCount":\s*1/);
+    expect(stdout).toMatch(/"followUpRecords":\s*\[/);
+    expect(stdout).toMatch(/"text":\s*"今天完成 2 位客户访谈，并约好第 3 位"/);
+  });
+
+  it("follow-up records are process-local only and not durable", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nfollow session-confirmed-preview-otunit\n今天完成 2 位客户访谈，并约好第 3 位\n确认\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"persistence":\s*false/);
+    expect(stdout).toMatch(/"durableRuntimeState":\s*false/);
+    expect(stdout).toMatch(/"repositorySource":\s*"process_local_in_memory"/);
+  });
+
+  it("exit alias still works in otunit> command loop after follow", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nfollow session-confirmed-preview-otunit\n今天完成 2 位客户访谈，并约好第 3 位\n确认\nexit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/core loop exited/i);
+  });
+
+  it("/exit still works in otunit> command loop after follow", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nfollow session-confirmed-preview-otunit\n今天完成 2 位客户访谈，并约好第 3 位\nconfirm\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/core loop exited/i);
+  });
+
+  it("unrecognized command still works after follow", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nfollow session-confirmed-preview-otunit\n今天完成 2 位客户访谈，并约好第 3 位\n确认\nhello\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/Unrecognized command/);
   });
 });
