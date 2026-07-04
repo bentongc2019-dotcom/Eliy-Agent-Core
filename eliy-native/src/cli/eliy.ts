@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import type { OTUnit } from "../domain/index.js";
+import type { OTUnit, OTUnitDraftPreview } from "../domain/index.js";
 import {
   ALLOWED_OTUNIT_TRANSITIONS,
   OTUNIT_STATUSES,
@@ -10,7 +10,11 @@ import {
   createProposedOTUnitFromDraft,
   createInMemoryOTUnitRepository,
   reviseOTUnit,
-  validateEvidenceRefs
+  validateEvidenceRefs,
+  detectOTUnitDraftIntent,
+  previewOTUnitDraftFromChat,
+  createProposedOTUnitFromConfirmedPreview,
+  confirmProposedOTUnit
 } from "../domain/index.js";
 import { completeChat, readProviderState } from "../provider/openai-compatible.js";
 import { EliyNativeRuntime } from "../runtime/kernel/runtime.js";
@@ -87,6 +91,310 @@ async function runTerminalChatLoop(): Promise<void> {
     console.log(formatSessionTranscriptDebugSummary(transcript));
   }
   console.log("Eliy Native chat loop exited.");
+}
+
+
+/**
+ * Terminal-only deterministic OTUnit core loop skeleton.
+ *
+ * Guides a finite, deterministic flow using existing OTUnit domain boundaries.
+ * Does not call providers, does not persist to filesystem/database/network.
+ * Does not write to normal chat.
+ * Supports /exit at any prompt.
+ */
+async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
+  const rl = createInterface({ input, output });
+  const now = new Date().toISOString();
+  const repo = createInMemoryOTUnitRepository();
+
+  console.log("Eliy Native OTUnit core loop started. Type /exit to quit.");
+
+  // Line reader using async iterator to support both pipe and interactive modes.
+  const lineIterator = rl[Symbol.asyncIterator]();
+  const readLine = async (prompt: string): Promise<string | null> => {
+    output.write(prompt);
+    const { value, done } = await lineIterator.next();
+    if (done) return null;
+    return value as string;
+  };
+
+  const printSummary = (summary: Record<string, unknown>): void => {
+    console.log("\n" + JSON.stringify(summary, null, 2));
+  };
+
+  const summaryBase: Record<string, unknown> = {
+    command: "otunit-core-loop",
+    mode: "terminal_skeleton",
+    chatWrites: false,
+    persistence: false,
+    durableRuntimeState: false,
+    providerRequired: false
+  };
+
+  const buildFailureFlags = (overrides: Record<string, unknown>): Record<string, unknown> => ({
+    ok: false,
+    ...summaryBase,
+    draftIntentCreated: false,
+    draftPreviewCreated: false,
+    previewConfirmed: false,
+    proposedOTUnitCreated: false,
+    proposedOTUnitConfirmed: false,
+    confirmedOTUnitCreated: false,
+    repositorySaved: false,
+    repositoryGetByIdVerified: false,
+    repositoryListByObjectiveIdVerified: false,
+    ...overrides
+  });
+
+  try {
+    // ---- Step 1: Business text input ----
+    const businessTextLine = await readLine("Enter business text for the OTUnit: ");
+
+    if (businessTextLine === null) {
+      console.log("Eliy Native OTUnit core loop exited.");
+      return;
+    }
+
+    if (businessTextLine.trim() === "/exit") {
+      console.log("Eliy Native OTUnit core loop exited.");
+      return;
+    }
+
+    const businessText = businessTextLine.trim();
+    if (businessText.length === 0) {
+      console.log("Missing business text. Deterministic OTUnit core loop cannot proceed without input.");
+      printSummary(buildFailureFlags({ stepReached: "none" }));
+      return;
+    }
+
+    // ---- Step 2: Draft intent ----
+    const intentInput = {
+      sessionId: "terminal-otunit-loop-session-1",
+      userText: "Create an OTUnit draft from this input.",
+      assistantText: businessText
+    };
+
+    const intentResult = detectOTUnitDraftIntent(intentInput);
+    const draftIntentCreated = intentResult.valid && intentResult.intentDetected;
+
+    if (!draftIntentCreated) {
+      printSummary(buildFailureFlags({ stepReached: "none", draftIntentCreated: false }));
+      return;
+    }
+
+    // ---- Step 3: Draft preview ----
+    const previewResult = previewOTUnitDraftFromChat(intentInput);
+    const draftPreviewCreated =
+      previewResult.valid && previewResult.previewAvailable && previewResult.draftPreview !== null;
+
+    if (!draftPreviewCreated || previewResult.draftPreview === null) {
+      printSummary(
+        buildFailureFlags({
+          stepReached: "draft_intent_created",
+          draftIntentCreated: true,
+          draftPreviewCreated: false
+        })
+      );
+      return;
+    }
+
+    const draftPreview: OTUnitDraftPreview = previewResult.draftPreview;
+
+    // Print preview summary
+    console.log("--- Draft Preview ---");
+    console.log("  Title: " + draftPreview.title);
+    console.log("  Source: " + draftPreview.source);
+    console.log("  Status: " + draftPreview.status);
+    console.log("  Plan-Aware Checklist:");
+    for (const item of draftPreview.planAware.checklist) {
+      console.log("    " + item.key + " [" + item.status + "]: " + item.reason);
+    }
+
+    // ---- Step 4: Preview confirmation ----
+    const previewConfirmationLine = await readLine(
+      "Confirm the above draft preview? (confirm to proceed, /exit to quit): "
+    );
+
+    if (previewConfirmationLine === null || previewConfirmationLine.trim() === "/exit") {
+      printSummary(
+        buildFailureFlags({
+          stepReached: "draft_preview_created",
+          draftIntentCreated: true,
+          draftPreviewCreated: true,
+          previewConfirmed: false
+        })
+      );
+      return;
+    }
+
+    // ---- Step 5: Create proposed OTUnit ----
+    const proposedResult = createProposedOTUnitFromConfirmedPreview({
+      draftPreview,
+      userConfirmationSignal: previewConfirmationLine.trim(),
+      objectiveId: "default-objective",
+      owner: "default-owner",
+      dueDate: "2026-12-31",
+      createdAt: now
+    });
+
+    const previewConfirmed = proposedResult.valid;
+    const proposedOTUnitCreated = proposedResult.valid && proposedResult.otunit !== null;
+
+    if (!previewConfirmed || !proposedOTUnitCreated || proposedResult.otunit === null) {
+      printSummary(
+        buildFailureFlags({
+          stepReached: "draft_preview_created",
+          draftIntentCreated: true,
+          draftPreviewCreated: true,
+          previewConfirmed: false,
+          proposedOTUnitCreated: false
+        })
+      );
+      return;
+    }
+
+    const proposedOTUnit: OTUnit = proposedResult.otunit;
+
+    // Verify proposed OTUnit invariants
+    if (proposedOTUnit.status !== "proposed") {
+      printSummary(
+        buildFailureFlags({
+          stepReached: "preview_confirmed",
+          draftIntentCreated: true,
+          draftPreviewCreated: true,
+          previewConfirmed: true,
+          proposedOTUnitCreated: false
+        })
+      );
+      return;
+    }
+
+    // ---- Step 6: Proposed OTUnit confirmation ----
+    const proposedConfirmationLine = await readLine(
+      "Confirm the proposed OTUnit? (confirm to proceed, /exit to quit): "
+    );
+
+    if (proposedConfirmationLine === null || proposedConfirmationLine.trim() === "/exit") {
+      printSummary(
+        buildFailureFlags({
+          stepReached: "proposed_otunit_created",
+          draftIntentCreated: true,
+          draftPreviewCreated: true,
+          previewConfirmed: true,
+          proposedOTUnitCreated: true,
+          proposedOTUnitConfirmed: false
+        })
+      );
+      return;
+    }
+
+    // ---- Step 7: Create confirmed OTUnit ----
+    const confirmResult = confirmProposedOTUnit({
+      otunit: proposedOTUnit,
+      userConfirmationSignal: proposedConfirmationLine.trim(),
+      confirmedAt: now
+    });
+
+    const proposedOTUnitConfirmed = confirmResult.valid;
+    const confirmedOTUnitCreated = confirmResult.valid && confirmResult.otunit !== null;
+
+    if (!proposedOTUnitConfirmed || !confirmedOTUnitCreated || confirmResult.otunit === null) {
+      printSummary(
+        buildFailureFlags({
+          stepReached: "proposed_otunit_created",
+          draftIntentCreated: true,
+          draftPreviewCreated: true,
+          previewConfirmed: true,
+          proposedOTUnitCreated: true,
+          proposedOTUnitConfirmed: false,
+          confirmedOTUnitCreated: false
+        })
+      );
+      return;
+    }
+
+    const confirmedOTUnit: OTUnit = confirmResult.otunit;
+
+    // Verify confirmed OTUnit invariants
+    if (confirmedOTUnit.status !== "confirmed") {
+      printSummary(
+        buildFailureFlags({
+          stepReached: "proposed_otunit_confirmed",
+          draftIntentCreated: true,
+          draftPreviewCreated: true,
+          previewConfirmed: true,
+          proposedOTUnitCreated: true,
+          proposedOTUnitConfirmed: true,
+          confirmedOTUnitCreated: false
+        })
+      );
+      return;
+    }
+
+    // ---- Step 8: Save to repository ----
+    const saveResult = repo.save(confirmedOTUnit);
+    const repositorySaved = saveResult.valid;
+
+    if (!repositorySaved) {
+      printSummary(
+        buildFailureFlags({
+          stepReached: "confirmed_otunit_created",
+          draftIntentCreated: true,
+          draftPreviewCreated: true,
+          previewConfirmed: true,
+          proposedOTUnitCreated: true,
+          proposedOTUnitConfirmed: true,
+          confirmedOTUnitCreated: true,
+          repositorySaved: false
+        })
+      );
+      return;
+    }
+
+    // ---- Step 9: Verify getById ----
+    const retrieved = repo.getById(confirmedOTUnit.id);
+    const repositoryGetByIdVerified =
+      retrieved !== undefined && retrieved.id === confirmedOTUnit.id && retrieved.status === "confirmed";
+
+    // ---- Step 10: Verify listByObjectiveId ----
+    const listed = repo.listByObjectiveId("default-objective");
+    const repositoryListByObjectiveIdVerified = listed.some((u) => u.id === confirmedOTUnit.id);
+
+    // ---- Step 11: Print final summary ----
+    if (repositoryGetByIdVerified && repositoryListByObjectiveIdVerified) {
+      printSummary({
+        ok: true,
+        ...summaryBase,
+        stepReached: "confirmed_otunit_repository_verified",
+        draftIntentCreated: true,
+        draftPreviewCreated: true,
+        previewConfirmed: true,
+        proposedOTUnitCreated: true,
+        proposedOTUnitConfirmed: true,
+        confirmedOTUnitCreated: true,
+        repositorySaved: true,
+        repositoryGetByIdVerified: true,
+        repositoryListByObjectiveIdVerified: true
+      });
+    } else {
+      printSummary(
+        buildFailureFlags({
+          stepReached: "confirmed_otunit_repository_saved",
+          draftIntentCreated: true,
+          draftPreviewCreated: true,
+          previewConfirmed: true,
+          proposedOTUnitCreated: true,
+          proposedOTUnitConfirmed: true,
+          confirmedOTUnitCreated: true,
+          repositorySaved: true,
+          repositoryGetByIdVerified: true,
+          repositoryListByObjectiveIdVerified: true
+        })
+      );
+    }
+  } finally {
+    rl.close();
+  }
 }
 
 async function confirm(message: string, bypass = false): Promise<boolean> {
@@ -350,6 +658,20 @@ It does not require provider config.`)
       });
     });
 
+
+  program
+    .command("otunit-core-loop")
+    .description("Run the deterministic OTUnit core loop skeleton")
+    .addHelpText("after", `
+
+This is a deterministic terminal-only OTUnit core loop skeleton.
+It reads stdin line-by-line and guides a finite OTUnit core flow.
+Type /exit to quit at any prompt.
+No provider, no persistence, no chat writes.`)
+    .action(async () => {
+      await runTerminalOTUnitCoreLoopSkeleton();
+    });
+
   const evidence = program.command("evidence").description("Evidence commands");
   evidence
     .command("list")
@@ -420,3 +742,4 @@ main().catch((error) => {
   console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;
 });
+
