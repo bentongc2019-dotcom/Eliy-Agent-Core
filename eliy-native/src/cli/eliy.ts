@@ -98,6 +98,14 @@ async function runTerminalChatLoop(): Promise<void> {
  * Terminal-only deterministic OTUnit core loop skeleton.
  *
  * Guides a finite, deterministic flow using existing OTUnit domain boundaries.
+ * After business text input, prompts for minimal structured fields:
+ * objective, owner, due date/check time, judgment criteria, plan/action items,
+ * and optional evidence refs.
+ * Validates required fields and evidence refs against existing domain boundaries.
+ * Prints improved draft preview with captured fields instead of all-missing checklist.
+ * Prints human-readable O 单 summary for easier review.
+ * Uses captured owner and due date for OTUnit creation.
+ * Includes read-only session-local list/show after confirmed OTUnit save.
  * Does not call providers, does not persist to filesystem/database/network.
  * Does not write to normal chat.
  * Supports /exit at any prompt.
@@ -106,6 +114,7 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
   const rl = createInterface({ input, output });
   const now = new Date().toISOString();
   const repo = createInMemoryOTUnitRepository();
+  const objectiveId = "default-objective";
 
   console.log("Eliy Native OTUnit core loop started. Type /exit to quit.");
 
@@ -131,18 +140,33 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
     providerRequired: false
   };
 
-  const buildFailureFlags = (overrides: Record<string, unknown>): Record<string, unknown> => ({
-    ok: false,
-    ...summaryBase,
+  // --- Structured field capture summary additions ---
+  const structuredFieldBase: Record<string, unknown> = {
+    businessTextCaptured: false,
+    structuredFieldsCaptured: false,
+    objectiveCaptured: false,
+    ownerCaptured: false,
+    dueDateCaptured: false,
+    judgmentCriteriaCaptured: false,
+    planOrActionItemsCaptured: false,
+    evidenceRefsCaptured: false,
+    evidenceRefsValid: true,
     draftIntentCreated: false,
     draftPreviewCreated: false,
+    humanReadableSummaryPrinted: false,
     previewConfirmed: false,
     proposedOTUnitCreated: false,
     proposedOTUnitConfirmed: false,
     confirmedOTUnitCreated: false,
     repositorySaved: false,
     repositoryGetByIdVerified: false,
-    repositoryListByObjectiveIdVerified: false,
+    repositoryListByObjectiveIdVerified: false
+  };
+
+  const buildFailureFlags = (overrides: Record<string, unknown>): Record<string, unknown> => ({
+    ok: false,
+    ...summaryBase,
+    ...structuredFieldBase,
     ...overrides
   });
 
@@ -167,7 +191,126 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
       return;
     }
 
-    // ---- Step 2: Draft intent ----
+    // Business text captured successfully.
+    structuredFieldBase.businessTextCaptured = true;
+
+    // ---- Step 2: Read structured fields ----
+    const objectiveLine = await readLine("Enter objective: ");
+    if (objectiveLine === null) {
+      console.log("Eliy Native OTUnit core loop exited.");
+      return;
+    }
+    const objective = objectiveLine;
+
+    const ownerLine = await readLine("Enter owner: ");
+    if (ownerLine === null) {
+      console.log("Eliy Native OTUnit core loop exited.");
+      return;
+    }
+    const owner = ownerLine;
+
+    const dueDateLine = await readLine("Enter due date or check time: ");
+    if (dueDateLine === null) {
+      console.log("Eliy Native OTUnit core loop exited.");
+      return;
+    }
+    const dueDate = dueDateLine;
+
+    const judgmentCriteriaLine = await readLine("Enter judgment criteria: ");
+    if (judgmentCriteriaLine === null) {
+      console.log("Eliy Native OTUnit core loop exited.");
+      return;
+    }
+    const judgmentCriteria = judgmentCriteriaLine;
+
+    // Read plan/action items as multi-line until blank line.
+    const planOrActionItems: string[] = [];
+    while (true) {
+      const itemLine = await readLine("Enter plan or action item (or blank to finish): ");
+      if (itemLine === null) {
+        console.log("Eliy Native OTUnit core loop exited.");
+        return;
+      }
+      if (itemLine.trim().length === 0) break;
+      planOrActionItems.push(itemLine);
+    }
+
+    const evidenceRefsLine = await readLine("Enter evidence refs, comma-separated, optional: ");
+    if (evidenceRefsLine === null) {
+      console.log("Eliy Native OTUnit core loop exited.");
+      return;
+    }
+
+    // Parse evidence refs: comma-separated, trimmed, empty strings filtered out.
+    const parsedEvidenceRefs = evidenceRefsLine
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+
+    // --- Validate required structured fields ---
+    const missingFields = [];
+    if (objective.length === 0) missingFields.push("objective");
+    if (owner.length === 0) missingFields.push("owner");
+    if (dueDate.length === 0) missingFields.push("dueDate");
+    if (judgmentCriteria.length === 0) missingFields.push("judgmentCriteria");
+    if (planOrActionItems.length === 0) missingFields.push("planOrActionItems");
+
+    if (missingFields.length > 0) {
+      console.log(
+        "Missing required structured field(s): " + missingFields.join(", ") + ". " +
+        "Deterministic OTUnit core loop cannot proceed to proposed OTUnit creation."
+      );
+      printSummary(
+        buildFailureFlags({
+          stepReached: "structured_fields_read",
+          businessTextCaptured: true,
+          objectiveCaptured: objective.length > 0,
+          ownerCaptured: owner.length > 0,
+          dueDateCaptured: dueDate.length > 0,
+          judgmentCriteriaCaptured: judgmentCriteria.length > 0,
+          planOrActionItemsCaptured: planOrActionItems.length > 0,
+          evidenceRefsCaptured: parsedEvidenceRefs.length > 0,
+          missingFields
+        })
+      );
+      return;
+    }
+
+    structuredFieldBase.objectiveCaptured = true;
+    structuredFieldBase.ownerCaptured = true;
+    structuredFieldBase.dueDateCaptured = true;
+    structuredFieldBase.judgmentCriteriaCaptured = true;
+    structuredFieldBase.planOrActionItemsCaptured = planOrActionItems.length > 0;
+    structuredFieldBase.evidenceRefsCaptured = parsedEvidenceRefs.length > 0;
+
+    // --- Validate evidence refs if non-empty ---
+    if (parsedEvidenceRefs.length > 0) {
+      const evRefsResult = validateEvidenceRefs(parsedEvidenceRefs);
+      if (!evRefsResult.valid) {
+        console.log(
+          "Invalid evidence refs. Deterministic OTUnit core loop cannot proceed to proposed OTUnit creation."
+        );
+        printSummary(
+          buildFailureFlags({
+            stepReached: "structured_fields_read",
+            businessTextCaptured: true,
+            objectiveCaptured: true,
+            ownerCaptured: true,
+            dueDateCaptured: true,
+            judgmentCriteriaCaptured: true,
+            planOrActionItemsCaptured: planOrActionItems.length > 0,
+            evidenceRefsCaptured: true,
+            evidenceRefsValid: false
+          })
+        );
+        return;
+      }
+    }
+
+    structuredFieldBase.structuredFieldsCaptured = true;
+    structuredFieldBase.evidenceRefsValid = true;
+
+    // ---- Step 3: Draft intent ----
     const intentInput = {
       sessionId: "terminal-otunit-loop-session-1",
       userText: "Create an OTUnit draft from this input.",
@@ -176,119 +319,145 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
 
     const intentResult = detectOTUnitDraftIntent(intentInput);
     const draftIntentCreated = intentResult.valid && intentResult.intentDetected;
+    structuredFieldBase.draftIntentCreated = draftIntentCreated;
 
     if (!draftIntentCreated) {
-      printSummary(buildFailureFlags({ stepReached: "none", draftIntentCreated: false }));
+      printSummary(
+        buildFailureFlags({
+          stepReached: "structured_fields_read",
+          businessTextCaptured: true,
+          objectiveCaptured: true,
+          ownerCaptured: true,
+          dueDateCaptured: true,
+          judgmentCriteriaCaptured: true,
+          planOrActionItemsCaptured: true,
+          evidenceRefsCaptured: parsedEvidenceRefs.length > 0,
+          evidenceRefsValid: true,
+          structuredFieldsCaptured: true,
+          draftIntentCreated: false
+        })
+      );
       return;
     }
 
-    // ---- Step 3: Draft preview ----
+    // ---- Step 4: Draft preview ----
     const previewResult = previewOTUnitDraftFromChat(intentInput);
     const draftPreviewCreated =
       previewResult.valid && previewResult.previewAvailable && previewResult.draftPreview !== null;
+    structuredFieldBase.draftPreviewCreated = draftPreviewCreated;
 
     if (!draftPreviewCreated || previewResult.draftPreview === null) {
-      printSummary(
-        buildFailureFlags({
-          stepReached: "draft_intent_created",
-          draftIntentCreated: true,
-          draftPreviewCreated: false
-        })
-      );
+      printSummary(buildFailureFlags({ stepReached: "draft_intent_created" }));
       return;
     }
 
-    const draftPreview: OTUnitDraftPreview = previewResult.draftPreview;
+    const draftPreview = previewResult.draftPreview;
 
-    // Print preview summary
-    console.log("--- Draft Preview ---");
-    console.log("  Title: " + draftPreview.title);
-    console.log("  Source: " + draftPreview.source);
-    console.log("  Status: " + draftPreview.status);
-    console.log("  Plan-Aware Checklist:");
-    for (const item of draftPreview.planAware.checklist) {
-      console.log("    " + item.key + " [" + item.status + "]: " + item.reason);
-    }
+    // Override planAware with captured fields.
+    const overriddenPlanAware = {
+      ...draftPreview.planAware,
+      objective: objective,
+      owner: owner,
+      dueDateOrCheckTime: dueDate,
+      judgmentCriteria: judgmentCriteria,
+      planOrActionItems: planOrActionItems,
+      evidenceRefs: parsedEvidenceRefs,
+      missingInformation: []
+    };
 
-    // ---- Step 4: Preview confirmation ----
+    const overriddenPreview = {
+      ...draftPreview,
+      planAware: overriddenPlanAware
+    };
+
+    // ---- Step 5: Print improved draft preview with captured fields ----
+    console.log("\n--- Draft Preview ---");
+    console.log("  Title: " + overriddenPreview.title);
+    console.log("  Objective: " + overriddenPreview.planAware.objective);
+    console.log("  Owner: " + overriddenPreview.planAware.owner);
+    console.log("  Due Date / Check Time: " + overriddenPreview.planAware.dueDateOrCheckTime);
+    console.log("  Judgment Criteria: " + overriddenPreview.planAware.judgmentCriteria);
+    console.log("  Plan / Action Items: " + overriddenPreview.planAware.planOrActionItems.join(", "));
+    console.log(
+      "  Evidence Refs: " +
+        (overriddenPreview.planAware.evidenceRefs.length > 0
+          ? overriddenPreview.planAware.evidenceRefs.join(", ")
+          : "(none)")
+    );
+
+    // ---- Step 6: Print human-readable O 单 summary ----
+    console.log("\n--- O 单 Summary ---");
+    console.log("Objective: " + objective);
+    console.log("OTUnit: " + businessText);
+    console.log("Owner: " + owner);
+    console.log("Due / Check Time: " + dueDate);
+    console.log("Judgment Criteria: " + judgmentCriteria);
+    console.log("Plan / Action Items: " + planOrActionItems.join('\n'));
+    console.log(
+      "Evidence Refs: " +
+        (parsedEvidenceRefs.length > 0 ? parsedEvidenceRefs.join(", ") : "none")
+    );
+    console.log("Repository: process-local in-memory");
+    console.log("Persistence: false");
+
+    structuredFieldBase.humanReadableSummaryPrinted = true;
+
+    // ---- Step 7: First confirmation ----
     const previewConfirmationLine = await readLine(
-      "Confirm the above draft preview? (confirm to proceed, /exit to quit): "
+      "\nApprove this preview for proposed OTUnit creation? (confirm to proceed, /exit to quit): "
     );
 
     if (previewConfirmationLine === null || previewConfirmationLine.trim() === "/exit") {
-      printSummary(
-        buildFailureFlags({
-          stepReached: "draft_preview_created",
-          draftIntentCreated: true,
-          draftPreviewCreated: true,
-          previewConfirmed: false
-        })
-      );
+      printSummary(buildFailureFlags({ stepReached: "draft_preview_created" }));
       return;
     }
 
-    // ---- Step 5: Create proposed OTUnit ----
+    // ---- Step 8: Create proposed OTUnit using captured fields ----
     const proposedResult = createProposedOTUnitFromConfirmedPreview({
-      draftPreview,
+      draftPreview: overriddenPreview,
       userConfirmationSignal: previewConfirmationLine.trim(),
-      objectiveId: "default-objective",
-      owner: "default-owner",
-      dueDate: "2026-12-31",
+      objectiveId,
+      owner,
+      dueDate,
       createdAt: now
     });
 
     const previewConfirmed = proposedResult.valid;
     const proposedOTUnitCreated = proposedResult.valid && proposedResult.otunit !== null;
+    structuredFieldBase.previewConfirmed = previewConfirmed;
+    structuredFieldBase.proposedOTUnitCreated = proposedOTUnitCreated;
 
     if (!previewConfirmed || !proposedOTUnitCreated || proposedResult.otunit === null) {
-      printSummary(
-        buildFailureFlags({
-          stepReached: "draft_preview_created",
-          draftIntentCreated: true,
-          draftPreviewCreated: true,
-          previewConfirmed: false,
-          proposedOTUnitCreated: false
-        })
-      );
+      printSummary(buildFailureFlags({ stepReached: "draft_preview_created" }));
       return;
     }
 
-    const proposedOTUnit: OTUnit = proposedResult.otunit;
+    const proposedOTUnit = proposedResult.otunit;
 
-    // Verify proposed OTUnit invariants
     if (proposedOTUnit.status !== "proposed") {
-      printSummary(
-        buildFailureFlags({
-          stepReached: "preview_confirmed",
-          draftIntentCreated: true,
-          draftPreviewCreated: true,
-          previewConfirmed: true,
-          proposedOTUnitCreated: false
-        })
-      );
+      printSummary(buildFailureFlags({ stepReached: "preview_confirmed" }));
       return;
     }
 
-    // ---- Step 6: Proposed OTUnit confirmation ----
+    if (proposedOTUnit.owner !== owner || proposedOTUnit.dueDate !== dueDate) {
+      printSummary(buildFailureFlags({
+        stepReached: "preview_confirmed",
+        message: "Proposed OTUnit owner/dueDate mismatch"
+      }));
+      return;
+    }
+
+    // ---- Step 9: Second confirmation ----
     const proposedConfirmationLine = await readLine(
-      "Confirm the proposed OTUnit? (confirm to proceed, /exit to quit): "
+      "Confirm the proposed OTUnit into confirmed status? (confirm to proceed, /exit to quit): "
     );
 
     if (proposedConfirmationLine === null || proposedConfirmationLine.trim() === "/exit") {
-      printSummary(
-        buildFailureFlags({
-          stepReached: "proposed_otunit_created",
-          draftIntentCreated: true,
-          draftPreviewCreated: true,
-          previewConfirmed: true,
-          proposedOTUnitCreated: true,
-          proposedOTUnitConfirmed: false
-        })
-      );
+      printSummary(buildFailureFlags({ stepReached: "proposed_otunit_created" }));
       return;
     }
 
-    // ---- Step 7: Create confirmed OTUnit ----
+    // ---- Step 10: Create confirmed OTUnit ----
     const confirmResult = confirmProposedOTUnit({
       otunit: proposedOTUnit,
       userConfirmationSignal: proposedConfirmationLine.trim(),
@@ -297,77 +466,74 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
 
     const proposedOTUnitConfirmed = confirmResult.valid;
     const confirmedOTUnitCreated = confirmResult.valid && confirmResult.otunit !== null;
+    structuredFieldBase.proposedOTUnitConfirmed = proposedOTUnitConfirmed;
+    structuredFieldBase.confirmedOTUnitCreated = confirmedOTUnitCreated;
 
     if (!proposedOTUnitConfirmed || !confirmedOTUnitCreated || confirmResult.otunit === null) {
-      printSummary(
-        buildFailureFlags({
-          stepReached: "proposed_otunit_created",
-          draftIntentCreated: true,
-          draftPreviewCreated: true,
-          previewConfirmed: true,
-          proposedOTUnitCreated: true,
-          proposedOTUnitConfirmed: false,
-          confirmedOTUnitCreated: false
-        })
-      );
+      printSummary(buildFailureFlags({ stepReached: "proposed_otunit_created" }));
       return;
     }
 
-    const confirmedOTUnit: OTUnit = confirmResult.otunit;
+    const confirmedOTUnit = confirmResult.otunit;
 
-    // Verify confirmed OTUnit invariants
     if (confirmedOTUnit.status !== "confirmed") {
-      printSummary(
-        buildFailureFlags({
-          stepReached: "proposed_otunit_confirmed",
-          draftIntentCreated: true,
-          draftPreviewCreated: true,
-          previewConfirmed: true,
-          proposedOTUnitCreated: true,
-          proposedOTUnitConfirmed: true,
-          confirmedOTUnitCreated: false
-        })
-      );
+      printSummary(buildFailureFlags({ stepReached: "proposed_otunit_confirmed" }));
       return;
     }
 
-    // ---- Step 8: Save to repository ----
+    if (confirmedOTUnit.owner !== owner || confirmedOTUnit.dueDate !== dueDate) {
+      printSummary(buildFailureFlags({
+        stepReached: "proposed_otunit_confirmed",
+        message: "Confirmed OTUnit owner/dueDate mismatch"
+      }));
+      return;
+    }
+
+    // ---- Step 11: Save to repository ----
     const saveResult = repo.save(confirmedOTUnit);
     const repositorySaved = saveResult.valid;
+    structuredFieldBase.repositorySaved = repositorySaved;
 
     if (!repositorySaved) {
-      printSummary(
-        buildFailureFlags({
-          stepReached: "confirmed_otunit_created",
-          draftIntentCreated: true,
-          draftPreviewCreated: true,
-          previewConfirmed: true,
-          proposedOTUnitCreated: true,
-          proposedOTUnitConfirmed: true,
-          confirmedOTUnitCreated: true,
-          repositorySaved: false
-        })
-      );
+      printSummary(buildFailureFlags({ stepReached: "confirmed_otunit_created" }));
       return;
     }
 
-    // ---- Step 9: Verify getById ----
+    // ---- Step 12: Verify getById ----
     const retrieved = repo.getById(confirmedOTUnit.id);
     const repositoryGetByIdVerified =
       retrieved !== undefined && retrieved.id === confirmedOTUnit.id && retrieved.status === "confirmed";
+    structuredFieldBase.repositoryGetByIdVerified = repositoryGetByIdVerified;
 
-    // ---- Step 10: Verify listByObjectiveId ----
-    const listed = repo.listByObjectiveId("default-objective");
+    const getByIdOwnerMatches = retrieved !== undefined && retrieved.owner === owner;
+    const getByIdDueDateMatches = retrieved !== undefined && retrieved.dueDate === dueDate;
+
+    // ---- Step 13: Verify listByObjectiveId ----
+    const listed = repo.listByObjectiveId(objectiveId);
     const repositoryListByObjectiveIdVerified = listed.some((u) => u.id === confirmedOTUnit.id);
+    structuredFieldBase.repositoryListByObjectiveIdVerified = repositoryListByObjectiveIdVerified;
 
-    // ---- Step 11: Print final summary ----
+    const listOwnerMatches = listed.some((u) => u.id === confirmedOTUnit.id && u.owner === owner);
+    const listDueDateMatches = listed.some((u) => u.id === confirmedOTUnit.id && u.dueDate === dueDate);
+
+    // ---- Step 14: Print final summary ----
     if (repositoryGetByIdVerified && repositoryListByObjectiveIdVerified) {
       printSummary({
         ok: true,
         ...summaryBase,
+        businessTextCaptured: true,
+        structuredFieldsCaptured: true,
+        objectiveCaptured: true,
+        ownerCaptured: true,
+        dueDateCaptured: true,
+        judgmentCriteriaCaptured: true,
+        planOrActionItemsCaptured: true,
+        evidenceRefsCaptured: parsedEvidenceRefs.length > 0,
+        evidenceRefsValid: true,
         stepReached: "confirmed_otunit_repository_verified",
         draftIntentCreated: true,
         draftPreviewCreated: true,
+        humanReadableSummaryPrinted: true,
         previewConfirmed: true,
         proposedOTUnitCreated: true,
         proposedOTUnitConfirmed: true,
@@ -377,27 +543,10 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
         repositoryListByObjectiveIdVerified: true
       });
     } else {
-      printSummary(
-        buildFailureFlags({
-          stepReached: "confirmed_otunit_repository_saved",
-          draftIntentCreated: true,
-          draftPreviewCreated: true,
-          previewConfirmed: true,
-          proposedOTUnitCreated: true,
-          proposedOTUnitConfirmed: true,
-          confirmedOTUnitCreated: true,
-          repositorySaved: true,
-          repositoryGetByIdVerified: true,
-          repositoryListByObjectiveIdVerified: true
-        })
-      );
+      printSummary(buildFailureFlags({ stepReached: "confirmed_otunit_repository_saved" }));
     }
-    
-    // ---- Step 12: Session-local list/show command loop ----
-    // After a successful confirmed OTUnit save, expose deterministic
-    // session-local list/show output. Read-only against the process-local
-    // in-memory repository. Does not persist after process exit.
-    // Does not create, confirm, mutate, or delete OTUnits.
+
+    // ---- Step 15: Session-local list/show ----
     console.log("\n--- Session-local list/show (read-only, in-memory) ---");
     console.log("Type 'list' to list all session OTUnits.");
     console.log("Type 'show <id>' to show one OTUnit detail.");
@@ -422,22 +571,18 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
         continue;
       }
 
-      // --- list command ---
       if (trimmed === "list") {
-        const allOTUnits = repo.listByObjectiveId(confirmedOTUnit.objectiveId);
-
-        const listed: OTUnit[] = [...allOTUnits];
-
+        const allOTUnits = repo.listByObjectiveId(objectiveId);
         const listOutput = {
           ok: true,
           ...summaryBase,
           action: "list",
           repositorySource: "process_local_in_memory",
-          count: listed.length,
+          count: allOTUnits.length,
           persistence: false,
           durableRuntimeState: false,
           readOnly: true,
-          otunits: listed.map((u) => ({
+          otunits: allOTUnits.map((u) => ({
             id: u.id,
             title: u.title,
             objectiveId: u.objectiveId,
@@ -447,106 +592,55 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
             requiresConfirmation: u.requiresConfirmation
           }))
         };
-
         console.log(JSON.stringify(listOutput, null, 2));
         continue;
       }
 
-      // --- show command ---
       if (trimmed === "show" || trimmed.startsWith("show ")) {
         const showId = trimmed.slice(5).trim();
 
         if (showId.length === 0) {
-          console.log(
-            JSON.stringify(
-              {
-                ok: false,
-                ...summaryBase,
-                action: "show",
-                found: false,
-                id: "",
-                message: "Missing id. Usage: show <id>",
-                persistence: false,
-                durableRuntimeState: false,
-                readOnly: true
-              },
-              null,
-              2
-            )
-          );
+          console.log(JSON.stringify({
+            ok: false, ...summaryBase, action: "show", found: false, id: "",
+            message: "Missing id. Usage: show <id>",
+            persistence: false, durableRuntimeState: false, readOnly: true
+          }, null, 2));
           continue;
         }
 
         const foundOTUnit = repo.getById(showId);
 
         if (foundOTUnit === undefined) {
-          console.log(
-            JSON.stringify(
-              {
-                ok: false,
-                ...summaryBase,
-                action: "show",
-                found: false,
-                id: showId,
-                message: "OTUnit not found in this process-local session repository.",
-                persistence: false,
-                durableRuntimeState: false,
-                readOnly: true
-              },
-              null,
-              2
-            )
-          );
+          console.log(JSON.stringify({
+            ok: false, ...summaryBase, action: "show", found: false, id: showId,
+            message: "OTUnit not found in this process-local session repository.",
+            persistence: false, durableRuntimeState: false, readOnly: true
+          }, null, 2));
           continue;
         }
 
-        console.log(
-          JSON.stringify(
-            {
-              ok: true,
-              ...summaryBase,
-              action: "show",
-              found: true,
-              id: foundOTUnit.id,
-              repositorySource: "process_local_in_memory",
-              persistence: false,
-              durableRuntimeState: false,
-              readOnly: true,
-              otunit: {
-                id: foundOTUnit.id,
-                title: foundOTUnit.title,
-                objectiveId: foundOTUnit.objectiveId,
-                owner: foundOTUnit.owner,
-                dueDate: foundOTUnit.dueDate,
-                status: foundOTUnit.status,
-                requiresConfirmation: foundOTUnit.requiresConfirmation,
-                evidenceRefs: foundOTUnit.evidenceRefs,
-                createdAt: foundOTUnit.createdAt
-              }
-            },
-            null,
-            2
-          )
-        );
+        console.log(JSON.stringify({
+          ok: true, ...summaryBase, action: "show", found: true, id: foundOTUnit.id,
+          repositorySource: "process_local_in_memory",
+          persistence: false, durableRuntimeState: false, readOnly: true,
+          otunit: {
+            id: foundOTUnit.id, title: foundOTUnit.title,
+            objectiveId: foundOTUnit.objectiveId,
+            owner: foundOTUnit.owner, dueDate: foundOTUnit.dueDate,
+            status: foundOTUnit.status,
+            requiresConfirmation: foundOTUnit.requiresConfirmation,
+            evidenceRefs: foundOTUnit.evidenceRefs,
+            createdAt: foundOTUnit.createdAt
+          }
+        }, null, 2));
         continue;
       }
 
-      // --- unrecognized command ---
-      console.log(
-        JSON.stringify(
-          {
-            ok: false,
-            ...summaryBase,
-            action: "unrecognized",
-            message: `Unrecognized command: ${trimmed}. Type 'list', 'show <id>', or '/exit'.`,
-            persistence: false,
-            durableRuntimeState: false,
-            readOnly: true
-          },
-          null,
-          2
-        )
-      );
+      console.log(JSON.stringify({
+        ok: false, ...summaryBase, action: "unrecognized",
+        message: "Unrecognized command: " + trimmed + ". Type 'list', 'show <id>', or '/exit'.",
+        persistence: false, durableRuntimeState: false, readOnly: true
+      }, null, 2));
     }
   } finally {
     rl.close();

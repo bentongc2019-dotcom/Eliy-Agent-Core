@@ -136,7 +136,7 @@ describe("OTUnit terminal core loop skeleton", () => {
   it("happy-path terminal skeleton flow creates confirmed OTUnit", () => {
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n确认\n确认\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\n"
     );
 
     expect(result.status).toBe(0);
@@ -161,7 +161,7 @@ describe("OTUnit terminal core loop skeleton", () => {
   it("happy-path terminal skeleton saves confirmed OTUnit to in-memory repository", () => {
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n确认\n确认\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\n"
     );
 
     expect(result.status).toBe(0);
@@ -175,7 +175,7 @@ describe("OTUnit terminal core loop skeleton", () => {
   it("happy-path terminal skeleton verifies getById", () => {
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n确认\n确认\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\n"
     );
 
     expect(result.status).toBe(0);
@@ -188,7 +188,7 @@ describe("OTUnit terminal core loop skeleton", () => {
   it("happy-path terminal skeleton verifies listByObjectiveId", () => {
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n确认\n确认\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\n"
     );
 
     expect(result.status).toBe(0);
@@ -201,7 +201,7 @@ describe("OTUnit terminal core loop skeleton", () => {
   it("ambiguous preview confirmation stops deterministically", () => {
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n大概这样\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n大概这样\n"
     );
 
     expect(result.status).toBe(0);
@@ -218,7 +218,7 @@ describe("OTUnit terminal core loop skeleton", () => {
   it("ambiguous proposed confirmation stops deterministically", () => {
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n确认\n大概这样\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n大概这样\n"
     );
 
     expect(result.status).toBe(0);
@@ -236,7 +236,7 @@ describe("OTUnit terminal core loop skeleton", () => {
   it("missing preview confirmation stops deterministically", () => {
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n\n"
     );
 
     expect(result.status).toBe(0);
@@ -251,7 +251,7 @@ describe("OTUnit terminal core loop skeleton", () => {
   it("missing proposed confirmation stops deterministically", () => {
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n确认\n\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n\n"
     );
 
     expect(result.status).toBe(0);
@@ -267,7 +267,7 @@ describe("OTUnit terminal core loop skeleton", () => {
   it("no durable runtime state", () => {
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n确认\n确认\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\n"
     );
 
     expect(result.status).toBe(0);
@@ -279,7 +279,7 @@ describe("OTUnit terminal core loop skeleton", () => {
   it("no provider required", () => {
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n确认\n确认\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\n"
     );
 
     expect(result.status).toBe(0);
@@ -290,7 +290,7 @@ describe("OTUnit terminal core loop skeleton", () => {
   it("no chat writes", () => {
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n确认\n确认\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\n"
     );
 
     expect(result.status).toBe(0);
@@ -307,7 +307,7 @@ describe("OTUnit terminal core loop skeleton", () => {
 
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n确认\n确认\n",
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\n",
       env
     );
 
@@ -327,7 +327,7 @@ describe("OTUnit terminal core loop skeleton", () => {
       {
         cwd: projectRoot,
         encoding: "utf8",
-        input: "完成第一批体验客户访谈\n确认\n确认\n",
+        input: "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\n",
         timeout: 10_000
       }
     );
@@ -342,7 +342,7 @@ describe("OTUnit terminal core loop session-local list/show", () => {
   it("list after save prints otunits with required fields", () => {
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n确认\n确认\nlist\n/exit\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nlist\n/exit\n"
     );
 
     expect(result.status).toBe(0);
@@ -370,7 +370,7 @@ describe("OTUnit terminal core loop session-local list/show", () => {
   it("list output marks persistence false and readOnly true", () => {
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n确认\n确认\nlist\n/exit\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nlist\n/exit\n"
     );
 
     expect(result.status).toBe(0);
@@ -398,7 +398,7 @@ describe("OTUnit terminal core loop session-local list/show", () => {
   it("show after save displays otunit detail by id", () => {
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n确认\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
     );
 
     expect(result.status).toBe(0);
@@ -421,7 +421,7 @@ describe("OTUnit terminal core loop session-local list/show", () => {
   it("show output marks persistence false, durableRuntimeState false, readOnly true", () => {
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n确认\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
     );
 
     expect(result.status).toBe(0);
@@ -436,7 +436,7 @@ describe("OTUnit terminal core loop session-local list/show", () => {
   it("show missing id returns deterministic not-found message", () => {
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n确认\n确认\nshow missing-id\n/exit\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nshow missing-id\n/exit\n"
     );
 
     expect(result.status).toBe(0);
@@ -452,7 +452,7 @@ describe("OTUnit terminal core loop session-local list/show", () => {
   it("show with empty id returns missing id message", () => {
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n确认\n确认\nshow \n/exit\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nshow \n/exit\n"
     );
 
     expect(result.status).toBe(0);
@@ -466,7 +466,7 @@ describe("OTUnit terminal core loop session-local list/show", () => {
   it("list/show do not create OTUnits (read-only)", () => {
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n确认\n确认\nlist\n/exit\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nlist\n/exit\n"
     );
 
     expect(result.status).toBe(0);
@@ -480,7 +480,7 @@ describe("OTUnit terminal core loop session-local list/show", () => {
     // This is a verification of the boundary contract via the output fields.
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n确认\n确认\nlist\n/exit\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nlist\n/exit\n"
     );
 
     expect(result.status).toBe(0);
@@ -494,7 +494,7 @@ describe("OTUnit terminal core loop session-local list/show", () => {
   it("unrecognized command returns deterministic error", () => {
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n确认\n确认\nunknown\n/exit\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nunknown\n/exit\n"
     );
 
     expect(result.status).toBe(0);
@@ -507,7 +507,7 @@ describe("OTUnit terminal core loop session-local list/show", () => {
   it("/exit in list/show loop exits cleanly", () => {
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n确认\n确认\n/exit\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\n/exit\n"
     );
 
     expect(result.status).toBe(0);
@@ -520,7 +520,7 @@ describe("OTUnit terminal core loop session-local list/show", () => {
     // List/show are read-only; they cannot change OTUnit status.
     const result = runTerminalCoreLoop(
       ["otunit-core-loop"],
-      "完成第一批体验客户访谈\n确认\n确认\nlist\nshow session-confirmed-preview-otunit\n/exit\n"
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nlist\nshow session-confirmed-preview-otunit\n/exit\n"
     );
 
     expect(result.status).toBe(0);
