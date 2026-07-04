@@ -547,3 +547,62 @@ Output includes:
 - no chat behavior change
 - no durable runtime state
 - no deployment action
+## OTUnit Runtime Repository Command Inspection Boundary
+
+PR #32 extends the otunit CLI command with deterministic repository behavior inspection.
+
+### Repository Inspection Fields
+
+The otunit CLI command now exposes deterministic repository inspection results:
+
+```
+corepack pnpm otunit
+```
+
+The `repositoryInspection` block contains the following boolean fields:
+
+| Field | Expected Value | Description |
+|---|---|---|
+| `saveValidOTUnit` | `true` | Proves the repository can save a valid OTUnit |
+| `getById` | `true` | Proves the repository can get OTUnit by id |
+| `listByObjectiveId` | `true` | Proves the repository can list OTUnits by objectiveId |
+| `clear` | `true` | Proves the repository can reset / clear |
+| `mutationSafeCopies` | `true` | Proves returned OTUnits are deep clones; stored state unchanged after external mutation |
+| `persistedAfterProcessExit` | `false` | No process-exit persistence |
+| `stdinRequired` | `false` | Does not wait for stdin |
+| `chatCreatesOTUnits` | `false` | No chat creates OTUnits |
+| `mutationCliCommands` | `false` | No user-facing mutation CLI commands |
+
+### Inspection Logic
+
+Inside the `otunit` CLI action:
+
+1. An in-memory repository is created via `createInMemoryOTUnitRepository()`.
+2. Three deterministic fixture OTUnits are defined inline (no chat input, no stdin).
+3. All three fixtures are saved to the repository; `saveValidOTUnit` confirms all saves succeeded.
+4. Each fixture is read back by id; `getById` confirms all returns and missing id returns `undefined`.
+5. The fixtures are listed by their respective `objectiveId` values; `listByObjectiveId` confirms correct count and sorting.
+6. A returned copy is aggressively mutated (title, owner, dueDate, evidenceRefs); the stored state is re-read and confirmed unchanged, proving `mutationSafeCopies`.
+7. The repository is cleared; `clear` confirms all ids return `undefined` and all objectiveId lists are empty.
+8. `persistedAfterProcessExit`, `stdinRequired`, `chatCreatesOTUnits`, and `mutationCliCommands` are hard-coded to `false`.
+
+### Contract
+
+- The `repositoryInspection` block is a deterministic JSON output only; it does not persist any data.
+- All fixture data is defined inside the action callback; no chat input, stdin, or provider config is used.
+- The repository is created, used for inspection, and discarded when the process exits.
+- No user-facing mutation CLI commands are added.
+- The `mutationSafeCopies` field is the only runtime-proven boolean (the stored state is actually checked during inspection).
+- The other boundary fields (`persistedAfterProcessExit`, `stdinRequired`, `chatCreatesOTUnits`, `mutationCliCommands`) are hard-coded declarations.
+
+### Boundary
+
+- no database
+- no filesystem persistence
+- no network storage
+- no provider integration
+- no AI generation
+- no chat behavior change
+- no durable runtime state
+- no deployment action
+- no mutation-oriented OTUnit CLI command

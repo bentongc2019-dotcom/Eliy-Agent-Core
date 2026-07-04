@@ -32,6 +32,17 @@ type OtunitCommandOutput = {
     durableRuntimeState: boolean;
     chatWrites: boolean;
   };
+  repositoryInspection: {
+    saveValidOTUnit: boolean;
+    getById: boolean;
+    listByObjectiveId: boolean;
+    clear: boolean;
+    mutationSafeCopies: boolean;
+    persistedAfterProcessExit: boolean;
+    stdinRequired: boolean;
+    chatCreatesOTUnits: boolean;
+    mutationCliCommands: boolean;
+  };
 }
 
 function runDirectOtunitCommand(env: NodeJS.ProcessEnv = process.env): ReturnType<typeof spawnSync> {
@@ -95,6 +106,17 @@ describe("OTUnit runtime command skeleton", () => {
         durableRuntimeState: false,
         chatWrites: false
       },
+      repositoryInspection: {
+        saveValidOTUnit: true,
+        getById: true,
+        listByObjectiveId: true,
+        clear: true,
+        mutationSafeCopies: true,
+        persistedAfterProcessExit: false,
+        stdinRequired: false,
+        chatCreatesOTUnits: false,
+        mutationCliCommands: false
+      },
       requiresProviderConfig: false,
       waitsForStdin: false,
       persistence: false
@@ -139,6 +161,87 @@ describe("OTUnit runtime command skeleton", () => {
     expect(output.domain.otunit.repositoryBoundaryAvailable).toBe(true);
   });
 
+  it("inspection proves save valid OTUnit", () => {
+    const result = runDirectOtunitCommand();
+    expect(result.status).toBe(0);
+    const output = parseJsonOutput((result.stdout as string).trim());
+    expect(output.repositoryInspection.saveValidOTUnit).toBe(true);
+  });
+
+  it("inspection proves get by id", () => {
+    const result = runDirectOtunitCommand();
+    expect(result.status).toBe(0);
+    const output = parseJsonOutput((result.stdout as string).trim());
+    expect(output.repositoryInspection.getById).toBe(true);
+  });
+
+  it("inspection proves list by objectiveId", () => {
+    const result = runDirectOtunitCommand();
+    expect(result.status).toBe(0);
+    const output = parseJsonOutput((result.stdout as string).trim());
+    expect(output.repositoryInspection.listByObjectiveId).toBe(true);
+  });
+
+  it("inspection proves clear / reset", () => {
+    const result = runDirectOtunitCommand();
+    expect(result.status).toBe(0);
+    const output = parseJsonOutput((result.stdout as string).trim());
+    expect(output.repositoryInspection.clear).toBe(true);
+  });
+
+  it("inspection proves returned OTUnits are mutation-safe copies", () => {
+    const result = runDirectOtunitCommand();
+    expect(result.status).toBe(0);
+    const output = parseJsonOutput((result.stdout as string).trim());
+    expect(output.repositoryInspection.mutationSafeCopies).toBe(true);
+  });
+
+  it("inspection reports no durable persistence", () => {
+    const result = runDirectOtunitCommand();
+    expect(result.status).toBe(0);
+    const output = parseJsonOutput((result.stdout as string).trim());
+    expect(output.repositoryInspection.persistedAfterProcessExit).toBe(false);
+  });
+
+  it("inspection reports no stdin required", () => {
+    const result = runDirectOtunitCommand();
+    expect(result.status).toBe(0);
+    const output = parseJsonOutput((result.stdout as string).trim());
+    expect(output.repositoryInspection.stdinRequired).toBe(false);
+  });
+
+  it("inspection reports no chat creates OTUnits", () => {
+    const result = runDirectOtunitCommand();
+    expect(result.status).toBe(0);
+    const output = parseJsonOutput((result.stdout as string).trim());
+    expect(output.repositoryInspection.chatCreatesOTUnits).toBe(false);
+  });
+
+  it("inspection reports no mutation CLI commands", () => {
+    const result = runDirectOtunitCommand();
+    expect(result.status).toBe(0);
+    const output = parseJsonOutput((result.stdout as string).trim());
+    expect(output.repositoryInspection.mutationCliCommands).toBe(false);
+  });
+
+  it("inspection reports all repository inspection fields present", () => {
+    const result = runDirectOtunitCommand();
+    expect(result.status).toBe(0);
+    const output = parseJsonOutput((result.stdout as string).trim());
+    const ri = output.repositoryInspection;
+    expect(ri.saveValidOTUnit).toBe(true);
+    expect(ri.getById).toBe(true);
+    expect(ri.listByObjectiveId).toBe(true);
+    expect(ri.clear).toBe(true);
+    expect(ri.mutationSafeCopies).toBe(true);
+    expect(ri.persistedAfterProcessExit).toBe(false);
+    expect(ri.stdinRequired).toBe(false);
+    expect(ri.chatCreatesOTUnits).toBe(false);
+    expect(ri.mutationCliCommands).toBe(false);
+    // All nine fields must be present.
+    expect(Object.keys(ri).length).toBe(9);
+  });
+
   it("inspection uses in-memory repository implementation", () => {
     const result = runDirectOtunitCommand();
     expect(result.status).toBe(0);
@@ -180,12 +283,11 @@ describe("OTUnit runtime command skeleton", () => {
 
     const helpOutput = `${String(result.stdout)}\n${String(result.stderr)}`;
     expect(helpOutput).toMatch(/OTUnit commands/i);
-    expect(helpOutput).not.toMatch(/\bcreate\b/);
-    expect(helpOutput).not.toMatch(/\bdraft\b/);
-    expect(helpOutput).not.toMatch(/\blist\b/);
-    expect(helpOutput).not.toMatch(/\bshow\b/);
-    expect(helpOutput).not.toMatch(/\bstatus\b/);
-    expect(helpOutput).not.toMatch(/\bclose\b/);
+    expect(helpOutput).toMatch(/inspection-only/i);
+    expect(helpOutput).not.toMatch(/eliy otunit create/i);
+    expect(helpOutput).not.toMatch(/eliy otunit draft/i);
+    expect(helpOutput).not.toMatch(/eliy otunit list/i);
+    expect(helpOutput).not.toMatch(/eliy otunit show/i);
   });
 
   it("does not require provider config to run", () => {
