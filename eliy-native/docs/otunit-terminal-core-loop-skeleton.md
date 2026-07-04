@@ -1,6 +1,7 @@
 # OTUnit Terminal Core Loop Skeleton
 
-This document describes the deterministic terminal-only OTUnit core loop skeleton added in PR #34.
+This document describes the deterministic terminal-only OTUnit core loop skeleton
+with structured field capture added in PR #36.
 
 ## Command
 
@@ -23,16 +24,21 @@ The OTUnit core loop skeleton is a deterministic terminal-only command that guid
 | Step | Description | Existing Boundary Used |
 |------|-------------|----------------------|
 | 1 | Prompt for business text input | Readline input |
-| 2 | Detect draft intent from business text wrapper | `detectOTUnitDraftIntent` |
-| 3 | Produce plan-aware draft preview | `previewOTUnitDraftFromChat` |
-| 4 | Require explicit preview confirmation | Readline input via `safeQuestion` |
-| 5 | Create proposed OTUnit only after explicit preview confirmation | `createProposedOTUnitFromConfirmedPreview` |
-| 6 | Require explicit proposed OTUnit confirmation | Readline input via `safeQuestion` |
-| 7 | Create confirmed OTUnit only after explicit proposed confirmation | `confirmProposedOTUnit` |
-| 8 | Save confirmed OTUnit to in-memory repository | `createInMemoryOTUnitRepository.save` |
-| 9 | Verify getById returns the confirmed OTUnit | `repository.getById` |
-| 10 | Verify listByObjectiveId includes the confirmed OTUnit | `repository.listByObjectiveId` |
-| 11 | Print deterministic final summary | JSON output |
+| 2 | Prompt for structured fields (objective, owner, due date, judgment criteria, plan/action items, optional evidence refs) | Readline input |
+| 3 | Validate required structured fields | Deterministic check |
+| 4 | Validate evidence refs (if non-empty) through existing boundary | `validateEvidenceRefs` |
+| 5 | Detect draft intent from business text wrapper | `detectOTUnitDraftIntent` |
+| 6 | Produce plan-aware draft preview with captured fields overlaid | `previewOTUnitDraftFromChat` |
+| 7 | Print improved draft preview displaying captured fields instead of all-missing checklist | Console output |
+| 8 | Print human-readable O 单 summary | Console output |
+| 9 | Require first confirmation: approve preview for proposed OTUnit creation | Readline input |
+| 10 | Create proposed OTUnit using captured owner and dueDate | `createProposedOTUnitFromConfirmedPreview` |
+| 11 | Require second confirmation: confirm proposed OTUnit into confirmed status | Readline input |
+| 12 | Create confirmed OTUnit using captured owner and dueDate | `confirmProposedOTUnit` |
+| 13 | Save confirmed OTUnit to in-memory repository | `createInMemoryOTUnitRepository.save` |
+| 14 | Verify getById returns the confirmed OTUnit | `repository.getById` |
+| 15 | Verify listByObjectiveId includes the confirmed OTUnit | `repository.listByObjectiveId` |
+| 16 | Print deterministic final summary | JSON output |
 
 ### Commands
 
@@ -43,7 +49,7 @@ The OTUnit core loop skeleton is a deterministic terminal-only command that guid
 
 ### Summary Output
 
-The final summary is a JSON object with the following fields:
+The final summary is a JSON object with additional structured field capture fields:
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -53,6 +59,16 @@ The final summary is a JSON object with the following fields:
 | `stepReached` | string | Highest step reached |
 | `draftIntentCreated` | boolean | Draft intent detected in business text |
 | `draftPreviewCreated` | boolean | Plan-aware draft preview created |
+| `businessTextCaptured` | boolean | Business text was captured |
+| `structuredFieldsCaptured` | boolean | All required structured fields captured |
+| `objectiveCaptured` | boolean | Objective field captured |
+| `ownerCaptured` | boolean | Owner field captured |
+| `dueDateCaptured` | boolean | Due date field captured |
+| `judgmentCriteriaCaptured` | boolean | Judgment criteria field captured |
+| `planOrActionItemsCaptured` | boolean | Plan or action items field captured |
+| `evidenceRefsCaptured` | boolean | Evidence refs were provided |
+| `evidenceRefsValid` | boolean | Evidence refs passed validation boundary |
+| `humanReadableSummaryPrinted` | boolean | O 单 summary was printed |
 | `previewConfirmed` | boolean | Preview confirmation was explicit |
 | `proposedOTUnitCreated` | boolean | Proposed OTUnit was created |
 | `proposedOTUnitConfirmed` | boolean | Proposed OTUnit was confirmed |
@@ -69,8 +85,10 @@ The final summary is a JSON object with the following fields:
 
 | Condition | Stops Before | Behavior |
 |-----------|-------------|----------|
-| Empty business text | Draft intent detection | Returns `ok: false`, `stepReached: "none"` |
+| Empty business text | Structured field capture | Returns `ok: false`, `stepReached: "none"` |
 | `/exit` at business text prompt | Draft intent detection | Prints "core loop exited" message |
+| Missing required structured field | Proposed OTUnit creation | Returns `ok: false`, `stepReached: "structured_fields_read"` with `missingFields` array |
+| Invalid evidence refs | Proposed OTUnit creation | Returns `ok: false`, `stepReached: "structured_fields_read"` with `evidenceRefsValid: false` |
 | Ambiguous preview confirmation | Proposed OTUnit creation | Returns `ok: false`, `stepReached: "draft_preview_created"` |
 | Unrecognized preview confirmation | Proposed OTUnit creation | Returns `ok: false`, `stepReached: "draft_preview_created"` |
 | Empty preview confirmation | Proposed OTUnit creation | Returns `ok: false`, `stepReached: "draft_preview_created"` |
@@ -90,7 +108,14 @@ The final summary is a JSON object with the following fields:
 - No normal chat writes
 - No durable runtime state
 - No deployment action
++ No mutation-oriented CLI subcommands
 - No mutation-oriented OTUnit CLI command (the existing `eliy otunit` command remains inspection-only)
+- Structured field capture is terminal-only and deterministic
+- Captured structured fields must not persist across process exit
+- Evidence refs use existing `validateEvidenceRefs` boundary
+- Preview displays captured fields instead of all-missing checklist
+- Confirmed OTUnit uses captured owner and dueDate
+- List/show reflect captured owner and dueDate
 
 ### List/Show Behavior
 
@@ -148,5 +173,6 @@ After the summary is printed, the following commands are available:
 ### Boundary Additions
 
 - List/show read only from the process-local in-memory repository
+- List/show reflect captured owner and dueDate
 - List/show do not persist after process exit
 - List/show do not create, confirm, mutate, or delete OTUnits
