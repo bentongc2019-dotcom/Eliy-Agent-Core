@@ -742,3 +742,55 @@ A structured context snapshot is a process-local read-only object linked by conf
 - No follow-up record behavior
 - No deployment action
 - Existing otunit command remains inspection-only
+
+## Follow-up Record Boundary (Terminal Core Loop, PR #39)
+
+PR #39 adds process-local follow-up record behavior to the dedicated otunit-core-loop terminal skeleton.
+
+### Definition
+
+A follow-up record is a process-local session memory object linked by confirmed OTUnit id:
+
+```
+{
+  id: string;
+  otunitId: string;
+  text: string;
+  createdAt: string;
+}
+```
+
+### Behavior
+
+- `follow <id>` is supported only inside the otunit-core-loop terminal skeleton
+- Only one follow-up text can be recorded per command invocation
+- Follow-up records are linked by confirmed OTUnit id
+- Follow-up records are process-local session memory only
+- Follow-up records do not persist after process exit
+- Follow-up records do not change OTUnit status
+- Follow-up records do not confirm, revise, close, or mutate the OTUnit itself
+- Follow-up records do not create review/check/adjust/revision behavior
+- Follow-up preview is shown before save
+- Explicit confirmation is required before save
+- Blank text and ambiguous confirmation stop deterministically without saving
+- `list` may show `followUpRecordCount`
+- `show <id>` displays follow-up records with existing O 单 detail
+
+### Commands
+
+Only available in the otunit-core-loop terminal skeleton:
+
+- `follow <id>` — add a follow-up record for a confirmed OTUnit
+
+### Boundary
+
+- No database
+- No filesystem persistence
+- No network storage
+- No provider integration
+- No AI generation
+- No normal chat writes
+- No durable runtime state
+- No mutation subcommands under existing otunit
+- No review/check/adjust/revision behavior
+- Existing otunit command remains inspection-only

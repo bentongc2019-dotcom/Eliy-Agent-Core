@@ -130,7 +130,42 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
    evidenceRefs: string[];
  }>();
 
- console.log("Eliy Native OTUnit core loop started. Type /exit to quit.");
+  // Process-local follow-up record session memory.
+  // Linked by confirmed OTUnit id. Read-only after saved.
+  // Does not persist after process exit. Does not mutate OTUnit.
+  interface FollowUpRecord {
+    id: string;
+    otunitId: string;
+    text: string;
+    createdAt: string;
+  }
+
+  const followUpRecords = new Map<string, FollowUpRecord[]>();
+  let followUpRecordCounter = 0;
+
+  function addFollowUpRecord(otunitId: string, text: string): FollowUpRecord {
+    followUpRecordCounter++;
+    const record: FollowUpRecord = {
+      id: `session-follow-up-${followUpRecordCounter}`,
+      otunitId,
+      text,
+      createdAt: new Date().toISOString()
+    };
+    const existing = followUpRecords.get(otunitId) || [];
+    existing.push(record);
+    followUpRecords.set(otunitId, existing);
+    return record;
+  }
+
+  function getFollowUpRecords(otunitId: string): FollowUpRecord[] {
+    return followUpRecords.get(otunitId) || [];
+  }
+
+  function getFollowUpRecordCount(otunitId: string): number {
+    return getFollowUpRecords(otunitId).length;
+  }
+
+  console.log("Eliy Native OTUnit core loop started. Type /exit to quit.");
 
   // Line reader using async iterator to support both pipe and interactive modes.
   const lineIterator = rl[Symbol.asyncIterator]();
@@ -595,32 +630,33 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
         continue;
       }
 
-      if (trimmed === "list") {
-        const allOTUnits = repo.listByObjectiveId(objectiveId);
-        const listOutput = {
-          ok: true,
-          ...summaryBase,
-          action: "list",
-          repositorySource: "process_local_in_memory",
-          count: allOTUnits.length,
-          persistence: false,
-          durableRuntimeState: false,
-          readOnly: true,
-         otunits: allOTUnits.map((u) => ({
-           id: u.id,
-           title: u.title,
-           objectiveId: u.objectiveId,
-           owner: u.owner,
-           dueDate: u.dueDate,
-           status: u.status,
-           requiresConfirmation: u.requiresConfirmation
-           ,
-          structuredContextAvailable: structuredContextSnapshots.has(u.id)
-         }))
-        };
-        console.log(JSON.stringify(listOutput, null, 2));
-        continue;
-      }
+     if (trimmed === "list") {
+       const allOTUnits = repo.listByObjectiveId(objectiveId);
+        const otunitsWithFollowUp = allOTUnits.map((u) => ({
+          id: u.id,
+          title: u.title,
+          objectiveId: u.objectiveId,
+          owner: u.owner,
+          dueDate: u.dueDate,
+          status: u.status,
+          requiresConfirmation: u.requiresConfirmation,
+          structuredContextAvailable: structuredContextSnapshots.has(u.id),
+          followUpRecordCount: getFollowUpRecordCount(u.id)
+        }));
+       const listOutput = {
+         ok: true,
+         ...summaryBase,
+         action: "list",
+         repositorySource: "process_local_in_memory",
+          count: otunitsWithFollowUp.length,
+         persistence: false,
+         durableRuntimeState: false,
+         readOnly: true,
+          otunits: otunitsWithFollowUp
+       };
+       console.log(JSON.stringify(listOutput, null, 2));
+       continue;
+     }
 
       if (trimmed === "show" || trimmed.startsWith("show ")) {
         const showId = trimmed.slice(5).trim();
@@ -661,6 +697,16 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
          console.log("Status: " + foundOTUnit.status);
          console.log("Repository: process-local in-memory");
          console.log("Persistence: false");
+
+         // Print follow-up records (human-readable)
+         const followRecords = getFollowUpRecords(showId);
+         if (followRecords.length > 0) {
+           console.log("");
+           console.log("--- Follow-up Records ---");
+           followRecords.forEach((rec, index) => {
+             console.log((index + 1) + ". " + rec.text);
+           });
+         }
        } else {
          console.log("Structured context snapshot not available for this OTUnit in the current process-local session.");
        }
@@ -672,6 +718,7 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
          otunit: {
            id: foundOTUnit.id, title: foundOTUnit.title,
            objectiveId: foundOTUnit.objectiveId,
+
            owner: foundOTUnit.owner, dueDate: foundOTUnit.dueDate,
            status: foundOTUnit.status,
            requiresConfirmation: foundOTUnit.requiresConfirmation,
@@ -693,13 +740,127 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
          };
        }
 
+       showOutput.followUpRecordCount = getFollowUpRecordCount(showId);
+       showOutput.followUpRecords = getFollowUpRecords(showId).map(r => ({
+         id: r.id,
+         otunitId: r.otunitId,
+         text: r.text,
+         createdAt: r.createdAt
+       }));
+
        console.log(JSON.stringify(showOutput, null, 2));
        continue;
       }
 
+      if (trimmed === "follow" || trimmed.startsWith("follow ")) {
+        const followId = trimmed.slice(7).trim();
+
+        if (followId.length === 0) {
+          console.log(JSON.stringify({
+            ok: false, ...summaryBase, action: "follow", found: false, id: "",
+            message: "Missing id. Usage: follow <id>",
+            followUpSaved: false,
+            persistence: false, durableRuntimeState: false, readOnly: true
+          }, null, 2));
+          continue;
+        }
+
+        const foundOTUnit = repo.getById(followId);
+
+        if (foundOTUnit === undefined) {
+          console.log(JSON.stringify({
+            ok: false, ...summaryBase, action: "follow", found: false, id: followId,
+            message: "OTUnit not found in this process-local session repository.",
+            followUpSaved: false,
+            persistence: false, durableRuntimeState: false, readOnly: true
+          }, null, 2));
+          continue;
+        }
+
+        // Prompt for follow-up text
+        const followUpTextLine = await readLine("Enter follow-up record text: ");
+
+        if (followUpTextLine === null || followUpTextLine.trim().length === 0) {
+          console.log(JSON.stringify({
+            ok: false, ...summaryBase, action: "follow", found: true, id: followId,
+            message: "Blank follow-up text. No follow-up record saved.",
+            followUpSaved: false,
+            otunitMutated: false,
+            otunitStatusChanged: false,
+            persistence: false, durableRuntimeState: false, readOnly: true
+          }, null, 2));
+          continue;
+        }
+
+        const followUpText = followUpTextLine.trim();
+
+        // Print human-readable follow-up preview
+        console.log("");
+        console.log("--- Follow-up Preview ---");
+        const followContext = structuredContextSnapshots.get(followId);
+        console.log("OTUnit: " + (followContext ? followContext.title : foundOTUnit.title));
+        console.log("OTUnit ID: " + followId);
+        console.log("Follow-up Text: " + followUpText);
+        console.log("Repository: process-local in-memory");
+        console.log("Persistence: false");
+
+        // Ask for explicit confirmation
+        const confirmSignal = await readLine("Confirm save follow-up record? (confirm to save, /exit to quit): ");
+
+        if (confirmSignal === null || confirmSignal.trim() === "/exit") {
+          console.log(JSON.stringify({
+            ok: false, ...summaryBase, action: "follow", found: true, id: followId,
+            followUpPreviewPrinted: true,
+            followUpConfirmed: false,
+            followUpSaved: false,
+            otunitMutated: false,
+            otunitStatusChanged: false,
+            persistence: false, durableRuntimeState: false, readOnly: true
+          }, null, 2));
+          continue;
+        }
+
+        const isConfirmed = confirmSignal.trim() === "confirm" || confirmSignal.trim() === "确认";
+
+        if (!isConfirmed) {
+          console.log(JSON.stringify({
+            ok: false, ...summaryBase, action: "follow", found: true, id: followId,
+            followUpPreviewPrinted: true,
+            followUpConfirmed: false,
+            followUpSaved: false,
+            otunitMutated: false,
+            otunitStatusChanged: false,
+            persistence: false, durableRuntimeState: false, readOnly: true
+          }, null, 2));
+          continue;
+        }
+
+        // Save the follow-up record
+        const savedRecord = addFollowUpRecord(followId, followUpText);
+
+        console.log(JSON.stringify({
+          ok: true, ...summaryBase, action: "follow", found: true, id: followId,
+          followUpSaved: true,
+          followUpRecord: {
+            id: savedRecord.id,
+            otunitId: savedRecord.otunitId,
+            text: savedRecord.text,
+            createdAt: savedRecord.createdAt
+          },
+          otunitMutated: false,
+          otunitStatusChanged: false,
+          repositorySource: "process_local_in_memory",
+          persistence: false,
+          durableRuntimeState: false,
+          providerRequired: false,
+          chatWrites: false
+        }, null, 2));
+        continue;
+      }
+
      console.log(JSON.stringify({
        ok: false, ...summaryBase, action: "unrecognized",
-       message: "Unrecognized command: " + trimmed + ". You are inside the OTUnit session command loop. Use list, show <id>, /exit, or exit.",
+       message: "Unrecognized command: " + trimmed + ". You are inside the OTUnit session command loop. Use list, show <id>, follow <id>, /exit, or exit.",
        persistence: false, durableRuntimeState: false, readOnly: true
      }, null, 2));
     }
