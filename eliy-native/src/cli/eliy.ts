@@ -7,6 +7,7 @@ import {
   confirmOTUnit,
   createOTUnitReviewIntent,
   createProposedOTUnitFromDraft,
+  createInMemoryOTUnitRepository,
   reviseOTUnit,
   validateEvidenceRefs
 } from "../domain/index.js";
@@ -198,6 +199,7 @@ Non-empty input returns a deterministic skeleton response when provider config i
     .command("otunit")
     .description("OTUnit commands")
     .action(() => {
+    const repo = createInMemoryOTUnitRepository();
     printResult({
       ok: true,
       command: "otunit",
@@ -211,8 +213,19 @@ Non-empty input returns a deterministic skeleton response when provider config i
           draftBoundaryAvailable: typeof createProposedOTUnitFromDraft === "function",
           evidenceRefBoundaryAvailable: typeof validateEvidenceRefs === "function",
           reviewRevisionBoundaryAvailable:
-            typeof createOTUnitReviewIntent === "function" && typeof reviseOTUnit === "function"
+            typeof createOTUnitReviewIntent === "function" && typeof reviseOTUnit === "function",
+          repositoryBoundaryAvailable:
+            typeof repo.save === "function" &&
+            typeof repo.getById === "function" &&
+            typeof repo.listByObjectiveId === "function" &&
+            typeof repo.clear === "function"
         }
+      },
+      repository: {
+        implementation: "in_memory",
+        persistence: false,
+        durableRuntimeState: false,
+        chatWrites: false
       },
       requiresProviderConfig: false,
       waitsForStdin: false,

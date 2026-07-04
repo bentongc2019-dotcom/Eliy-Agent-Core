@@ -20,12 +20,19 @@ type OtunitCommandOutput = {
       draftBoundaryAvailable: boolean;
       evidenceRefBoundaryAvailable: boolean;
       reviewRevisionBoundaryAvailable: boolean;
+      repositoryBoundaryAvailable: boolean;
     };
   };
   requiresProviderConfig: boolean;
   waitsForStdin: boolean;
   persistence: boolean;
-};
+  repository: {
+    implementation: string;
+    persistence: boolean;
+    durableRuntimeState: boolean;
+    chatWrites: boolean;
+  };
+}
 
 function runDirectOtunitCommand(env: NodeJS.ProcessEnv = process.env): ReturnType<typeof spawnSync> {
   return spawnSync(process.execPath, ["--import", tsxLoaderPath, cliPath, "otunit"], {
@@ -78,8 +85,15 @@ describe("OTUnit runtime command skeleton", () => {
           confirmationBoundaryAvailable: true,
           draftBoundaryAvailable: true,
           evidenceRefBoundaryAvailable: true,
-          reviewRevisionBoundaryAvailable: true
+          reviewRevisionBoundaryAvailable: true,
+          repositoryBoundaryAvailable: true
         }
+      },
+      repository: {
+        implementation: "in_memory",
+        persistence: false,
+        durableRuntimeState: false,
+        chatWrites: false
       },
       requiresProviderConfig: false,
       waitsForStdin: false,
@@ -107,9 +121,55 @@ describe("OTUnit runtime command skeleton", () => {
     expect(output.domain.otunit.draftBoundaryAvailable).toBe(true);
     expect(output.domain.otunit.evidenceRefBoundaryAvailable).toBe(true);
     expect(output.domain.otunit.reviewRevisionBoundaryAvailable).toBe(true);
+    expect(output.domain.otunit.repositoryBoundaryAvailable).toBe(true);
     expect(output.requiresProviderConfig).toBe(false);
     expect(output.waitsForStdin).toBe(false);
+    expect(output.repository.implementation).toBe("in_memory");
+    expect(output.repository.persistence).toBe(false);
+    expect(output.repository.durableRuntimeState).toBe(false);
+    expect(output.repository.chatWrites).toBe(false);
     expect(output.persistence).toBe(false);
+  });
+
+
+  it("inspection exposes OTUnit repository boundary availability", () => {
+    const result = runDirectOtunitCommand();
+    expect(result.status).toBe(0);
+    const output = parseJsonOutput((result.stdout as string).trim());
+    expect(output.domain.otunit.repositoryBoundaryAvailable).toBe(true);
+  });
+
+  it("inspection uses in-memory repository implementation", () => {
+    const result = runDirectOtunitCommand();
+    expect(result.status).toBe(0);
+    const output = parseJsonOutput((result.stdout as string).trim());
+    expect(output.repository.implementation).toBe("in_memory");
+  });
+
+  it("inspection reports no durable persistence", () => {
+    const result = runDirectOtunitCommand();
+    expect(result.status).toBe(0);
+    const output = parseJsonOutput((result.stdout as string).trim());
+    expect(output.repository.persistence).toBe(false);
+    expect(output.repository.durableRuntimeState).toBe(false);
+  });
+
+  it("inspection reports no chat writes", () => {
+    const result = runDirectOtunitCommand();
+    expect(result.status).toBe(0);
+    const output = parseJsonOutput((result.stdout as string).trim());
+    expect(output.repository.chatWrites).toBe(false);
+  });
+
+  it("repository can be constructed at runtime boundary", () => {
+    // Repository is constructed inside the otunit CLI action callback.
+    // This test proves the otunit command runs without error,
+    // which means createInMemoryOTUnitRepository was called successfully.
+    const result = runDirectOtunitCommand();
+    expect(result.status).toBe(0);
+    expect(result.error).toBeUndefined();
+    const output = parseJsonOutput((result.stdout as string).trim());
+    expect(output.ok).toBe(true);
   });
 
   it("prints help without exposing mutation subcommands", () => {
