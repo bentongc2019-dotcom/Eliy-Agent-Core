@@ -88,7 +88,7 @@ The final summary is a JSON object with additional structured field capture fiel
 | Empty business text | Structured field capture | Returns `ok: false`, `stepReached: "none"` |
 | `/exit` at business text prompt | Draft intent detection | Prints "core loop exited" message |
 | Missing required structured field | Proposed OTUnit creation | Returns `ok: false`, `stepReached: "structured_fields_read"` with `missingFields` array |
-| Invalid evidence refs | Proposed OTUnit creation | Returns `ok: false`, `stepReached: "structured_fields_read"` with `evidenceRefsValid: false` |
+| Invalid evidence refs (duplicate after delimiter normalization) | Proposed OTUnit creation | Returns `ok: false`, `stepReached: "structured_fields_read"` with `evidenceRefsValid: false` |
 | Ambiguous preview confirmation | Proposed OTUnit creation | Returns `ok: false`, `stepReached: "draft_preview_created"` |
 | Unrecognized preview confirmation | Proposed OTUnit creation | Returns `ok: false`, `stepReached: "draft_preview_created"` |
 | Empty preview confirmation | Proposed OTUnit creation | Returns `ok: false`, `stepReached: "draft_preview_created"` |
@@ -97,6 +97,38 @@ The final summary is a JSON object with additional structured field capture fiel
 | Unrecognized proposed confirmation | Confirmed OTUnit creation | Returns `ok: false`, `stepReached: "proposed_otunit_created"` |
 | Empty proposed confirmation | Confirmed OTUnit creation | Returns `ok: false`, `stepReached: "proposed_otunit_created"` |
 | `/exit` at proposed confirmation | Confirmed OTUnit creation | Returns `ok: false`, `stepReached: "proposed_otunit_created"` |
+
+### Evidence Refs Delimiter Normalization
+
+Evidence refs input accepts the following delimiters (all normalized deterministically
+before validation):
+
+| Delimiter | Unicode | Example |
+|-----------|---------|--------|
+| English comma | `,` | `ref1,ref2` |
+| Chinese full-width comma | `xEFxBCx8C` (U+FF0C) | `ref1，ref2` |
+| Chinese enumeration comma | `xE3x80x81` (U+3001) | `ref1、ref2` |
+
+Normalization behavior:
+
+- All delimiters are normalized to English comma `,` before splitting.
+- Whitespace around each ref is trimmed.
+- Empty evidence refs input (raw empty string) is accepted and becomes `[]`.
+- Duplicate refs after delimiter normalization are invalid.
+
+Examples:
+
+| Input | Parsed Refs | Valid |
+|-------|-------------|-------|
+| (empty) | `[]` | yes |
+| `ref1,ref2` | `["ref1", "ref2"]` | yes |
+| `ref1，ref2` | `["ref1", "ref2"]` | yes |
+| `ref1、ref2` | `["ref1", "ref2"]` | yes |
+| `ref1, ref2，ref3、ref4` | `["ref1", "ref2", "ref3", "ref4"]` | yes |
+| `ref1,ref1` | `["ref1", "ref1"]` | no (duplicate) |
+| `ref1，ref1` | `["ref1", "ref1"]` | no (duplicate) |
+| `ref1、ref1` | `["ref1", "ref1"]` | no (duplicate) |
+
 
 ### Boundary
 

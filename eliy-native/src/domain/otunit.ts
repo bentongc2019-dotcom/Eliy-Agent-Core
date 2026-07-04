@@ -127,6 +127,40 @@ const DUPLICATE_EVIDENCE_REFS_ERROR: DomainValidationError = {
   message: "evidenceRefs must not contain duplicate refs."
 };
 
+/**
+ * Deterministic evidence refs parsing helper.
+ *
+ * Normalizes Chinese full-width comma "，" and Chinese enumeration comma "、"
+ * to English comma "," before splitting. Whitespace around each ref is trimmed.
+ * Empty input returns an empty array.
+ *
+ * Delimiter normalization is performed before any other logic, so mixed
+ * delimiters produce deterministic results. Does not validate duplicates or
+ * ref content — pass the result to validateEvidenceRefs for that.
+ *
+ * Supported delimiters (all normalized to ","):
+ *   ,  English comma
+ *   ， Chinese full-width comma
+ *   、 Chinese enumeration comma
+ *
+ * @example
+ * parseEvidenceRefs("ref1,ref2")        // -> ["ref1", "ref2"]
+ * parseEvidenceRefs("ref1，ref2")      // -> ["ref1", "ref2"]
+ * parseEvidenceRefs("ref1、ref2")      // -> ["ref1", "ref2"]
+ * parseEvidenceRefs("")                // -> []
+ * parseEvidenceRefs(" ref1 , ref2 ，ref3、ref4 ")  // -> ["ref1", "ref2", "ref3", "ref4"]
+ */
+export function parseEvidenceRefs(rawInput: string): string[] {
+  // Normalize Chinese full-width comma and Chinese enumeration comma to English comma.
+  const normalized = rawInput.replace(/[，、]/g, ",");
+
+  // Split by English comma, trim each ref, filter empty strings.
+  return normalized
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+}
+ 
 export function validateEvidenceRefs(value: unknown): DomainValidationResult {
   if (!Array.isArray(value)) {
     return createInvalidResult([INVALID_EVIDENCE_REFS_ERROR]);
@@ -1486,4 +1520,3 @@ export function confirmProposedOTUnit(
     errors: []
   };
 }
-

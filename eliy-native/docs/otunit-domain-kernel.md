@@ -141,6 +141,8 @@ Validation checks required fields, non-empty string ids, allowed statuses, evide
 ## OTUnit Evidence Reference Boundary
 
 OTUnit evidence references are deterministic ids/references only.
+Evidence reference refs input parsing supports delimiter normalization.
+
 
 Evidence reference rules:
 
@@ -150,6 +152,11 @@ Evidence reference rules:
 - whitespace-only strings are invalid
 - non-string refs are invalid
 - duplicate refs are invalid
+- evidence refs input accepts delimiters "," (English comma), "xEFxBCx8C" (Chinese full-width comma U+FF0C), and "xE3x80x81" (Chinese enumeration comma U+3001)
+- all delimiters are normalized deterministically before validation
+- empty input is accepted as no evidence refs
+- duplicate refs after delimiter normalization are invalid
+
 - evidence content is not stored inside OTUnit evidenceRefs
 
 This evidence reference boundary does not add evidence persistence, AI generation, real provider integration, chat integration, automatic confirmation, Runtime Kernel integration, or deployment behavior.

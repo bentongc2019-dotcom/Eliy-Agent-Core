@@ -21,6 +21,7 @@ import {
   createProposedOTUnitFromConfirmedPreview,
   confirmProposedOTUnit,
   createInMemoryOTUnitRepository,
+  parseEvidenceRefs,
   type OTUnit
 } from "../../../domain/index.js";
 
@@ -42,6 +43,8 @@ type TerminalCoreLoopSummary = {
   repositorySaved: boolean;
   repositoryGetByIdVerified: boolean;
   repositoryListByObjectiveIdVerified: boolean;
+  evidenceRefsValid: boolean;
+  humanReadableSummaryPrinted: boolean;
   chatWrites: boolean;
   persistence: boolean;
   durableRuntimeState: boolean;
@@ -532,5 +535,138 @@ describe("OTUnit terminal core loop session-local list/show", () => {
     );
     // The confirmed OTUnit should appear at least in the summary
     expect(confirmedStatus.length).toBeGreaterThanOrEqual(0);
+  });
+});
+describe("parseEvidenceRefs delimiter normalization", () => {
+  it("empty string returns empty array", () => {
+    expect(parseEvidenceRefs("")).toEqual([]);
+  });
+
+  it("English comma separator parses correctly", () => {
+    expect(parseEvidenceRefs("ref1,ref2")).toEqual(["ref1", "ref2"]);
+  });
+
+  it("Chinese full-width comma separator parses correctly", () => {
+    expect(parseEvidenceRefs("ref1\uFF0Cref2")).toEqual(["ref1", "ref2"]);
+  });
+
+  it("Chinese enumeration comma separator parses correctly", () => {
+    expect(parseEvidenceRefs("ref1\u3001ref2")).toEqual(["ref1", "ref2"]);
+  });
+
+  it("mixed delimiters parse into multiple refs", () => {
+    expect(parseEvidenceRefs("ref1, ref2\uFF0Cref3\u3001ref4")).toEqual([
+      "ref1",
+      "ref2",
+      "ref3",
+      "ref4"
+    ]);
+  });
+
+  it("whitespace around refs is trimmed", () => {
+    expect(
+      parseEvidenceRefs(" ref1 , ref2 \uFF0C ref3 \u3001 ref4 ")
+    ).toEqual(["ref1", "ref2", "ref3", "ref4"]);
+  });
+
+  it("single ref returns single-element array", () => {
+    expect(parseEvidenceRefs("ref1")).toEqual(["ref1"]);
+  });
+});
+
+describe("OTUnit terminal core loop evidence ref delimiter normalization", () => {
+  it("empty evidence refs accepted and reaches confirmed", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\n"
+    );
+
+    expect(result.status).toBe(0);
+    const summary = extractSummaryFromOutput(result.stdout as string);
+    expect(summary.ok).toBe(true);
+    expect(summary.stepReached).toBe("confirmed_otunit_repository_verified");
+    expect(summary.evidenceRefsValid).toBe(true);
+  });
+
+  it("English comma duplicate stops before draft preview", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n2. 完成访谈\n3. 记录结论\n\nref1,ref1\n"
+    );
+
+    expect(result.status).toBe(0);
+    const summary = extractSummaryFromOutput(result.stdout as string);
+    expect(summary.ok).toBe(false);
+    expect(summary.stepReached).toBe("structured_fields_read");
+    expect(summary.evidenceRefsValid).toBe(false);
+    expect(summary.draftIntentCreated).toBe(false);
+    expect(summary.draftPreviewCreated).toBe(false);
+    expect(summary.humanReadableSummaryPrinted).toBe(false);
+    expect(summary.previewConfirmed).toBe(false);
+    expect(summary.proposedOTUnitCreated).toBe(false);
+    expect(summary.proposedOTUnitConfirmed).toBe(false);
+    expect(summary.confirmedOTUnitCreated).toBe(false);
+    expect(summary.repositorySaved).toBe(false);
+    expect(summary.repositoryGetByIdVerified).toBe(false);
+    expect(summary.repositoryListByObjectiveIdVerified).toBe(false);
+  });
+
+  it("Chinese full-width comma duplicate stops before draft preview", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n2. 完成访谈\n3. 记录结论\n\nref1\uFF0Cref1\n"
+    );
+
+    expect(result.status).toBe(0);
+    const summary = extractSummaryFromOutput(result.stdout as string);
+    expect(summary.ok).toBe(false);
+    expect(summary.stepReached).toBe("structured_fields_read");
+    expect(summary.evidenceRefsValid).toBe(false);
+    expect(summary.draftIntentCreated).toBe(false);
+    expect(summary.draftPreviewCreated).toBe(false);
+    expect(summary.humanReadableSummaryPrinted).toBe(false);
+    expect(summary.previewConfirmed).toBe(false);
+    expect(summary.proposedOTUnitCreated).toBe(false);
+    expect(summary.proposedOTUnitConfirmed).toBe(false);
+    expect(summary.confirmedOTUnitCreated).toBe(false);
+    expect(summary.repositorySaved).toBe(false);
+    expect(summary.repositoryGetByIdVerified).toBe(false);
+    expect(summary.repositoryListByObjectiveIdVerified).toBe(false);
+  });
+
+  it("Chinese enumeration comma duplicate stops before draft preview", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n2. 完成访谈\n3. 记录结论\n\nref1\u3001ref1\n"
+    );
+
+    expect(result.status).toBe(0);
+    const summary = extractSummaryFromOutput(result.stdout as string);
+    expect(summary.ok).toBe(false);
+    expect(summary.stepReached).toBe("structured_fields_read");
+    expect(summary.evidenceRefsValid).toBe(false);
+    expect(summary.draftIntentCreated).toBe(false);
+    expect(summary.draftPreviewCreated).toBe(false);
+    expect(summary.humanReadableSummaryPrinted).toBe(false);
+    expect(summary.previewConfirmed).toBe(false);
+    expect(summary.proposedOTUnitCreated).toBe(false);
+    expect(summary.proposedOTUnitConfirmed).toBe(false);
+    expect(summary.confirmedOTUnitCreated).toBe(false);
+    expect(summary.repositorySaved).toBe(false);
+    expect(summary.repositoryGetByIdVerified).toBe(false);
+    expect(summary.repositoryListByObjectiveIdVerified).toBe(false);
+  });
+
+  it("mixed delimiters with valid refs reach confirmed", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n2. 完成访谈\n3. 记录结论\n\nref1, ref2\uFF0Cref3\u3001ref4\n确认\n确认\n"
+    );
+
+    expect(result.status).toBe(0);
+    const summary = extractSummaryFromOutput(result.stdout as string);
+    expect(summary.ok).toBe(true);
+    expect(summary.stepReached).toBe("confirmed_otunit_repository_verified");
+    expect(summary.evidenceRefsValid).toBe(true);
   });
 });

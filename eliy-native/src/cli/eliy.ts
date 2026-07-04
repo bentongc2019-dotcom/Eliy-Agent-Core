@@ -10,6 +10,7 @@ import {
   createProposedOTUnitFromDraft,
   createInMemoryOTUnitRepository,
   reviseOTUnit,
+  parseEvidenceRefs,
   validateEvidenceRefs,
   detectOTUnitDraftIntent,
   previewOTUnitDraftFromChat,
@@ -241,11 +242,8 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
       return;
     }
 
-    // Parse evidence refs: comma-separated, trimmed, empty strings filtered out.
-    const parsedEvidenceRefs = evidenceRefsLine
-      .split(",")
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
+    // Parse evidence refs: normalize delimiters, trim, filter empty strings.
+    const parsedEvidenceRefs = parseEvidenceRefs(evidenceRefsLine);
 
     // --- Validate required structured fields ---
     const missingFields = [];
