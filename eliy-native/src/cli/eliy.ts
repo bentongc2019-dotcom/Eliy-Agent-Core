@@ -223,12 +223,17 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
     }
     const judgmentCriteria = judgmentCriteriaLine;
 
-    const planOrActionItemsLine = await readLine("Enter plan or action items: ");
-    if (planOrActionItemsLine === null) {
-      console.log("Eliy Native OTUnit core loop exited.");
-      return;
+    // Read plan/action items as multi-line until blank line.
+    const planOrActionItems: string[] = [];
+    while (true) {
+      const itemLine = await readLine("Enter plan or action item (or blank to finish): ");
+      if (itemLine === null) {
+        console.log("Eliy Native OTUnit core loop exited.");
+        return;
+      }
+      if (itemLine.trim().length === 0) break;
+      planOrActionItems.push(itemLine);
     }
-    const planOrActionItems = planOrActionItemsLine;
 
     const evidenceRefsLine = await readLine("Enter evidence refs, comma-separated, optional: ");
     if (evidenceRefsLine === null) {
@@ -275,7 +280,7 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
     structuredFieldBase.ownerCaptured = true;
     structuredFieldBase.dueDateCaptured = true;
     structuredFieldBase.judgmentCriteriaCaptured = true;
-    structuredFieldBase.planOrActionItemsCaptured = true;
+    structuredFieldBase.planOrActionItemsCaptured = planOrActionItems.length > 0;
     structuredFieldBase.evidenceRefsCaptured = parsedEvidenceRefs.length > 0;
 
     // --- Validate evidence refs if non-empty ---
@@ -293,7 +298,7 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
             ownerCaptured: true,
             dueDateCaptured: true,
             judgmentCriteriaCaptured: true,
-            planOrActionItemsCaptured: true,
+            planOrActionItemsCaptured: planOrActionItems.length > 0,
             evidenceRefsCaptured: true,
             evidenceRefsValid: false
           })
@@ -355,7 +360,7 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
       owner: owner,
       dueDateOrCheckTime: dueDate,
       judgmentCriteria: judgmentCriteria,
-      planOrActionItems: [planOrActionItems],
+      planOrActionItems: planOrActionItems,
       evidenceRefs: parsedEvidenceRefs,
       missingInformation: []
     };
@@ -387,7 +392,7 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
     console.log("Owner: " + owner);
     console.log("Due / Check Time: " + dueDate);
     console.log("Judgment Criteria: " + judgmentCriteria);
-    console.log("Plan / Action Items: " + planOrActionItems);
+    console.log("Plan / Action Items: " + planOrActionItems.join('\n'));
     console.log(
       "Evidence Refs: " +
         (parsedEvidenceRefs.length > 0 ? parsedEvidenceRefs.join(", ") : "none")
