@@ -392,6 +392,162 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
         })
       );
     }
+    
+    // ---- Step 12: Session-local list/show command loop ----
+    // After a successful confirmed OTUnit save, expose deterministic
+    // session-local list/show output. Read-only against the process-local
+    // in-memory repository. Does not persist after process exit.
+    // Does not create, confirm, mutate, or delete OTUnits.
+    console.log("\n--- Session-local list/show (read-only, in-memory) ---");
+    console.log("Type 'list' to list all session OTUnits.");
+    console.log("Type 'show <id>' to show one OTUnit detail.");
+    console.log("Type '/exit' to quit.");
+
+    while (true) {
+      const commandLine = await readLine("otunit> ");
+
+      if (commandLine === null) {
+        console.log("\nEliy Native OTUnit core loop exited.");
+        return;
+      }
+
+      const trimmed = commandLine.trim();
+
+      if (trimmed === "/exit") {
+        console.log("\nEliy Native OTUnit core loop exited.");
+        return;
+      }
+
+      if (trimmed.length === 0) {
+        continue;
+      }
+
+      // --- list command ---
+      if (trimmed === "list") {
+        const allOTUnits = repo.listByObjectiveId(confirmedOTUnit.objectiveId);
+
+        const listed: OTUnit[] = [...allOTUnits];
+
+        const listOutput = {
+          ok: true,
+          ...summaryBase,
+          action: "list",
+          repositorySource: "process_local_in_memory",
+          count: listed.length,
+          persistence: false,
+          durableRuntimeState: false,
+          readOnly: true,
+          otunits: listed.map((u) => ({
+            id: u.id,
+            title: u.title,
+            objectiveId: u.objectiveId,
+            owner: u.owner,
+            dueDate: u.dueDate,
+            status: u.status,
+            requiresConfirmation: u.requiresConfirmation
+          }))
+        };
+
+        console.log(JSON.stringify(listOutput, null, 2));
+        continue;
+      }
+
+      // --- show command ---
+      if (trimmed === "show" || trimmed.startsWith("show ")) {
+        const showId = trimmed.slice(5).trim();
+
+        if (showId.length === 0) {
+          console.log(
+            JSON.stringify(
+              {
+                ok: false,
+                ...summaryBase,
+                action: "show",
+                found: false,
+                id: "",
+                message: "Missing id. Usage: show <id>",
+                persistence: false,
+                durableRuntimeState: false,
+                readOnly: true
+              },
+              null,
+              2
+            )
+          );
+          continue;
+        }
+
+        const foundOTUnit = repo.getById(showId);
+
+        if (foundOTUnit === undefined) {
+          console.log(
+            JSON.stringify(
+              {
+                ok: false,
+                ...summaryBase,
+                action: "show",
+                found: false,
+                id: showId,
+                message: "OTUnit not found in this process-local session repository.",
+                persistence: false,
+                durableRuntimeState: false,
+                readOnly: true
+              },
+              null,
+              2
+            )
+          );
+          continue;
+        }
+
+        console.log(
+          JSON.stringify(
+            {
+              ok: true,
+              ...summaryBase,
+              action: "show",
+              found: true,
+              id: foundOTUnit.id,
+              repositorySource: "process_local_in_memory",
+              persistence: false,
+              durableRuntimeState: false,
+              readOnly: true,
+              otunit: {
+                id: foundOTUnit.id,
+                title: foundOTUnit.title,
+                objectiveId: foundOTUnit.objectiveId,
+                owner: foundOTUnit.owner,
+                dueDate: foundOTUnit.dueDate,
+                status: foundOTUnit.status,
+                requiresConfirmation: foundOTUnit.requiresConfirmation,
+                evidenceRefs: foundOTUnit.evidenceRefs,
+                createdAt: foundOTUnit.createdAt
+              }
+            },
+            null,
+            2
+          )
+        );
+        continue;
+      }
+
+      // --- unrecognized command ---
+      console.log(
+        JSON.stringify(
+          {
+            ok: false,
+            ...summaryBase,
+            action: "unrecognized",
+            message: `Unrecognized command: ${trimmed}. Type 'list', 'show <id>', or '/exit'.`,
+            persistence: false,
+            durableRuntimeState: false,
+            readOnly: true
+          },
+          null,
+          2
+        )
+      );
+    }
   } finally {
     rl.close();
   }
@@ -742,4 +898,3 @@ main().catch((error) => {
   console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;
 });
-

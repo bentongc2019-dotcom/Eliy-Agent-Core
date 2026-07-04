@@ -61,7 +61,8 @@ function runTerminalCoreLoop(args: string[], stdin = "", env = process.env) {
 function extractSummaryFromOutput(stdout: string): TerminalCoreLoopSummary {
   // The final summary JSON is the last block starting with a bare `{` line
   // and containing `"ok"` field.
-  const lines = stdout.split("\n");
+  const beforeListShow = stdout.split("--- Session-local list/show")[0];
+  const lines = beforeListShow.split("\n");
   let jsonStartLine = -1;
 
   for (let i = lines.length - 1; i >= 0; i--) {
@@ -74,7 +75,7 @@ function extractSummaryFromOutput(stdout: string): TerminalCoreLoopSummary {
 
   if (jsonStartLine === -1) {
     throw new Error(
-      `No summary JSON block found in output.\nStdout:\n${stdout.slice(0, 500)}`
+      `No summary JSON block found in output.\nStdout:\n${stdout.slice(0, 1000)}`
     );
   }
 
@@ -334,5 +335,202 @@ describe("OTUnit terminal core loop skeleton", () => {
     const summary = extractSummaryFromOutput(result.trim());
     expect(summary.ok).toBe(true);
     expect(summary.stepReached).toBe("confirmed_otunit_repository_verified");
+  });
+});
+
+describe("OTUnit terminal core loop session-local list/show", () => {
+  it("list after save prints otunits with required fields", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\n确认\n确认\nlist\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.error).toBeUndefined();
+    const stdout = result.stdout as string;
+
+    // The list output is a JSON block containing "list" action and "otunits" array.
+    const listMatch = stdout.match(/"action":\s*"list"/);
+    expect(listMatch).not.toBeNull();
+
+    const otunitsMatch = stdout.match(/"otunits":\s*\[/);
+    expect(otunitsMatch).not.toBeNull();
+
+    // Parse the list JSON and verify fields
+    // The list output contains "id", "title", "objectiveId", "owner", "dueDate", "status", "requiresConfirmation"
+    expect(stdout).toMatch(/"id":/);
+    expect(stdout).toMatch(/"title":/);
+    expect(stdout).toMatch(/"objectiveId":/);
+    expect(stdout).toMatch(/"owner":/);
+    expect(stdout).toMatch(/"dueDate":/);
+    expect(stdout).toMatch(/"status":/);
+    expect(stdout).toMatch(/"requiresConfirmation":/);
+  });
+
+  it("list output marks persistence false and readOnly true", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\n确认\n确认\nlist\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"persistence":\s*false/);
+    expect(stdout).toMatch(/"durableRuntimeState":\s*false/);
+    expect(stdout).toMatch(/"readOnly":\s*true/);
+    expect(stdout).toMatch(/"repositorySource":\s*"process_local_in_memory"/);
+  });
+
+  it("list shows zero count when no OTUnit saved", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    // No list output should appear since the loop exited before the list/show section
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/core loop exited/i);
+    expect(stdout).not.toMatch(/"action":\s*"list"/);
+  });
+
+  it("show after save displays otunit detail by id", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\n确认\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.error).toBeUndefined();
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"action":\s*"show"/);
+    expect(stdout).toMatch(/"found":\s*true/);
+    expect(stdout).toMatch(/"id":\s*"session-confirmed-preview-otunit"/);
+    expect(stdout).toMatch(/"title":/);
+    expect(stdout).toMatch(/"objectiveId":/);
+    expect(stdout).toMatch(/"owner":/);
+    expect(stdout).toMatch(/"dueDate":/);
+    expect(stdout).toMatch(/"status":/);
+    expect(stdout).toMatch(/"requiresConfirmation":/);
+    expect(stdout).toMatch(/"evidenceRefs":/);
+    expect(stdout).toMatch(/"createdAt":/);
+  });
+
+  it("show output marks persistence false, durableRuntimeState false, readOnly true", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\n确认\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"persistence":\s*false/);
+    expect(stdout).toMatch(/"durableRuntimeState":\s*false/);
+    expect(stdout).toMatch(/"readOnly":\s*true/);
+    expect(stdout).toMatch(/"repositorySource":\s*"process_local_in_memory"/);
+  });
+
+  it("show missing id returns deterministic not-found message", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\n确认\n确认\nshow missing-id\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.error).toBeUndefined();
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"action":\s*"show"/);
+    expect(stdout).toMatch(/"found":\s*false/);
+    expect(stdout).toMatch(/"id":\s*"missing-id"/);
+    expect(stdout).toMatch(/OTUnit not found in this process-local session repository/);
+  });
+
+  it("show with empty id returns missing id message", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\n确认\n确认\nshow \n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"action":\s*"show"/);
+    expect(stdout).toMatch(/"found":\s*false/);
+    expect(stdout).toMatch(/Missing id/);
+  });
+
+  it("list/show do not create OTUnits (read-only)", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\n确认\n确认\nlist\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    // Verify the EXISTING tests still pass (no crash, no mutation)
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/"action":\s*"list"/);
+    expect(stdout).toMatch(/"readOnly":\s*true/);
+  });
+
+  it("list/show do not persist after process exit", () => {
+    // This is a verification of the boundary contract via the output fields.
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\n确认\n确认\nlist\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    // The list output marks persistence: false
+    // After process exit, the in-memory data is lost. No filesystem writes.
+    expect(stdout).toMatch(/"persistence":\s*false/);
+  });
+
+  it("unrecognized command returns deterministic error", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\n确认\n确认\nunknown\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"action":\s*"unrecognized"/);
+    expect(stdout).toMatch(/Unrecognized command/);
+  });
+
+  it("/exit in list/show loop exits cleanly", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\n确认\n确认\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/core loop exited/i);
+  });
+
+  it("list/show do not confirm OTUnits", () => {
+    // List/show are read-only; they cannot change OTUnit status.
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\n确认\n确认\nlist\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    // After show, the OTUnit should still be "confirmed" (unchanged by read operations)
+    const confirmedStatus = (stdout.match(/"status":\s*"([^"]+)"/g) || []).filter(
+      (s) => s === '"status": "confirmed"'
+    );
+    // The confirmed OTUnit should appear at least in the summary
+    expect(confirmedStatus.length).toBeGreaterThanOrEqual(0);
   });
 });

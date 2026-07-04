@@ -91,3 +91,62 @@ The final summary is a JSON object with the following fields:
 - No durable runtime state
 - No deployment action
 - No mutation-oriented OTUnit CLI command (the existing `eliy otunit` command remains inspection-only)
+
+### List/Show Behavior
+
+After a successful confirmed OTUnit save, the terminal skeleton exposes deterministic
+session-local list/show output. The list/show loop reads only from the process-local
+in-memory repository. It does not persist after process exit.
+
+#### Available Commands
+
+After the summary is printed, the following commands are available:
+
+- `list` — prints all OTUnits from the session-local in-memory repository as JSON
+- `show <id>` — prints one OTUnit detail by id as JSON
+- `/exit` — exits the loop
+
+`list` output includes:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ok` | boolean | `true` |
+| `action` | string | `"list"` |
+| `repositorySource` | string | `"process_local_in_memory"` |
+| `count` | number | Number of OTUnits listed |
+| `persistence` | boolean | `false` |
+| `durableRuntimeState` | boolean | `false` |
+| `readOnly` | boolean | `true` |
+| `otunits` | array | List of OTUnit summaries with id, title, objectiveId, owner, dueDate, status, requiresConfirmation |
+
+`show <id>` output (found) includes:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ok` | boolean | `true` |
+| `action` | string | `"show"` |
+| `found` | boolean | `true` |
+| `id` | string | The requested OTUnit id |
+| `repositorySource` | string | `"process_local_in_memory"` |
+| `persistence` | boolean | `false` |
+| `durableRuntimeState` | boolean | `false` |
+| `readOnly` | boolean | `true` |
+| `otunit` | object | Full OTUnit detail including id, title, objectiveId, owner, dueDate, status, requiresConfirmation, evidenceRefs, createdAt |
+
+`show <missing-id>` output (not found) includes:
+
+| Field | Value |
+|-------|-------|
+| `ok` | `false` |
+| `found` | `false` |
+| `id` | The requested id |
+| `message` | `"OTUnit not found in this process-local session repository."` |
+| `persistence` | `false` |
+| `durableRuntimeState` | `false` |
+| `readOnly` | `true` |
+
+### Boundary Additions
+
+- List/show read only from the process-local in-memory repository
+- List/show do not persist after process exit
+- List/show do not create, confirm, mutate, or delete OTUnits
