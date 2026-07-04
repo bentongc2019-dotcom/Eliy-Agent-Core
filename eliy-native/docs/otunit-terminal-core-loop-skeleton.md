@@ -490,3 +490,207 @@ Machine-readable (extended with):
 - No OTUnit mutation (status, confirmation, review, adjust, revision)
 - Existing otunit command remains inspection-only
 - No mutation subcommands under existing otunit
+
+### Review/Check Record Behavior (PR #40)
+
+After a confirmed OTUnit exists in the process-local session repository, the otunit-core-loop supports
+the `check <id>` command to add a single review/check record for a confirmed OTUnit.
+
+#### Available Commands (Updated)
+
+After the summary is printed, the following commands are available:
+
+- `list` — prints all OTUnits from the session-local in-memory repository as JSON, with `structuredContextAvailable`, `followUpRecordCount`, and `reviewCheckRecordCount` fields
+- `show <id>` — prints human-readable O 单 detail (if structured context is available), follow-up records, and review/check records, followed by machine-readable JSON
+- `follow <id>` — adds a follow-up record for a confirmed OTUnit
+- `check <id>` — adds a review/check record for a confirmed OTUnit (see check flow below)
+- `/exit` or `exit` — exits the loop
+
+#### Review/Check Record Flow
+
+The `check <id>` command:
+
+1. Verifies the OTUnit exists in the process-local repository via `getById`.
+2. If the OTUnit is not found, returns a deterministic not-found message and does not prompt/save.
+3. Prompts the user for check result text.
+4. If the check result text is blank, returns a deterministic blank-result stop message and does not save.
+5. Prompts the user for difference / variance text.
+6. If the difference / variance text is blank, returns a deterministic blank-difference stop message and does not save.
+7. Prints a human-readable review/check preview showing the OTUnit title, id, check result, difference/variance, repository source, and persistence flag.
+8. Asks for explicit confirmation to save.
+9. If the confirmation signal is not `confirm` or `确认`, stops deterministically without saving.
+10. If confirmed, saves the review/check record to process-local session memory linked by the confirmed OTUnit id.
+11. Prints machine-readable success output with the saved review/check record details.
+
+#### Review/Check Record Properties
+
+- Records are process-local session memory only (`Map<string, ReviewCheckRecord[]>`)
+- Records are linked by confirmed OTUnit id
+- Records are not persisted after process exit
+- Records do not change OTUnit status, confirmation state, follow-up records, structured context snapshots, adjust records, revision records, evidence records, or repository persistence
+- Records do not close, revise, adjust, or mutate the OTUnit itself
+- Records do not create follow-up/adjust/revision behavior
+- Record IDs are deterministic: `session-check-record-1`, `session-check-record-2`, etc.
+
+#### Review/Check Record Shape
+
+```
+{
+  id: string;           // deterministic: session-check-record-1, session-check-record-2, etc.
+  otunitId: string;     // confirmed OTUnit id
+  resultText: string;   // check result text
+  differenceText: string; // difference / variance text
+  createdAt: string;    // ISO timestamp
+}
+```
+
+#### Review/Check Preview Example
+
+```
+--- Review / Check Preview ---
+OTUnit: 完成第一批体验客户访谈
+OTUnit ID: session-confirmed-preview-otunit
+Check Result: 已完成 2 位客户访谈，第 3 位已预约
+Difference / Variance: 距离判断标准还差 1 位客户访谈记录
+Repository: process-local in-memory
+Persistence: false
+
+Confirm save review/check record? (confirm to save, /exit to quit):
+```
+
+#### Check Command Machine-readable Output (Success)
+
+```
+{
+  "ok": true,
+  "action": "check",
+  "found": true,
+  "id": "session-confirmed-preview-otunit",
+  "reviewCheckSaved": true,
+  "reviewCheckRecord": {
+    "id": "session-check-record-1",
+    "otunitId": "session-confirmed-preview-otunit",
+    "resultText": "已完成 2 位客户访谈，第 3 位已预约",
+    "differenceText": "距离判断标准还差 1 位客户访谈记录",
+    "createdAt": "<ISO timestamp>"
+  },
+  "otunitMutated": false,
+  "otunitStatusChanged": false,
+  "otunitClosed": false,
+  "otunitRevised": false,
+  "adjustmentCreated": false,
+  "repositorySource": "process_local_in_memory",
+  "persistence": false,
+  "durableRuntimeState": false,
+  "providerRequired": false,
+  "chatWrites": false
+}
+```
+
+#### Check Missing-id Output
+
+```
+{
+  "ok": false,
+  "action": "check",
+  "found": false,
+  "id": "missing-id",
+  "message": "OTUnit not found in this process-local session repository.",
+  "reviewCheckSaved": false,
+  ...
+}
+```
+
+#### Check Blank-result Output
+
+```
+{
+  "ok": false,
+  "action": "check",
+  "found": true,
+  "id": "<otunit-id>",
+  "message": "Blank check result text. No review/check record saved.",
+  "reviewCheckSaved": false,
+  ...
+}
+```
+
+#### Check Blank-difference Output
+
+```
+{
+  "ok": false,
+  "action": "check",
+  "found": true,
+  "id": "<otunit-id>",
+  "message": "Blank difference / variance text. No review/check record saved.",
+  "reviewCheckSaved": false,
+  ...
+}
+```
+
+#### Check Ambiguous Confirmation Output
+
+```
+{
+  "ok": false,
+  "action": "check",
+  "found": true,
+  "id": "<otunit-id>",
+  "reviewCheckPreviewPrinted": true,
+  "reviewCheckConfirmed": false,
+  "reviewCheckSaved": false,
+  ...
+}
+```
+
+#### list Output (Updated)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| ... | ... | (all existing fields) |
+| `otunits[].followUpRecordCount` | number | Number of follow-up records for this OTUnit |
+| `otunits[].reviewCheckRecordCount` | number | Number of review/check records for this OTUnit |
+
+#### show Output (Updated)
+
+After a review/check record is saved, `show <id>` displays:
+
+Human-readable:
+```
+--- O 单 Detail ---
+...
+Status: confirmed
+...
+
+--- Follow-up Records ---
+1. <follow-up text>
+
+--- Review / Check Records ---
+1. Result: <check result text>
+   Difference / Variance: <difference text>
+```
+
+Machine-readable (extended with):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `followUpRecordCount` | number | Number of follow-up records for this OTUnit |
+| `followUpRecords` | array | Array of follow-up record objects with id, otunitId, text, createdAt |
+| `reviewCheckRecordCount` | number | Number of review/check records for this OTUnit |
+| `reviewCheckRecords` | array | Array of review/check record objects with id, otunitId, resultText, differenceText, createdAt |
+
+#### Boundary
+
+- Review/check records are process-local session memory only
+- No database, no filesystem persistence, no network storage
+- No provider integration, no AI generation
+- No normal chat writes
+- No durable runtime state
+- No OTUnit mutation (status, confirmation, follow-up, review, adjust, revision)
+- No OTUnit close, revise, or adjust behavior
+- Existing otunit command remains inspection-only
+- No mutation subcommands under existing otunit
+- Existing follow-up record behavior remains unchanged
+- Existing evidence refs delimiter normalization remains unchanged
+- Existing structured context snapshot behavior remains unchanged

@@ -165,6 +165,43 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
     return getFollowUpRecords(otunitId).length;
   }
 
+  // Process-local review/check record session memory.
+  // Linked by confirmed OTUnit id. Read-only after saved.
+  // Does not persist after process exit. Does not mutate OTUnit.
+  interface ReviewCheckRecord {
+    id: string;
+    otunitId: string;
+    resultText: string;
+    differenceText: string;
+    createdAt: string;
+  }
+
+  const reviewCheckRecords = new Map<string, ReviewCheckRecord[]>();
+  let reviewCheckRecordCounter = 0;
+
+  function addReviewCheckRecord(otunitId: string, resultText: string, differenceText: string): ReviewCheckRecord {
+    reviewCheckRecordCounter++;
+    const record: ReviewCheckRecord = {
+      id: `session-check-record-${reviewCheckRecordCounter}`,
+      otunitId,
+      resultText,
+      differenceText,
+      createdAt: new Date().toISOString()
+    };
+    const existing = reviewCheckRecords.get(otunitId) || [];
+    existing.push(record);
+    reviewCheckRecords.set(otunitId, existing);
+    return record;
+  }
+
+  function getReviewCheckRecords(otunitId: string): ReviewCheckRecord[] {
+    return reviewCheckRecords.get(otunitId) || [];
+  }
+
+  function getReviewCheckRecordCount(otunitId: string): number {
+    return getReviewCheckRecords(otunitId).length;
+  }
+
   console.log("Eliy Native OTUnit core loop started. Type /exit to quit.");
 
   // Line reader using async iterator to support both pipe and interactive modes.
@@ -608,6 +645,8 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
     // ---- Step 15: Session-local list/show ----
     console.log("\n--- Session-local list/show (read-only, in-memory) ---");
     console.log("Type 'list' to list all session OTUnits.");
+    console.log("Type 'follow <id>' to add a follow-up record.");
+    console.log("Type 'check <id>' to add a review/check record.");
     console.log("Type 'show <id>' to show one OTUnit detail.");
     console.log("Type '/exit' to quit.");
 
@@ -641,7 +680,8 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
           status: u.status,
           requiresConfirmation: u.requiresConfirmation,
           structuredContextAvailable: structuredContextSnapshots.has(u.id),
-          followUpRecordCount: getFollowUpRecordCount(u.id)
+          followUpRecordCount: getFollowUpRecordCount(u.id),
+          reviewCheckRecordCount: getReviewCheckRecordCount(u.id)
         }));
        const listOutput = {
          ok: true,
@@ -707,6 +747,17 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
              console.log((index + 1) + ". " + rec.text);
            });
          }
+         // Print review/check records (human-readable)
+         const checkRecords = getReviewCheckRecords(showId);
+         if (checkRecords.length > 0) {
+           console.log("");
+           console.log("--- Review / Check Records ---");
+           checkRecords.forEach((rec, index) => {
+             console.log((index + 1) + ". Result: " + rec.resultText);
+             console.log("   Difference / Variance: " + rec.differenceText);
+           });
+         }
+
        } else {
          console.log("Structured context snapshot not available for this OTUnit in the current process-local session.");
        }
@@ -741,10 +792,19 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
        }
 
        showOutput.followUpRecordCount = getFollowUpRecordCount(showId);
+       showOutput.reviewCheckRecordCount = getReviewCheckRecordCount(showId);
        showOutput.followUpRecords = getFollowUpRecords(showId).map(r => ({
          id: r.id,
          otunitId: r.otunitId,
          text: r.text,
+         createdAt: r.createdAt
+       }));
+
+       showOutput.reviewCheckRecords = getReviewCheckRecords(showId).map(r => ({
+         id: r.id,
+         otunitId: r.otunitId,
+         resultText: r.resultText,
+         differenceText: r.differenceText,
          createdAt: r.createdAt
        }));
 
@@ -858,9 +918,138 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
         continue;
       }
 
+      if (trimmed === "check" || trimmed.startsWith("check ")) {
+        const checkId = trimmed.slice(6).trim();
+
+        if (checkId.length === 0) {
+          console.log(JSON.stringify({
+            ok: false, ...summaryBase, action: "check", found: false, id: "",
+            message: "Missing id. Usage: check <id>",
+            reviewCheckSaved: false,
+            persistence: false, durableRuntimeState: false, readOnly: true
+          }, null, 2));
+          continue;
+        }
+
+        const foundOTUnit = repo.getById(checkId);
+
+        if (foundOTUnit === undefined) {
+          console.log(JSON.stringify({
+            ok: false, ...summaryBase, action: "check", found: false, id: checkId,
+            message: "OTUnit not found in this process-local session repository.",
+            reviewCheckSaved: false,
+            persistence: false, durableRuntimeState: false, readOnly: true
+          }, null, 2));
+          continue;
+        }
+
+        // Prompt for check result text
+        const checkResultTextLine = await readLine("Enter check result text: ");
+
+        if (checkResultTextLine === null || checkResultTextLine.trim().length === 0) {
+          console.log(JSON.stringify({
+            ok: false, ...summaryBase, action: "check", found: true, id: checkId,
+            message: "Blank check result text. No review/check record saved.",
+            reviewCheckSaved: false,
+            otunitMutated: false,
+            otunitStatusChanged: false,
+            persistence: false, durableRuntimeState: false, readOnly: true
+          }, null, 2));
+          continue;
+        }
+
+        const checkResultText = checkResultTextLine.trim();
+
+        // Prompt for difference/variance text
+        const differenceTextLine = await readLine("Enter difference / variance text: ");
+
+        if (differenceTextLine === null || differenceTextLine.trim().length === 0) {
+          console.log(JSON.stringify({
+            ok: false, ...summaryBase, action: "check", found: true, id: checkId,
+            message: "Blank difference / variance text. No review/check record saved.",
+            reviewCheckSaved: false,
+            otunitMutated: false,
+            otunitStatusChanged: false,
+            persistence: false, durableRuntimeState: false, readOnly: true
+          }, null, 2));
+          continue;
+        }
+
+        const differenceText = differenceTextLine.trim();
+
+        // Print human-readable review/check preview
+        const checkContext = structuredContextSnapshots.get(checkId);
+        console.log("");
+        console.log("--- Review / Check Preview ---");
+        console.log("OTUnit: " + (checkContext ? checkContext.title : foundOTUnit.title));
+        console.log("OTUnit ID: " + checkId);
+        console.log("Check Result: " + checkResultText);
+        console.log("Difference / Variance: " + differenceText);
+        console.log("Repository: process-local in-memory");
+        console.log("Persistence: false");
+
+        // Ask for explicit confirmation
+        const confirmSignal = await readLine("Confirm save review/check record? (confirm to save, /exit to quit): ");
+
+        if (confirmSignal === null || confirmSignal.trim() === "/exit") {
+          console.log(JSON.stringify({
+            ok: false, ...summaryBase, action: "check", found: true, id: checkId,
+            reviewCheckPreviewPrinted: true,
+            reviewCheckConfirmed: false,
+            reviewCheckSaved: false,
+            otunitMutated: false,
+            otunitStatusChanged: false,
+            persistence: false, durableRuntimeState: false, readOnly: true
+          }, null, 2));
+          continue;
+        }
+
+        const isConfirmed = confirmSignal.trim() === "confirm" || confirmSignal.trim() === "确认";
+
+        if (!isConfirmed) {
+          console.log(JSON.stringify({
+            ok: false, ...summaryBase, action: "check", found: true, id: checkId,
+            reviewCheckPreviewPrinted: true,
+            reviewCheckConfirmed: false,
+            reviewCheckSaved: false,
+            otunitMutated: false,
+            otunitStatusChanged: false,
+            persistence: false, durableRuntimeState: false, readOnly: true
+          }, null, 2));
+          continue;
+        }
+
+        // Save the review/check record
+        const savedRecord = addReviewCheckRecord(checkId, checkResultText, differenceText);
+
+        console.log(JSON.stringify({
+          ok: true, ...summaryBase, action: "check", found: true, id: checkId,
+          reviewCheckSaved: true,
+          reviewCheckRecord: {
+            id: savedRecord.id,
+            otunitId: savedRecord.otunitId,
+            resultText: savedRecord.resultText,
+            differenceText: savedRecord.differenceText,
+            createdAt: savedRecord.createdAt
+          },
+          otunitMutated: false,
+          otunitStatusChanged: false,
+          otunitClosed: false,
+          otunitRevised: false,
+          adjustmentCreated: false,
+          repositorySource: "process_local_in_memory",
+          persistence: false,
+          durableRuntimeState: false,
+          providerRequired: false,
+          chatWrites: false
+        }, null, 2));
+        continue;
+      }
+
+
      console.log(JSON.stringify({
        ok: false, ...summaryBase, action: "unrecognized",
-       message: "Unrecognized command: " + trimmed + ". You are inside the OTUnit session command loop. Use list, show <id>, follow <id>, /exit, or exit.",
+       message: "Unrecognized command: " + trimmed + ". You are inside the OTUnit session command loop. Use list, show <id>, follow <id>, check <id>, /exit, or exit.",
        persistence: false, durableRuntimeState: false, readOnly: true
      }, null, 2));
     }
