@@ -694,3 +694,216 @@ Machine-readable (extended with):
 - Existing follow-up record behavior remains unchanged
 - Existing evidence refs delimiter normalization remains unchanged
 - Existing structured context snapshot behavior remains unchanged
+
+### Adjust Record Behavior (PR #41)
+
+After a confirmed OTUnit exists in the process-local session repository, the otunit-core-loop supports
+the `adjust <id>` command to add a single adjust record for a confirmed OTUnit.
+
+#### Available Commands (Updated)
+
+After the summary is printed, the following commands are available:
+
+- `list` — prints all OTUnits from the session-local in-memory repository as JSON, with `structuredContextAvailable`, `followUpRecordCount`, `reviewCheckRecordCount`, and `adjustRecordCount` fields
+- `show <id>` — prints human-readable O 单 detail (if structured context is available), follow-up records, review/check records, and adjust records, followed by machine-readable JSON
+- `follow <id>` — adds a follow-up record for a confirmed OTUnit
+- `check <id>` — adds a review/check record for a confirmed OTUnit
+- `adjust <id>` — adds an adjust/improvement record for a confirmed OTUnit (see adjust flow below)
+- `/exit` or `exit` — exits the loop
+
+#### Adjust Record Flow
+
+The `adjust <id>` command:
+
+1. Verifies the OTUnit exists in the process-local repository via `getById`.
+2. If the OTUnit is not found, returns a deterministic not-found message and does not prompt/save.
+3. Prompts the user for adjustment / improvement action text.
+4. If the action text is blank, returns a deterministic blank-action stop message and does not save.
+5. Prompts the user for reason text.
+6. If the reason text is blank, returns a deterministic blank-reason stop message and does not save.
+7. Prints a human-readable adjust preview showing the OTUnit title, id, adjustment/improvement action, reason, repository source, and persistence flag.
+8. Asks for explicit confirmation to save.
+9. If the confirmation signal is not `confirm` or `确认`, stops deterministically without saving.
+10. If confirmed, saves the adjust record to process-local session memory linked by the confirmed OTUnit id.
+11. Prints machine-readable success output with the saved adjust record details.
+
+#### Adjust Record Properties
+
+- Records are process-local session memory only (`Map<string, AdjustRecord[]>`)
+- Records are linked by confirmed OTUnit id
+- Records are not persisted after process exit
+- Records do not change OTUnit status, confirmation state, follow-up records, review/check records, structured context snapshots, or repository persistence
+- Records do not close, revise, replace, or mutate the OTUnit itself
+- Records do not create follow-up/review/check/revision behavior
+- Record IDs are deterministic: `session-adjust-record-1`, `session-adjust-record-2`, etc.
+
+#### Adjust Record Shape
+
+```
+{
+  id: string;           // deterministic: session-adjust-record-1, session-adjust-record-2, etc.
+  otunitId: string;     // confirmed OTUnit id
+  actionText: string;   // adjustment / improvement action text
+  reasonText: string;   // reason why this adjustment/improvement is needed
+  createdAt: string;    // ISO timestamp
+}
+```
+
+#### Adjust Preview Example
+
+```
+--- Adjust Preview ---
+OTUnit: 完成第一批体验客户访谈
+OTUnit ID: session-confirmed-preview-otunit
+Adjustment / Improvement Action: 明天补访第 3 位客户，并整理三位客户共通问题
+Reason: 当前距离判断标准还差 1 位客户访谈记录，需要补齐后再判断
+Repository: process-local in-memory
+Persistence: false
+
+Confirm save adjust record? (confirm to save, /exit to quit):
+```
+
+#### Adjust Command Machine-readable Output (Success)
+
+```
+{
+  "ok": true,
+  "action": "adjust",
+  "found": true,
+  "id": "session-confirmed-preview-otunit",
+  "adjustSaved": true,
+  "adjustRecord": {
+    "id": "session-adjust-record-1",
+    "otunitId": "session-confirmed-preview-otunit",
+    "actionText": "明天补访第 3 位客户，并整理三位客户共通问题",
+    "reasonText": "当前距离判断标准还差 1 位客户访谈记录，需要补齐后再判断",
+    "createdAt": "<ISO timestamp>"
+  },
+  "otunitMutated": false,
+  "otunitStatusChanged": false,
+  "otunitClosed": false,
+  "otunitRevised": false,
+  "otunitReplaced": false,
+  "repositorySource": "process_local_in_memory",
+  "persistence": false,
+  "durableRuntimeState": false,
+  "providerRequired": false,
+  "chatWrites": false
+}
+```
+
+#### Adjust Missing-id Output
+
+```
+{
+  "ok": false,
+  "action": "adjust",
+  "found": false,
+  "id": "missing-id",
+  "message": "OTUnit not found in this process-local session repository.",
+  "adjustSaved": false,
+  ...
+}
+```
+
+#### Adjust Blank-action Output
+
+```
+{
+  "ok": false,
+  "action": "adjust",
+  "found": true,
+  "id": "<otunit-id>",
+  "message": "Blank adjustment text. No adjust record saved.",
+  "adjustSaved": false,
+  ...
+}
+```
+
+#### Adjust Blank-reason Output
+
+```
+{
+  "ok": false,
+  "action": "adjust",
+  "found": true,
+  "id": "<otunit-id>",
+  "message": "Blank reason text. No adjust record saved.",
+  "adjustSaved": false,
+  ...
+}
+```
+
+#### Adjust Ambiguous Confirmation Output
+
+```
+{
+  "ok": false,
+  "action": "adjust",
+  "found": true,
+  "id": "<otunit-id>",
+  "adjustPreviewPrinted": true,
+  "adjustConfirmed": false,
+  "adjustSaved": false,
+  ...
+}
+```
+
+#### list Output (Updated)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| ... | ... | (all existing fields) |
+| `otunits[].followUpRecordCount` | number | Number of follow-up records for this OTUnit |
+| `otunits[].reviewCheckRecordCount` | number | Number of review/check records for this OTUnit |
+| `otunits[].adjustRecordCount` | number | Number of adjust records for this OTUnit |
+
+#### show Output (Updated)
+
+After an adjust record is saved, `show <id>` displays:
+
+Human-readable:
+```
+--- O 单 Detail ---
+...
+Status: confirmed
+...
+
+--- Follow-up Records ---
+1. <follow-up text>
+
+--- Review / Check Records ---
+1. Result: <check result text>
+   Difference / Variance: <difference text>
+
+--- Adjust Records ---
+1. Action: <action text>
+   Reason: <reason text>
+```
+
+Machine-readable (extended with):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `followUpRecordCount` | number | Number of follow-up records for this OTUnit |
+| `followUpRecords` | array | Array of follow-up record objects with id, otunitId, text, createdAt |
+| `reviewCheckRecordCount` | number | Number of review/check records for this OTUnit |
+| `reviewCheckRecords` | array | Array of review/check record objects with id, otunitId, resultText, differenceText, createdAt |
+| `adjustRecordCount` | number | Number of adjust records for this OTUnit |
+| `adjustRecords` | array | Array of adjust record objects with id, otunitId, actionText, reasonText, createdAt |
+
+#### Boundary
+
+- Adjust records are process-local session memory only
+- No database, no filesystem persistence, no network storage
+- No provider integration, no AI generation
+- No normal chat writes
+- No durable runtime state
+- No OTUnit mutation (status, confirmation, follow-up, review, check, revision)
+- No OTUnit close, revise, replace, or adjust/mutate behavior
+- Existing otunit command remains inspection-only
+- No mutation subcommands under existing otunit
+- Existing follow-up record behavior remains unchanged
+- Existing review/check record behavior remains unchanged
+- Existing evidence refs delimiter normalization remains unchanged
+- Existing structured context snapshot behavior remains unchanged

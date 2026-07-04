@@ -198,11 +198,48 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
     return reviewCheckRecords.get(otunitId) || [];
   }
 
-  function getReviewCheckRecordCount(otunitId: string): number {
-    return getReviewCheckRecords(otunitId).length;
+ function getReviewCheckRecordCount(otunitId: string): number {
+   return getReviewCheckRecords(otunitId).length;
+ }
+
+  // Process-local adjust record session memory.
+  // Linked by confirmed OTUnit id. Read-only after saved.
+  // Does not persist after process exit. Does not mutate OTUnit.
+  interface AdjustRecord {
+    id: string;
+    otunitId: string;
+    actionText: string;
+    reasonText: string;
+    createdAt: string;
   }
 
-  console.log("Eliy Native OTUnit core loop started. Type /exit to quit.");
+  const adjustRecords = new Map<string, AdjustRecord[]>();
+  let adjustRecordCounter = 0;
+
+  function addAdjustRecord(otunitId: string, actionText: string, reasonText: string): AdjustRecord {
+    adjustRecordCounter++;
+    const record: AdjustRecord = {
+      id: `session-adjust-record-${adjustRecordCounter}`,
+      otunitId,
+      actionText,
+      reasonText,
+      createdAt: new Date().toISOString()
+    };
+    const existing = adjustRecords.get(otunitId) || [];
+    existing.push(record);
+    adjustRecords.set(otunitId, existing);
+    return record;
+  }
+
+  function getAdjustRecords(otunitId: string): AdjustRecord[] {
+    return adjustRecords.get(otunitId) || [];
+  }
+
+  function getAdjustRecordCount(otunitId: string): number {
+    return getAdjustRecords(otunitId).length;
+  }
+
+ console.log("Eliy Native OTUnit core loop started. Type /exit to quit.");
 
   // Line reader using async iterator to support both pipe and interactive modes.
   const lineIterator = rl[Symbol.asyncIterator]();
@@ -645,9 +682,10 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
     // ---- Step 15: Session-local list/show ----
     console.log("\n--- Session-local list/show (read-only, in-memory) ---");
     console.log("Type 'list' to list all session OTUnits.");
-    console.log("Type 'follow <id>' to add a follow-up record.");
-    console.log("Type 'check <id>' to add a review/check record.");
-    console.log("Type 'show <id>' to show one OTUnit detail.");
+   console.log("Type 'follow <id>' to add a follow-up record.");
+   console.log("Type 'check <id>' to add a review/check record.");
+    console.log("Type 'adjust <id>' to add an adjust/improvement record.");
+   console.log("Type 'show <id>' to show one OTUnit detail.");
     console.log("Type '/exit' to quit.");
 
     while (true) {
@@ -679,11 +717,12 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
           dueDate: u.dueDate,
           status: u.status,
           requiresConfirmation: u.requiresConfirmation,
-          structuredContextAvailable: structuredContextSnapshots.has(u.id),
-          followUpRecordCount: getFollowUpRecordCount(u.id),
-          reviewCheckRecordCount: getReviewCheckRecordCount(u.id)
-        }));
-       const listOutput = {
+         structuredContextAvailable: structuredContextSnapshots.has(u.id),
+         followUpRecordCount: getFollowUpRecordCount(u.id),
+         reviewCheckRecordCount: getReviewCheckRecordCount(u.id),
+          adjustRecordCount: getAdjustRecordCount(u.id)
+       }));
+      const listOutput = {
          ok: true,
          ...summaryBase,
          action: "list",
@@ -754,13 +793,24 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
            console.log("--- Review / Check Records ---");
            checkRecords.forEach((rec, index) => {
              console.log((index + 1) + ". Result: " + rec.resultText);
-             console.log("   Difference / Variance: " + rec.differenceText);
+            console.log("   Difference / Variance: " + rec.differenceText);
+          });
+        }
+
+         // Print adjust records (human-readable)
+         const adjustRecs = getAdjustRecords(showId);
+         if (adjustRecs.length > 0) {
+           console.log("");
+           console.log("--- Adjust Records ---");
+           adjustRecs.forEach((rec, index) => {
+             console.log((index + 1) + ". Action: " + rec.actionText);
+             console.log("   Reason: " + rec.reasonText);
            });
          }
 
-       } else {
-         console.log("Structured context snapshot not available for this OTUnit in the current process-local session.");
-       }
+      } else {
+        console.log("Structured context snapshot not available for this OTUnit in the current process-local session.");
+      }
 
       const showOutput: Record<string, unknown> = {
          ok: true, ...summaryBase, action: "show", found: true, id: foundOTUnit.id,
@@ -800,16 +850,25 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
          createdAt: r.createdAt
        }));
 
-       showOutput.reviewCheckRecords = getReviewCheckRecords(showId).map(r => ({
+      showOutput.reviewCheckRecords = getReviewCheckRecords(showId).map(r => ({
+        id: r.id,
+        otunitId: r.otunitId,
+        resultText: r.resultText,
+        differenceText: r.differenceText,
+        createdAt: r.createdAt
+      }));
+
+       showOutput.adjustRecordCount = getAdjustRecordCount(showId);
+       showOutput.adjustRecords = getAdjustRecords(showId).map(r => ({
          id: r.id,
          otunitId: r.otunitId,
-         resultText: r.resultText,
-         differenceText: r.differenceText,
+         actionText: r.actionText,
+         reasonText: r.reasonText,
          createdAt: r.createdAt
        }));
 
-       console.log(JSON.stringify(showOutput, null, 2));
-       continue;
+      console.log(JSON.stringify(showOutput, null, 2));
+      continue;
       }
 
       if (trimmed === "follow" || trimmed.startsWith("follow ")) {
@@ -1045,11 +1104,138 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
         }, null, 2));
         continue;
       }
+      if (trimmed === "adjust" || trimmed.startsWith("adjust ")) {
+        const adjustId = trimmed.slice(7).trim();
+
+        if (adjustId.length === 0) {
+          console.log(JSON.stringify({
+            ok: false, ...summaryBase, action: "adjust", found: false, id: "",
+            message: "Missing id. Usage: adjust <id>",
+            adjustSaved: false,
+            persistence: false, durableRuntimeState: false, readOnly: true
+          }, null, 2));
+          continue;
+        }
+
+        const foundOTUnit = repo.getById(adjustId);
+
+        if (foundOTUnit === undefined) {
+          console.log(JSON.stringify({
+            ok: false, ...summaryBase, action: "adjust", found: false, id: adjustId,
+            message: "OTUnit not found in this process-local session repository.",
+            adjustSaved: false,
+            persistence: false, durableRuntimeState: false, readOnly: true
+          }, null, 2));
+          continue;
+        }
+
+        // Prompt for adjustment / improvement action text
+        const actionTextLine = await readLine("Enter adjustment / improvement action text: ");
+
+        if (actionTextLine === null || actionTextLine.trim().length === 0) {
+          console.log(JSON.stringify({
+            ok: false, ...summaryBase, action: "adjust", found: true, id: adjustId,
+            message: "Blank adjustment text. No adjust record saved.",
+            adjustSaved: false,
+            otunitMutated: false,
+            otunitStatusChanged: false,
+            persistence: false, durableRuntimeState: false, readOnly: true
+          }, null, 2));
+          continue;
+        }
+
+        const actionText = actionTextLine.trim();
+
+        // Prompt for reason text
+        const reasonTextLine = await readLine("Enter reason text: ");
+
+        if (reasonTextLine === null || reasonTextLine.trim().length === 0) {
+          console.log(JSON.stringify({
+            ok: false, ...summaryBase, action: "adjust", found: true, id: adjustId,
+            message: "Blank reason text. No adjust record saved.",
+            adjustSaved: false,
+            otunitMutated: false,
+            otunitStatusChanged: false,
+            persistence: false, durableRuntimeState: false, readOnly: true
+          }, null, 2));
+          continue;
+        }
+
+        const reasonText = reasonTextLine.trim();
+
+        // Print human-readable adjust preview
+        const adjustContext = structuredContextSnapshots.get(adjustId);
+        console.log("");
+        console.log("--- Adjust Preview ---");
+        console.log("OTUnit: " + (adjustContext ? adjustContext.title : foundOTUnit.title));
+        console.log("OTUnit ID: " + adjustId);
+        console.log("Adjustment / Improvement Action: " + actionText);
+        console.log("Reason: " + reasonText);
+        console.log("Repository: process-local in-memory");
+        console.log("Persistence: false");
+
+        // Ask for explicit confirmation
+        const confirmSignal = await readLine("Confirm save adjust record? (confirm to save, /exit to quit): ");
+
+        if (confirmSignal === null || confirmSignal.trim() === "/exit") {
+          console.log(JSON.stringify({
+            ok: false, ...summaryBase, action: "adjust", found: true, id: adjustId,
+            adjustPreviewPrinted: true,
+            adjustConfirmed: false,
+            adjustSaved: false,
+            otunitMutated: false,
+            otunitStatusChanged: false,
+            persistence: false, durableRuntimeState: false, readOnly: true
+          }, null, 2));
+          continue;
+        }
+
+        const isConfirmed = confirmSignal.trim() === "confirm" || confirmSignal.trim() === "确认";
+
+        if (!isConfirmed) {
+          console.log(JSON.stringify({
+            ok: false, ...summaryBase, action: "adjust", found: true, id: adjustId,
+            adjustPreviewPrinted: true,
+            adjustConfirmed: false,
+            adjustSaved: false,
+            otunitMutated: false,
+            otunitStatusChanged: false,
+            persistence: false, durableRuntimeState: false, readOnly: true
+          }, null, 2));
+          continue;
+        }
+
+        // Save the adjust record
+        const savedRecord = addAdjustRecord(adjustId, actionText, reasonText);
+
+        console.log(JSON.stringify({
+          ok: true, ...summaryBase, action: "adjust", found: true, id: adjustId,
+          adjustSaved: true,
+          adjustRecord: {
+            id: savedRecord.id,
+            otunitId: savedRecord.otunitId,
+            actionText: savedRecord.actionText,
+            reasonText: savedRecord.reasonText,
+            createdAt: savedRecord.createdAt
+          },
+          otunitMutated: false,
+          otunitStatusChanged: false,
+          otunitClosed: false,
+          otunitRevised: false,
+          otunitReplaced: false,
+          repositorySource: "process_local_in_memory",
+          persistence: false,
+          durableRuntimeState: false,
+          providerRequired: false,
+          chatWrites: false
+        }, null, 2));
+        continue;
+      }
 
 
      console.log(JSON.stringify({
        ok: false, ...summaryBase, action: "unrecognized",
-       message: "Unrecognized command: " + trimmed + ". You are inside the OTUnit session command loop. Use list, show <id>, follow <id>, check <id>, /exit, or exit.",
+       message: "Unrecognized command: " + trimmed + ". You are inside the OTUnit session command loop. Use list, show <id>, follow <id>, check <id>, adjust <id>, /exit, or exit.",
        persistence: false, durableRuntimeState: false, readOnly: true
      }, null, 2));
     }
