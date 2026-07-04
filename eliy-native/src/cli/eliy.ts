@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
+import type { OTUnit } from "../domain/index.js";
 import {
   ALLOWED_OTUNIT_TRANSITIONS,
   OTUNIT_STATUSES,
@@ -198,40 +199,156 @@ Non-empty input returns a deterministic skeleton response when provider config i
   program
     .command("otunit")
     .description("OTUnit commands")
+    .addHelpText("after", `
+
+This is a deterministic inspection-only command.
+It does not create, save, list, show, or confirm OTUnits from user input.
+It does not wait for stdin.
+It does not require provider config.`)
     .action(() => {
-    const repo = createInMemoryOTUnitRepository();
-    printResult({
-      ok: true,
-      command: "otunit",
-      mode: "domain_contract_inspection",
-      domain: {
-        otunit: {
-          available: true,
-          statusValues: [...OTUNIT_STATUSES],
-          allowedTransitionsCount: ALLOWED_OTUNIT_TRANSITIONS.length,
-          confirmationBoundaryAvailable: typeof confirmOTUnit === "function",
-          draftBoundaryAvailable: typeof createProposedOTUnitFromDraft === "function",
-          evidenceRefBoundaryAvailable: typeof validateEvidenceRefs === "function",
-          reviewRevisionBoundaryAvailable:
-            typeof createOTUnitReviewIntent === "function" && typeof reviseOTUnit === "function",
-          repositoryBoundaryAvailable:
-            typeof repo.save === "function" &&
-            typeof repo.getById === "function" &&
-            typeof repo.listByObjectiveId === "function" &&
-            typeof repo.clear === "function"
-        }
-      },
-      repository: {
-        implementation: "in_memory",
-        persistence: false,
-        durableRuntimeState: false,
-        chatWrites: false
-      },
-      requiresProviderConfig: false,
-      waitsForStdin: false,
-      persistence: false
+      const repo = createInMemoryOTUnitRepository();
+
+      // --- Deterministic fixture data ---
+      const fixture1: OTUnit = {
+        id: "fixture-otunit-001",
+        objectiveId: "fixture-objective-001",
+        title: "Fixture OTUnit inspection save",
+        owner: "inspector",
+        dueDate: "2026-07-15",
+        status: "proposed",
+        evidenceRefs: ["evidence-fixture-001"],
+        requiresConfirmation: true,
+        createdAt: "2026-07-04T00:00:00.000Z"
+      };
+
+      const fixture2: OTUnit = {
+        id: "fixture-otunit-002",
+        objectiveId: "fixture-objective-001",
+        title: "Second fixture OTUnit for inspection",
+        owner: "inspector",
+        dueDate: "2026-07-20",
+        status: "proposed",
+        evidenceRefs: ["evidence-fixture-002"],
+        requiresConfirmation: true,
+        createdAt: "2026-07-04T00:00:00.000Z"
+      };
+
+      const fixture3: OTUnit = {
+        id: "fixture-otunit-003",
+        objectiveId: "fixture-objective-002",
+        title: "Third fixture OTUnit different objective",
+        owner: "inspector",
+        dueDate: "2026-07-25",
+        status: "proposed",
+        evidenceRefs: ["evidence-fixture-003"],
+        requiresConfirmation: true,
+        createdAt: "2026-07-04T00:00:00.000Z"
+      };
+
+      // --- saveValidOTUnit ---
+      const saveResult1 = repo.save(fixture1);
+      const saveResult2 = repo.save(fixture2);
+      const saveResult3 = repo.save(fixture3);
+      const saveValidOTUnit = saveResult1.valid && saveResult2.valid && saveResult3.valid;
+
+      // --- getById ---
+      const getById1 = repo.getById(fixture1.id);
+      const getById2 = repo.getById(fixture2.id);
+      const getByIdMissing = repo.getById("non-existent-id");
+      const getByIdResult =
+        getById1 !== undefined &&
+        getById1.id === fixture1.id &&
+        getById1.title === fixture1.title &&
+        getById1.objectiveId === fixture1.objectiveId &&
+        getById1.status === fixture1.status &&
+        getById2 !== undefined &&
+        getById2.id === fixture2.id &&
+        getByIdMissing === undefined;
+
+      // --- listByObjectiveId ---
+      const listResult1 = repo.listByObjectiveId("fixture-objective-001");
+      const listResult2 = repo.listByObjectiveId("fixture-objective-002");
+      const listResultMissing = repo.listByObjectiveId("non-existent-objective");
+      const listByObjectiveIdResult =
+        listResult1.length === 2 &&
+        listResult1.every((u) => u.objectiveId === "fixture-objective-001") &&
+        listResult1.sort((a, b) => a.id.localeCompare(b.id))[0].id === "fixture-otunit-001" &&
+        listResult2.length === 1 &&
+        listResult2[0].id === "fixture-otunit-003" &&
+        listResultMissing.length === 0;
+
+      // --- mutationSafeCopies ---
+      let mutationSafeCopies = false;
+      if (getById1 !== undefined) {
+        const returnedCopy = repo.getById(fixture1.id)!;
+        const originalTitle = returnedCopy.title;
+        const originalEvidenceRefs = [...returnedCopy.evidenceRefs];
+
+        // Mutate the returned copy aggressively.
+        returnedCopy.title = "MUTATED";
+        returnedCopy.owner = "MUTATED";
+        returnedCopy.dueDate = "MUTATED";
+        returnedCopy.evidenceRefs.push("MUTATED-REF");
+
+        // Re-retrieve and confirm stored state is unchanged.
+        const storedAgain = repo.getById(fixture1.id)!;
+        mutationSafeCopies =
+          storedAgain.title === originalTitle &&
+          storedAgain.evidenceRefs.join(",") === originalEvidenceRefs.join(",");
+      }
+
+      // --- clear ---
+      repo.clear();
+      const clearResult =
+        repo.getById(fixture1.id) === undefined &&
+        repo.getById(fixture2.id) === undefined &&
+        repo.getById(fixture3.id) === undefined &&
+        repo.listByObjectiveId("fixture-objective-001").length === 0 &&
+        repo.listByObjectiveId("fixture-objective-002").length === 0;
+
+      printResult({
+        ok: true,
+        command: "otunit",
+        mode: "domain_contract_inspection",
+        domain: {
+          otunit: {
+            available: true,
+            statusValues: [...OTUNIT_STATUSES],
+            allowedTransitionsCount: ALLOWED_OTUNIT_TRANSITIONS.length,
+            confirmationBoundaryAvailable: typeof confirmOTUnit === "function",
+            draftBoundaryAvailable: typeof createProposedOTUnitFromDraft === "function",
+            evidenceRefBoundaryAvailable: typeof validateEvidenceRefs === "function",
+            reviewRevisionBoundaryAvailable:
+              typeof createOTUnitReviewIntent === "function" && typeof reviseOTUnit === "function",
+            repositoryBoundaryAvailable:
+              typeof repo.save === "function" &&
+              typeof repo.getById === "function" &&
+              typeof repo.listByObjectiveId === "function" &&
+              typeof repo.clear === "function"
+          }
+        },
+        repository: {
+          implementation: "in_memory",
+          persistence: false,
+          durableRuntimeState: false,
+          chatWrites: false
+        },
+        repositoryInspection: {
+          saveValidOTUnit,
+          getById: getByIdResult,
+          listByObjectiveId: listByObjectiveIdResult,
+          clear: clearResult,
+          mutationSafeCopies,
+          persistedAfterProcessExit: false,
+          stdinRequired: false,
+          chatCreatesOTUnits: false,
+          mutationCliCommands: false
+        },
+        requiresProviderConfig: false,
+        waitsForStdin: false,
+        persistence: false
+      });
     });
-  });
 
   const evidence = program.command("evidence").description("Evidence commands");
   evidence
