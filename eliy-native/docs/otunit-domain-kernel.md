@@ -606,3 +606,74 @@ Inside the `otunit` CLI action:
 - no durable runtime state
 - no deployment action
 - no mutation-oriented OTUnit CLI command
+
+## Deterministic OTUnit Core Flow Harness
+
+PR #33 adds a deterministic OTUnit core flow harness that composes existing OTUnit boundaries into one testable core flow.
+
+### Flow Steps
+
+The deterministic core flow has 9 steps:
+
+| Step | Description | Existing Boundary Used |
+|------|-------------|----------------------|
+| 1 | Detect draft intent from deterministic chat/session text | `detectOTUnitDraftIntent` |
+| 2 | Produce plan-aware draft preview | `previewOTUnitDraftFromChat` |
+| 3 | Require explicit preview confirmation | Empty-signal guard |
+| 4 | Create proposed OTUnit only after explicit preview confirmation | `createProposedOTUnitFromConfirmedPreview` |
+| 5 | Require explicit proposed OTUnit confirmation | Empty-signal guard |
+| 6 | Create confirmed OTUnit only after explicit proposed confirmation | `confirmProposedOTUnit` |
+| 7 | Save confirmed OTUnit to in-memory repository | `createInMemoryOTUnitRepository.save` |
+| 8 | Verify getById returns the confirmed OTUnit | `repository.getById` |
+| 9 | Verify listByObjectiveId includes the confirmed OTUnit | `repository.listByObjectiveId` |
+
+### Harness Function
+
+`runDeterministicOTUnitCoreFlow(input?)` in `src/runtime/kernel/tests/otunit-deterministic-core-flow.test.ts`.
+
+Takes an optional `Partial<DeterministicFlowInput>` with overrides for session text, confirmation signals, fixture fields.
+
+Returns a `DeterministicFlowResult` with:
+
+- `flowOk` — true only when all 9 steps succeed
+- `stopped` — true when flow stops due to missing or ambiguous confirmation
+- `stepReached` — the highest step reached before completion or stop
+- Per-step boolean flags for auditability
+- `durableRuntimeState: false` — hard-coded declaration
+- `chatWrites: false` — hard-coded declaration
+- `persistence: false` — hard-coded declaration
+- `mutationCliCommands: false` — hard-coded declaration
+- `errors` — string array with deterministic stop reasons
+- `confirmedOTUnit` — the confirmed OTUnit when flowOk is true
+
+### Stop Conditions
+
+| Condition | Stops Before | Behavior |
+|-----------|-------------|----------|
+| Empty/whitespace preview confirmation signal | Proposed OTUnit creation | Returns `stopped: true`, `stepReached: "preview_created"` |
+| Ambiguous preview confirmation signal | Proposed OTUnit creation | Delegates to `createProposedOTUnitFromConfirmedPreview` ambiguous-signal rejection |
+| Unrecognized preview confirmation signal | Proposed OTUnit creation | Delegates to `createProposedOTUnitFromConfirmedPreview` unrecognized-signal rejection |
+| Empty/whitespace proposed confirmation signal | Confirmed OTUnit creation | Returns `stopped: true`, `stepReached: "proposed_otunit_created"` |
+| Ambiguous proposed confirmation signal | Confirmed OTUnit creation | Delegates to `confirmProposedOTUnit` ambiguous-signal rejection |
+| Unrecognized proposed confirmation signal | Confirmed OTUnit creation | Delegates to `confirmProposedOTUnit` unrecognized-signal rejection |
+
+### Repository Verification
+
+After a successful flow:
+
+- `repository.getById(confirmedOTUnit.id)` returns the confirmed OTUnit
+- `repository.listByObjectiveId(flowInput.objectiveId)` includes the confirmed OTUnit
+- Repository is in-memory only (no database, no filesystem persistence)
+
+### Boundary
+
+- no database
+- no filesystem persistence
+- no network storage
+- no provider integration
+- no AI generation
+- no chat behavior change
+- no chat writes
+- no durable runtime state
+- no mutation-oriented OTUnit CLI command
+- no deployment action
