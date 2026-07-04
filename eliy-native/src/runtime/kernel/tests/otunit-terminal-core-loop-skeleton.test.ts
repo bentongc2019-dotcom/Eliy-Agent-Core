@@ -534,9 +534,137 @@ describe("OTUnit terminal core loop session-local list/show", () => {
       (s) => s === '"status": "confirmed"'
     );
     // The confirmed OTUnit should appear at least in the summary
-    expect(confirmedStatus.length).toBeGreaterThanOrEqual(0);
+   expect(confirmedStatus.length).toBeGreaterThanOrEqual(0);
+ });
+
+  it("list shows structuredContextAvailable after confirmed OTUnit creation", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nlist\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.error).toBeUndefined();
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"structuredContextAvailable":\s*true/);
+  });
+
+  it("show <id> after confirmed OTUnit prints human-readable O 单 detail", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.error).toBeUndefined();
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/--- O 单 Detail ---/);
+    expect(stdout).toMatch(/Objective:/);
+    expect(stdout).toMatch(/Q3 收入目标/);
+    expect(stdout).toMatch(/OTUnit:/);
+    expect(stdout).toMatch(/Owner:/);
+    expect(stdout).toMatch(/Due \/ Check Time:/);
+    expect(stdout).toMatch(/Judgment Criteria:/);
+    expect(stdout).toMatch(/Plan \/ Action Items:/);
+    expect(stdout).toMatch(/Repository: process-local in-memory/);
+    expect(stdout).toMatch(/Persistence: false/);
+  });
+
+  it("show <id> machine-readable output includes structuredContextAvailable and structuredContext", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    expect(result.error).toBeUndefined();
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"structuredContextAvailable":\s*true/);
+    expect(stdout).toMatch(/"structuredContext":\s*\{/);
+    expect(stdout).toMatch(/"repositorySource":\s*"process_local_in_memory"/);
+    expect(stdout).toMatch(/"readOnly":\s*true/);
+    expect(stdout).toMatch(/"persistence":\s*false/);
+  });
+
+  it("show <id> remains read-only (no mutation)", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nshow session-confirmed-preview-otunit\nlist\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/"readOnly":\s*true/);
+  });
+
+  it("exit alias exits otunit> command loop", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nexit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/core loop exited/i);
+  });
+
+  it("/exit still works in otunit> command loop", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/core loop exited/i);
+  });
+
+  it("unrecognized command message explains user is inside OTUnit session command loop", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nhello\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/You are inside the OTUnit session command loop/);
+    expect(stdout).toMatch(/list, show <id>, \/exit, or exit/);
+  });
+
+  it("unrecognized command does not mutate state", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nhello\nlist\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    // After unrecognized command, list still works and shows the same OTUnit
+    expect(stdout).toMatch(/"count":\s*1/);
+    expect(stdout).toMatch(/"readOnly":\s*true/);
+  });
+
+  it("structured context is not persisted after process exit", () => {
+    // This is a boundary declaration test.
+    // The structured context snapshot exists only in process-local session memory.
+    // After process exit, all snapshots are lost.
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nlist\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    // The output confirms no durable persistence
+    expect(stdout).toMatch(/"persistence":\s*false/);
+    expect(stdout).toMatch(/"durableRuntimeState":\s*false/);
   });
 });
+
 describe("parseEvidenceRefs delimiter normalization", () => {
   it("empty string returns empty array", () => {
     expect(parseEvidenceRefs("")).toEqual([]);
