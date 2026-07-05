@@ -807,6 +807,52 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
              console.log("   Reason: " + rec.reasonText);
            });
          }
+         // O'PDCA Summary: derived from existing structured context and session records
+         console.log("");
+         console.log("--- O'PDCA Summary ---");
+         console.log("Objective / Plan:");
+         console.log("Objective: " + context.objective);
+         console.log("OTUnit: " + context.title);
+         console.log("Judgment Criteria: " + context.judgmentCriteria);
+         console.log("Plan / Action Items:");
+         context.planOrActionItems.forEach((item) => console.log(item));
+
+         console.log("");
+         console.log("Do Records:");
+         if (followRecords.length > 0) {
+           followRecords.forEach((rec) => console.log("- " + rec.text));
+         } else {
+           console.log("No follow-up records in this process-local session.");
+         }
+
+         console.log("");
+         console.log("Check Records:");
+         if (checkRecords.length > 0) {
+           checkRecords.forEach((rec) => {
+             console.log("- Result: " + rec.resultText);
+             console.log("  Difference / Variance: " + rec.differenceText);
+           });
+         } else {
+           console.log("No review/check records in this process-local session.");
+         }
+
+         console.log("");
+         console.log("Adjust Records:");
+         if (adjustRecs.length > 0) {
+           adjustRecs.forEach((rec) => {
+             console.log("- Action: " + rec.actionText);
+             console.log("  Reason: " + rec.reasonText);
+           });
+         } else {
+           console.log("No adjust records in this process-local session.");
+         }
+
+         console.log("");
+         console.log("Current Status:");
+         console.log("Status: " + foundOTUnit.status);
+         console.log("Requires Confirmation: " + foundOTUnit.requiresConfirmation);
+         console.log("Repository: process-local in-memory");
+         console.log("Persistence: false");
 
       } else {
         console.log("Structured context snapshot not available for this OTUnit in the current process-local session.");
@@ -867,6 +913,24 @@ async function runTerminalOTUnitCoreLoopSkeleton(): Promise<void> {
          createdAt: r.createdAt
        }));
 
+      if (structuredContextAvailable && context !== undefined) {
+        showOutput.opdcaSummaryAvailable = true;
+        showOutput.opdcaSummary = {
+          objective: context.objective,
+          planItems: context.planOrActionItems,
+          doRecordCount: getFollowUpRecordCount(showId),
+          checkRecordCount: getReviewCheckRecordCount(showId),
+          adjustRecordCount: getAdjustRecordCount(showId),
+          currentStatus: {
+            status: foundOTUnit.status,
+            requiresConfirmation: foundOTUnit.requiresConfirmation,
+            repositorySource: "process_local_in_memory",
+            persistence: false
+          }
+        };
+      } else {
+        showOutput.opdcaSummaryAvailable = false;
+      }
       console.log(JSON.stringify(showOutput, null, 2));
       continue;
       }
