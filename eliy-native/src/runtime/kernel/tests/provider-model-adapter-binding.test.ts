@@ -350,7 +350,7 @@ describe("Provider / model adapter binding", () => {
 
   it("uses the configured runtime timeout when provider requests are slow", async () => {
     const provider = await startMockProvider(async (_request, response) => {
-      await new Promise((resolveDelay) => setTimeout(resolveDelay, 200));
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 2_000));
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify({
         choices: [
@@ -367,7 +367,7 @@ describe("Provider / model adapter binding", () => {
       ELIY_PROVIDER_BASE_URL: provider.baseUrl,
       ELIY_PROVIDER_API_KEY: "dummy-provider-key",
       ELIY_PROVIDER_MODEL: "test-model",
-      ELIY_PROVIDER_TIMEOUT_MS: "50"
+      ELIY_PROVIDER_TIMEOUT_MS: "500"
     });
     const combinedOutput = `${result.stdout}\n${result.stderr}`;
 
