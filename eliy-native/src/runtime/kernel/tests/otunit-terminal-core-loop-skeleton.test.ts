@@ -492,6 +492,7 @@ describe("OTUnit terminal core loop revision intent records", () => {
 
     expect(stdout).toMatch(/--- Revision Intent Records ---/);
     expect(stdout).toMatch(/Revision Intent:/);
+    expect(stdout).toMatch(/Revision Intent Count: 1/);
     expect(stdout).toMatch(/"revisionIntentRecordCount":\s*1/);
   });
 
@@ -597,6 +598,7 @@ describe("OTUnit terminal core loop revision intent records", () => {
     expect(stdout).toMatch(/Check Records/);
     expect(stdout).toMatch(/Adjust Records/);
     expect(stdout).toMatch(/Revision Intent:/);
+    expect(stdout).toMatch(/Revision Intent Count: 1/);
     expect(stdout).toMatch(/"doRecordCount":\s*1/);
     expect(stdout).toMatch(/"checkRecordCount":\s*1/);
     expect(stdout).toMatch(/"adjustRecordCount":\s*1/);
@@ -729,6 +731,8 @@ describe("OTUnit terminal core loop session-local list/show", () => {
     expect(stdout).toMatch(/"action":\s*"show"/);
     expect(stdout).toMatch(/"found":\s*true/);
     expect(stdout).toMatch(/"id":\s*"session-confirmed-preview-otunit"/);
+    expect(stdout).toMatch(/Revision Intent Count: 0/);
+    expect(stdout).toMatch(/No revision intent records in this process-local session/);
     expect(stdout).toMatch(/"title":/);
     expect(stdout).toMatch(/"objectiveId":/);
     expect(stdout).toMatch(/"owner":/);

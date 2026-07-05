@@ -894,6 +894,7 @@ console.log("Type 'show <id>' to show one OTUnit detail.");
         }
         console.log("");
         console.log("Revision Intent:");
+        console.log("Revision Intent Count: " + getRevisionIntentRecordCount(showId));
         const opdcaRevisionIntents = getRevisionIntentRecords(showId);
         if (opdcaRevisionIntents.length > 0) {
           opdcaRevisionIntents.forEach((rec) => {

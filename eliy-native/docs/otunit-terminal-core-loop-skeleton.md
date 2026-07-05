@@ -1155,6 +1155,7 @@ Human-readable:
 
 ```
 Revision Intent:
+Revision Intent Count: 1
 - Revision Reason: <reason text>
   Proposed Direction: <direction text>
 ```
@@ -1163,6 +1164,7 @@ Empty-state:
 
 ```
 Revision Intent:
+Revision Intent Count: 0
 No revision intent records in this process-local session.
 ```
 
