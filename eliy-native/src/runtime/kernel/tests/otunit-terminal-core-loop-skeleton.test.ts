@@ -340,6 +340,326 @@ describe("OTUnit terminal core loop skeleton", () => {
     expect(summary.stepReached).toBe("confirmed_otunit_repository_verified");
   });
 });
+describe("OTUnit terminal core loop revision intent records", () => {
+  it("revise-intent <id> happy path saves a revision intent record after explicit confirmation", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nrevise-intent session-confirmed-preview-otunit\n当前资源不足，需要重新评估时间线\n缩小范围至 2 位客户访谈，优先核心客户\nconfirm\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"action":\s*"revise-intent"/);
+    expect(stdout).toMatch(/"revisionIntentSaved":\s*true/);
+    expect(stdout).toMatch(/"id":\s*"session-confirmed-preview-otunit"/);
+    expect(stdout).toMatch(/"reasonText":\s*"当前资源不足，需要重新评估时间线"/);
+    expect(stdout).toMatch(/"directionText":\s*"缩小范围至 2 位客户访谈，优先核心客户"/);
+    expect(stdout).toMatch(/"otunitMutated":\s*false/);
+    expect(stdout).toMatch(/"otunitStatusChanged":\s*false/);
+    expect(stdout).toMatch(/"otunitRevised":\s*false/);
+    expect(stdout).toMatch(/"otunitClosed":\s*false/);
+    expect(stdout).toMatch(/"otunitReplaced":\s*false/);
+    expect(stdout).toMatch(/"newOTUnitCreated":\s*false/);
+    expect(stdout).toMatch(/"persistence":\s*false/);
+  });
+
+  it("revision intent preview is printed before save", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nrevise-intent session-confirmed-preview-otunit\n当前资源不足，需要重新评估时间线\n缩小范围至 2 位客户访谈，优先核心客户\nconfirm\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/--- Revision Intent Preview ---/);
+    expect(stdout).toMatch(/OTUnit ID: session-confirmed-preview-otunit/);
+    expect(stdout).toMatch(/Revision Reason: 当前资源不足，需要重新评估时间线/);
+    expect(stdout).toMatch(/Proposed Revision Direction: 缩小范围至 2 位客户访谈，优先核心客户/);
+  });
+
+  it("ambiguous confirmation does not save revision intent record", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nrevise-intent session-confirmed-preview-otunit\n当前资源不足，需要重新评估时间线\n缩小范围至 2 位客户访谈，优先核心客户\n不确定\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"action":\s*"revise-intent"/);
+    expect(stdout).toMatch(/"revisionIntentPreviewPrinted":\s*true/);
+    expect(stdout).toMatch(/"revisionIntentConfirmed":\s*false/);
+    expect(stdout).toMatch(/"revisionIntentSaved":\s*false/);
+  });
+
+  it("missing OTUnit id returns deterministic not-found behavior", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nrevise-intent missing-id\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"action":\s*"revise-intent"/);
+    expect(stdout).toMatch(/"found":\s*false/);
+    expect(stdout).toMatch(/"id":\s*"missing-id"/);
+    expect(stdout).toMatch(/OTUnit not found in this process-local session repository/);
+    expect(stdout).toMatch(/"revisionIntentSaved":\s*false/);
+  });
+
+  it("blank reason stops without saving revision intent record", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nrevise-intent session-confirmed-preview-otunit\n\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"action":\s*"revise-intent"/);
+    expect(stdout).toMatch(/"revisionIntentSaved":\s*false/);
+    expect(stdout).toMatch(/Blank revision reason text/);
+  });
+
+  it("blank direction stops without saving revision intent record", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nrevise-intent session-confirmed-preview-otunit\n当前资源不足，需要重新评估时间线\n\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"action":\s*"revise-intent"/);
+    expect(stdout).toMatch(/"revisionIntentSaved":\s*false/);
+    expect(stdout).toMatch(/Blank proposed revision direction text/);
+  });
+
+  it("show <id> displays Revision Intent Records when revision intent exists", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nrevise-intent session-confirmed-preview-otunit\n当前资源不足，需要重新评估时间线\n缩小范围至 2 位客户访谈，优先核心客户\nconfirm\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/--- Revision Intent Records ---/);
+    expect(stdout).toMatch(/Revision Reason: 当前资源不足，需要重新评估时间线/);
+    expect(stdout).toMatch(/Proposed Revision Direction: 缩小范围至 2 位客户访谈，优先核心客户/);
+  });
+
+  it("show <id> machine-readable output includes revision intent fields", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nrevise-intent session-confirmed-preview-otunit\n当前资源不足，需要重新评估时间线\n缩小范围至 2 位客户访谈，优先核心客户\nconfirm\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"revisionIntentRecordCount":\s*1/);
+    expect(stdout).toMatch(/"revisionIntentRecords":\s*\[/);
+    expect(stdout).toMatch(/"id":\s*"session-revision-intent-record-1"/);
+    expect(stdout).toMatch(/"otunitId":\s*"session-confirmed-preview-otunit"/);
+    expect(stdout).toMatch(/"reasonText":\s*"当前资源不足，需要重新评估时间线"/);
+    expect(stdout).toMatch(/"directionText":\s*"缩小范围至 2 位客户访谈，优先核心客户"/);
+  });
+
+  it("list output includes deterministic revisionIntentRecordCount", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nrevise-intent session-confirmed-preview-otunit\n当前资源不足，需要重新评估时间线\n缩小范围至 2 位客户访谈，优先核心客户\nconfirm\nlist\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"revisionIntentRecordCount":\s*1/);
+  });
+
+  it("O'PDCA Summary includes revision intent count", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nrevise-intent session-confirmed-preview-otunit\n当前资源不足，需要重新评估时间线\n缩小范围至 2 位客户访谈，优先核心客户\nconfirm\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/--- Revision Intent Records ---/);
+    expect(stdout).toMatch(/Revision Intent:/);
+    expect(stdout).toMatch(/Revision Intent Count: 1/);
+    expect(stdout).toMatch(/"revisionIntentRecordCount":\s*1/);
+  });
+
+  it("opdcaSummary.revisionIntentRecordCount is present", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nrevise-intent session-confirmed-preview-otunit\n当前资源不足，需要重新评估时间线\n缩小范围至 2 位客户访谈，优先核心客户\nconfirm\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"revisionIntentRecordCount":\s*1/);
+    expect(stdout).toMatch(/"opdcaSummary"/);
+  });
+
+  it("revise-intent record does not change status", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nrevise-intent session-confirmed-preview-otunit\n当前资源不足，需要重新评估时间线\n缩小范围至 2 位客户访谈，优先核心客户\nconfirm\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"status":\s*"confirmed"/);
+    expect(stdout).toMatch(/"otunitStatusChanged":\s*false/);
+  });
+
+  it("revise-intent record does not create a new OTUnit", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nrevise-intent session-confirmed-preview-otunit\n当前资源不足，需要重新评估时间线\n缩小范围至 2 位客户访谈，优先核心客户\nconfirm\nlist\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"newOTUnitCreated":\s*false/);
+    const countMatch = stdout.match(/"count":\s*(\d+)/);
+    expect(countMatch).not.toBeNull();
+    expect(Number(countMatch![1])).toBe(1);
+  });
+
+  it("revise-intent record does not close OTUnit", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nrevise-intent session-confirmed-preview-otunit\n当前资源不足，需要重新评估时间线\n缩小范围至 2 位客户访谈，优先核心客户\nconfirm\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+
+    expect(stdout).toMatch(/"otunitClosed":\s*false/);
+  });
+
+  it("follow <id> regression remains passing after revision intent", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nrevise-intent session-confirmed-preview-otunit\n当前资源不足，需要重新评估时间线\n缩小范围至 2 位客户访谈，优先核心客户\nconfirm\nfollow session-confirmed-preview-otunit\n今天完成 2 位客户访谈，并约好第 3 位\nconfirm\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/"followUpSaved":\s*true/);
+    expect(stdout).toMatch(/"otunitMutated":\s*false/);
+  });
+
+  it("check <id> regression remains passing after revision intent", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nrevise-intent session-confirmed-preview-otunit\n当前资源不足，需要重新评估时间线\n缩小范围至 2 位客户访谈，优先核心客户\nconfirm\ncheck session-confirmed-preview-otunit\n已完成 2 位客户访谈，第 3 位已预约\n距离判断标准还差 1 位客户访谈记录\nconfirm\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/"reviewCheckSaved":\s*true/);
+    expect(stdout).toMatch(/"otunitMutated":\s*false/);
+  });
+
+  it("adjust <id> regression remains passing after revision intent", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nrevise-intent session-confirmed-preview-otunit\n当前资源不足，需要重新评估时间线\n缩小范围至 2 位客户访谈，优先核心客户\nconfirm\nadjust session-confirmed-preview-otunit\n明天补访第 3 位客户，并整理三位客户共通问题\n当前距离判断标准还差 1 位客户访谈记录，需要补齐后再判断\nconfirm\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/"adjustSaved":\s*true/);
+    expect(stdout).toMatch(/"otunitMutated":\s*false/);
+  });
+
+  it("O'PDCA Summary regression remains passing after revision intent", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nrevise-intent session-confirmed-preview-otunit\n当前资源不足，需要重新评估时间线\n缩小范围至 2 位客户访谈，优先核心客户\nconfirm\nfollow session-confirmed-preview-otunit\n今天完成 2 位客户访谈，并约好第 3 位\nconfirm\ncheck session-confirmed-preview-otunit\n已完成 2 位客户访谈，第 3 位已预约\n距离判断标准还差 1 位客户访谈记录\nconfirm\nadjust session-confirmed-preview-otunit\n明天补访第 3 位客户，并整理三位客户共通问题\n当前距离判断标准还差 1 位客户访谈记录，需要补齐后再判断\nconfirm\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/--- O'PDCA Summary ---/);
+    expect(stdout).toMatch(/Do Records/);
+    expect(stdout).toMatch(/Check Records/);
+    expect(stdout).toMatch(/Adjust Records/);
+    expect(stdout).toMatch(/Revision Intent:/);
+    expect(stdout).toMatch(/Revision Intent Count: 1/);
+    expect(stdout).toMatch(/"doRecordCount":\s*1/);
+    expect(stdout).toMatch(/"checkRecordCount":\s*1/);
+    expect(stdout).toMatch(/"adjustRecordCount":\s*1/);
+    expect(stdout).toMatch(/"revisionIntentRecordCount":\s*1/);
+  });
+
+  it("evidence delimiter normalization still passes after revision intent", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\nref1, ref2，ref3、ref4\n确认\n确认\nrevise-intent session-confirmed-preview-otunit\n当前资源不足，需要重新评估时间线\n缩小范围至 2 位客户访谈，优先核心客户\nconfirm\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/"evidenceRefsValid":\s*true/);
+  });
+
+  it("duplicate refs regression remains passing after revision intent", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\nref1,ref1\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/"evidenceRefsValid":\s*false/);
+  });
+
+  it("ambiguous preview confirmation regression remains passing after revision intent", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n大概这样\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/"previewConfirmed":\s*false/);
+  });
+
+  it("ambiguous proposed confirmation regression remains passing after revision intent", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n大概这样\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/"proposedOTUnitConfirmed":\s*false/);
+  });
+
+  it("chat behavior remains unchanged with revise-intent available", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/core loop exited/i);
+  });
+});
 
 describe("OTUnit terminal core loop session-local list/show", () => {
   it("list after save prints otunits with required fields", () => {
@@ -411,6 +731,8 @@ describe("OTUnit terminal core loop session-local list/show", () => {
     expect(stdout).toMatch(/"action":\s*"show"/);
     expect(stdout).toMatch(/"found":\s*true/);
     expect(stdout).toMatch(/"id":\s*"session-confirmed-preview-otunit"/);
+    expect(stdout).toMatch(/Revision Intent Count: 0/);
+    expect(stdout).toMatch(/No revision intent records in this process-local session/);
     expect(stdout).toMatch(/"title":/);
     expect(stdout).toMatch(/"objectiveId":/);
     expect(stdout).toMatch(/"owner":/);
@@ -632,7 +954,7 @@ describe("OTUnit terminal core loop session-local list/show", () => {
     const stdout = result.stdout as string;
 
     expect(stdout).toMatch(/You are inside the OTUnit session command loop/);
-    expect(stdout).toMatch(/list, show <id>, follow <id>, check <id>, adjust <id>, \/exit, or exit/);
+    expect(stdout).toMatch(/list, show <id>, follow <id>, check <id>, adjust <id>, revise-intent <id>, \/exit, or exit/);
   });
 
   it("unrecognized command does not mutate state", () => {
