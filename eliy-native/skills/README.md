@@ -7,7 +7,7 @@ capability modules — their intent, boundaries, and constraints — without imp
 how those capabilities are loaded, invoked, or managed at runtime.
 
 Skill Packs will be loaded through future generic capability registry / loader contracts.
-**Skill Registry / Loader / Capability Contract must be Eliy-wide, not O'PDCA-specific.**
+**Skill Registry / Loader / Capability Contract must be Eliy-wide, not O’PDCA-specific.**
 Any registry, loader, or capability contract must be designed once for the entire Eliy
 system and shared across all Skill Packs.
 

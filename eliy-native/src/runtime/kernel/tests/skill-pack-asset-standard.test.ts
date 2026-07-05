@@ -28,7 +28,7 @@ const allModuleNames = [
   "Review / Check Skill",
   "Adjust Action Skill",
   "Revision Intent Skill",
-  "O'PDCA Summary Skill",
+  "O’PDCA Summary Skill",
 ];
 
 const skillPackFiles = [
@@ -51,15 +51,15 @@ describe("Eliy Skill Pack — asset standard", () => {
   });
 });
 
-describe("O'PDCA Skill Pack — content contract", () => {
+describe("O’PDCA Skill Pack — content contract", () => {
   const skillPack = readFile(join(skillsDir, "opdca", "SKILL.md"));
 
-  it("O'PDCA Skill Pack exists", () => {
-    expect(skillPack).toContain("O'PDCA Skill Pack");
+  it("O’PDCA Skill Pack exists", () => {
+    expect(skillPack).toContain("O’PDCA Skill Pack");
   });
 
-  it("O'PDCA Management System exists", () => {
-    expect(skillPack).toContain("O'PDCA Management System");
+  it("O’PDCA Management System exists", () => {
+    expect(skillPack).toContain("O’PDCA Management System");
   });
 
   it("计划经营 exists", () => {
@@ -90,7 +90,7 @@ describe("O'PDCA Skill Pack — content contract", () => {
   });
 });
 
-describe("O'PDCA Skill Pack — forbidden patterns", () => {
+describe("O’PDCA Skill Pack — forbidden patterns", () => {
   const skillPack = readFile(join(skillsDir, "opdca", "SKILL.md"));
 
   it("skills/plan-management does not appear in the new Skill Pack files", () => {

@@ -1,17 +1,17 @@
-# O'PDCA Skill Pack
+# O’PDCA Skill Pack
 
 **Chinese brand name:** 计划经营
 
-**English system name:** O'PDCA Management System
+**English system name:** O’PDCA Management System
 
 **Description:** An objective-driven, PDCA-based management system for planning,
 budgeting, review, improvement, and management development.
 
-**O'PDCA Skill Pack is a Skill Pack, not one large Skill.**
+**O’PDCA Skill Pack is a Skill Pack, not one large Skill.**
 
 ## Modules
 
-O'PDCA Skill Pack defines exactly nine modules:
+O’PDCA Skill Pack defines exactly nine modules:
 
 1. Objective Framing Skill
 2. Plan Structuring Skill
@@ -21,7 +21,7 @@ O'PDCA Skill Pack defines exactly nine modules:
 6. Review / Check Skill
 7. Adjust Action Skill
 8. Revision Intent Skill
-9. O'PDCA Summary Skill
+9. O’PDCA Summary Skill
 
 ## Boundary
 
