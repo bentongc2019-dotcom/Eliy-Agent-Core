@@ -1056,3 +1056,134 @@ Machine-readable (extended with):
 - Existing structured context snapshot behavior remains unchanged
 - Existing otunit command remains inspection-only
 - No mutation subcommands under existing otunit
+
+### Revision Intent Record Behavior (PR #43)
+
+After a confirmed OTUnit exists in the process-local session repository, the otunit-core-loop supports
+the `revise-intent <id>` command to add a revision intent record for a confirmed OTUnit.
+
+A revision intent record captures the intent to revise, not the revision itself.
+No actual revision action is performed. No OTUnit status is changed. No new OTUnit is created.
+No OTUnit is closed.
+
+#### Available Commands (Updated)
+
+After the summary is printed, the following commands are available:
+
+- `list` — prints all OTUnits from the session-local in-memory repository as JSON, with `structuredContextAvailable`, `followUpRecordCount`, `reviewCheckRecordCount`, `adjustRecordCount`, and `revisionIntentRecordCount` fields
+- `show <id>` — prints human-readable O 单 detail (if structured context is available), follow-up records, review/check records, adjust records, revision intent records, and O'PDCA Summary, followed by machine-readable JSON
+- `follow <id>` — adds a follow-up record for a confirmed OTUnit
+- `check <id>` — adds a review/check record for a confirmed OTUnit
+- `adjust <id>` — adds an adjust record for a confirmed OTUnit
+- `revise-intent <id>` — adds a revision intent record for a confirmed OTUnit (see revise-intent flow below)
+- `/exit` or `exit` — exits the loop
+
+#### Revision Intent Record Flow
+
+The `revise-intent <id>` command:
+
+1. Verifies the OTUnit exists in the process-local repository via `getById`.
+2. If the OTUnit is not found, returns a deterministic not-found message and does not prompt/save.
+3. Prompts the user for revision reason text.
+4. If the revision reason text is blank, returns a deterministic blank-reason stop message and does not save.
+5. Prompts the user for proposed revision direction text.
+6. If the proposed revision direction text is blank, returns a deterministic blank-direction stop message and does not save.
+7. Prints a human-readable revision intent preview showing the OTUnit id, revision reason, proposed revision direction, repository source, and persistence flag.
+8. Asks for explicit confirmation to save.
+9. If the confirmation signal is not `confirm` or `确认`, stops deterministically without saving.
+10. If confirmed, saves the revision intent record to process-local session memory linked by the confirmed OTUnit id.
+11. Prints machine-readable success output with the saved revision intent record details.
+
+#### Revision Intent Record Properties
+
+- Records are process-local session memory only (`Map<string, RevisionIntentRecord[]>`)
+- Records are linked by confirmed OTUnit id
+- Records are not persisted after process exit
+- Records do not change OTUnit status, confirmation state, follow-up records, review/check records, adjust records, structured context snapshots, or repository persistence
+- Records do not revise, close, replace, or mutate the OTUnit itself
+- Records do not create a new OTUnit
+- Records do not create follow-up/review/check/adjust behavior
+- Record IDs are deterministic: `session-revision-intent-record-1`, `session-revision-intent-record-2`, etc.
+
+#### Revision Intent Preview Example
+
+```
+--- Revision Intent Preview ---
+OTUnit ID: session-confirmed-preview-otunit
+Revision Reason: <reasonText>
+Proposed Revision Direction: <directionText>
+Repository: process-local in-memory
+Persistence: false
+
+Confirm saving this revision intent record? (confirm to save, /exit to quit):
+```
+
+#### list Output (Updated)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `otunits[].revisionIntentRecordCount` | number | Number of revision intent records for this OTUnit |
+
+#### show Output (Updated)
+
+Human-readable section added:
+
+```
+--- Revision Intent Records ---
+1. Reason: <reason text>
+   Proposed Revision Direction: <direction text>
+   Created At: <createdAt>
+```
+
+Machine-readable fields added:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `revisionIntentRecordCount` | number | Number of revision intent records for this OTUnit |
+| `revisionIntentRecords` | array | Array of revision intent record objects with id, otunitId, reasonText, directionText, createdAt |
+| `revisionIntentRecords[0].id` | string | Revision intent record id |
+| `revisionIntentRecords[0].otunitId` | string | Confirmed OTUnit id |
+| `revisionIntentRecords[0].reasonText` | string | Revision reason text |
+| `revisionIntentRecords[0].directionText` | string | Proposed revision direction text |
+| `revisionIntentRecords[0].createdAt` | string | ISO timestamp |
+
+#### O'PDCA Summary with Revision Intent
+
+The O'PDCA Summary includes a **Revision Intent** section after Adjust Records.
+
+Human-readable:
+
+```
+Revision Intent:
+- Revision Reason: <reason text>
+  Proposed Direction: <direction text>
+```
+
+Empty-state:
+
+```
+Revision Intent:
+No revision intent records in this process-local session.
+```
+
+Machine-readable: `opdcaSummary.revisionIntentRecordCount`.
+
+#### Boundary
+
+- Revision intent records are process-local session memory only
+- No actual revision action is performed
+- Revision intent records do not change OTUnit status
+- Revision intent records do not create a new OTUnit
+- Revision intent records do not close an OTUnit
+- No database, no filesystem persistence, no network storage
+- No provider integration, no AI generation
+- No normal chat writes
+- No durable runtime state
+- No OTUnit mutation (status, confirmation, follow-up, review, check, adjust)
+- No OTUnit close, revise, replace, or mutate behavior
+- Existing otunit command remains inspection-only
+- No mutation subcommands under existing otunit
+- Existing follow/check/adjust/O'PDCA behavior remains unchanged
+- Existing evidence refs delimiter normalization remains unchanged
+- Existing structured context snapshot behavior remains unchanged
+- Unrecognized command message includes `revise-intent <id>`
