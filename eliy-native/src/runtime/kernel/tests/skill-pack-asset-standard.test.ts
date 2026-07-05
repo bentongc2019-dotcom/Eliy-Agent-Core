@@ -93,8 +93,10 @@ describe("O’PDCA Skill Pack — content contract", () => {
 describe("O’PDCA Skill Pack — forbidden patterns", () => {
   const skillPack = readFile(join(skillsDir, "opdca", "SKILL.md"));
 
-  it("skills/plan-management does not appear in the new Skill Pack files", () => {
-    expect(skillPack).not.toContain("skills/plan-management");
+  const forbiddenLegacySkillPath = ["skills", "plan-management"].join("/");
+
+  it("does not reference the legacy plan-management path", () => {
+    expect(skillPack).not.toContain(forbiddenLegacySkillPath);
     const readme = readFile(join(skillsDir, "README.md"));
     expect(readme).not.toContain("plan-management");
   });
