@@ -47,3 +47,15 @@ This file is an **asset definition**. It is:
 
 Registry, loader, and capability contract concerns must be Eliy-wide.
 See [`skills/README.md`](../README.md) for the full asset-layer boundary.
+
+## Operating process assets
+
+This Skill Pack also provides provisional operating process assets that describe
+the annual management cycle. See:
+
+- [`skills/opdca/processes/annual-operating-cycle.md`](./processes/annual-operating-cycle.md)
+
+These process assets are scaffolds, not runtime behavior. They support the
+O’PDCA Skill Pack operating process scaffold without implementing workflow
+execution, runtime invocation, registry loading, retrieval, provider behavior,
+or persistence.
