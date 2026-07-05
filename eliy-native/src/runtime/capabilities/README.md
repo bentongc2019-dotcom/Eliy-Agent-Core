@@ -58,3 +58,20 @@ This PR does not add provider integration or persistence.
 | Runtime invocation | Not included |
 | Provider integration | Not included |
 | Persistence | Not included |
+
+---
+
+## Capability Invocation Boundary
+
+Capability invocation boundary contracts are defined in capability-invocation-boundary.ts.
+
+The boundary separates capability requests, previews, confirmations, and invocation records.
+
+Capability previews do not mutate Runtime state.
+
+This section is a **contract scaffold only**:
+
+- No runtime invocation implemented
+- No persistence implemented
+- No provider integration added
+- No UI added
