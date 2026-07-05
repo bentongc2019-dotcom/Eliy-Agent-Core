@@ -25,12 +25,12 @@ import type {
 } from "../../capabilities/capability-contract";
 
 // =============================================================================
-// O'PDCA fixture (deterministic, no external state)
+// O’PDCA fixture (deterministic, no external state)
 // =============================================================================
 
 const opdcaCapability: CapabilityManifest = {
   id: "opdca",
-  name: "O'PDCA Skill Pack",
+  name: "O’PDCA Skill Pack",
   kind: "skill",
   composition: "pack",
   decompositionStatus: "provisional",
@@ -136,7 +136,7 @@ describe("CapabilityDecompositionStatus", () => {
   });
 });
 
-describe("O'PDCA CapabilityManifest", () => {
+describe("O’PDCA CapabilityManifest", () => {
   it("has kind=skill and composition=pack", () => {
     expect(opdcaCapability.kind).toBe("skill");
     expect(opdcaCapability.composition).toBe("pack");
@@ -174,16 +174,16 @@ describe("O'PDCA CapabilityManifest", () => {
 });
 
 describe("CapabilityRegistryListingContract", () => {
-  it("lists the O'PDCA manifest in the deterministic fixture", () => {
+  it("lists the O’PDCA manifest in the deterministic fixture", () => {
     const listed = registry.listCapabilities();
     expect(listed).toHaveLength(1);
     expect(listed[0].id).toBe("opdca");
   });
 
-  it("gets the O'PDCA manifest by id in the deterministic fixture", () => {
+  it("gets the O’PDCA manifest by id in the deterministic fixture", () => {
     const result = registry.getCapability("opdca");
     expect(result).toBeDefined();
-    expect(result!.name).toBe("O'PDCA Skill Pack");
+    expect(result!.name).toBe("O’PDCA Skill Pack");
   });
 
   it("returns undefined for an unknown id", () => {
@@ -193,10 +193,10 @@ describe("CapabilityRegistryListingContract", () => {
 });
 
 describe("CapabilityLoaderContract", () => {
-  it("loads the O'PDCA manifest in the deterministic fixture", async () => {
+  it("loads the O’PDCA manifest in the deterministic fixture", async () => {
     const result = await loader.loadCapability("opdca");
     expect(result.id).toBe("opdca");
-    expect(result.name).toBe("O'PDCA Skill Pack");
+    expect(result.name).toBe("O’PDCA Skill Pack");
   });
 
   it("rejects with an error for an unknown id", async () => {
