@@ -1614,3 +1614,198 @@ describe("OTUnit terminal core loop adjust records", () => {
   });
 });
 
+describe("OTUnit terminal core loop O'PDCA summary", () => {
+  it("show <id> prints --- O'PDCA Summary ---", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/--- O'PDCA Summary ---/);
+  });
+
+  it("O'PDCA Summary includes Objective / Plan section", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/Objective \/ Plan/);
+    expect(stdout).toMatch(/Objective: Q3 收入目标/);
+    expect(stdout).toMatch(/OTUnit: 完成第一批体验客户访谈/);
+    expect(stdout).toMatch(/Judgment Criteria: 完成 3 位体验客户访谈并形成记录/);
+    expect(stdout).toMatch(/Plan \/ Action Items/);
+    expect(stdout).toMatch(/1. 约访客户/);
+  });
+
+  it("O'PDCA Summary includes Do Records section", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/Do Records/);
+  });
+
+  it("O'PDCA Summary includes Check Records section", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/Check Records/);
+  });
+
+  it("O'PDCA Summary includes Adjust Records section", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/Adjust Records/);
+  });
+
+  it("O'PDCA Summary includes Current Status section", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/Current Status:/);
+    expect(stdout).toMatch(/Status: confirmed/);
+    expect(stdout).toMatch(/Requires Confirmation: false/);
+    expect(stdout).toMatch(/Repository: process-local in-memory/);
+    expect(stdout).toMatch(/Persistence: false/);
+  });
+
+  it("empty-records summary prints deterministic empty-state lines", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/No follow-up records in this process-local session/);
+    expect(stdout).toMatch(/No review\/check records in this process-local session/);
+    expect(stdout).toMatch(/No adjust records in this process-local session/);
+  });
+
+  it("summary with follow-up record shows Do Records and doRecordCount", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nfollow session-confirmed-preview-otunit\n今天完成 2 位客户访谈，并约好第 3 位\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/今天完成 2 位客户访谈，并约好第 3 位/);
+    expect(stdout).toMatch(/"doRecordCount":\s*1/);
+  });
+
+  it("summary with review/check record shows Check Records and checkRecordCount", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\ncheck session-confirmed-preview-otunit\n已完成 2 位客户访谈，第 3 位已预约\n距离判断标准还差 1 位客户访谈记录\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/已完成 2 位客户访谈，第 3 位已预约/);
+    expect(stdout).toMatch(/距离判断标准还差 1 位客户访谈记录/);
+    expect(stdout).toMatch(/"checkRecordCount":\s*1/);
+  });
+
+  it("summary with adjust record shows Adjust Records and adjustRecordCount", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nadjust session-confirmed-preview-otunit\n明天补访第 3 位客户，并整理三位客户共通问题\n当前距离判断标准还差 1 位客户访谈记录，需要补齐后再判断\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/明天补访第 3 位客户，并整理三位客户共通问题/);
+    expect(stdout).toMatch(/当前距离判断标准还差 1 位客户访谈记录，需要补齐后再判断/);
+    expect(stdout).toMatch(/"adjustRecordCount":\s*1/);
+  });
+
+  it("summary with all three record types shows all three sections and counts", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nfollow session-confirmed-preview-otunit\n今天完成 2 位客户访谈，并约好第 3 位\n确认\ncheck session-confirmed-preview-otunit\n已完成 2 位客户访谈，第 3 位已预约\n距离判断标准还差 1 位客户访谈记录\n确认\nadjust session-confirmed-preview-otunit\n明天补访第 3 位客户，并整理三位客户共通问题\n当前距离判断标准还差 1 位客户访谈记录，需要补齐后再判断\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/--- O'PDCA Summary ---/);
+    expect(stdout).toMatch(/今天完成 2 位客户访谈，并约好第 3 位/);
+    expect(stdout).toMatch(/已完成 2 位客户访谈，第 3 位已预约/);
+    expect(stdout).toMatch(/明天补访第 3 位客户，并整理三位客户共通问题/);
+    expect(stdout).toMatch(/"doRecordCount":\s*1/);
+    expect(stdout).toMatch(/"checkRecordCount":\s*1/);
+    expect(stdout).toMatch(/"adjustRecordCount":\s*1/);
+  });
+
+  it("machine-readable opdcaSummaryAvailable is true", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/"opdcaSummaryAvailable":\s*true/);
+  });
+
+  it("machine-readable opdcaSummary.objective is deterministic", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/"objective":\s*"Q3 收入目标"/);
+  });
+
+  it("machine-readable opdcaSummary.planItems is deterministic", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n2. 完成访谈\n3. 记录结论\n\n\n确认\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/"planItems"/);
+    expect(stdout).toMatch(/"1. 约访客户"/);
+    expect(stdout).toMatch(/"2. 完成访谈"/);
+    expect(stdout).toMatch(/"3. 记录结论"/);
+  });
+
+  it("machine-readable opdcaSummary.currentStatus is deterministic", () => {
+    const result = runTerminalCoreLoop(
+      ["otunit-core-loop"],
+      "完成第一批体验客户访谈\nQ3 收入目标\nrich\n2026-12-31\n完成 3 位体验客户访谈并形成记录\n1. 约访客户\n\n\n确认\n确认\nshow session-confirmed-preview-otunit\n/exit\n"
+    );
+
+    expect(result.status).toBe(0);
+    const stdout = result.stdout as string;
+    expect(stdout).toMatch(/"currentStatus"/);
+    expect(stdout).toMatch(/"status":\s*"confirmed"/);
+    expect(stdout).toMatch(/"requiresConfirmation":\s*false/);
+    expect(stdout).toMatch(/"repositorySource":\s*"process_local_in_memory"/);
+    expect(stdout).toMatch(/"persistence":\s*false/);
+  });
+});

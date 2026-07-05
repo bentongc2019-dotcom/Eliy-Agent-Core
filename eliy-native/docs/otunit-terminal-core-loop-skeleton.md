@@ -907,3 +907,152 @@ Machine-readable (extended with):
 - Existing review/check record behavior remains unchanged
 - Existing evidence refs delimiter normalization remains unchanged
 - Existing structured context snapshot behavior remains unchanged
+
+### O'PDCA Summary Behavior (PR #42)
+
+After a confirmed OTUnit exists in the process-local session repository, the `show <id>` command now includes
+a human-readable O'PDCA Summary section derived from existing structured context and session records.
+
+#### O'PDCA Summary Sections
+
+The O'PDCA Summary is printed after the existing O 单 Detail, Follow-up Records, Review / Check Records,
+and Adjust Records sections. It includes:
+
+- **Objective / Plan** — derived from the existing structured context (objective, title, judgment criteria, plan/action items)
+- **Do Records** — summarizes follow-up records, or shows a deterministic empty-state line
+- **Check Records** — summarizes review/check records, or shows a deterministic empty-state line
+- **Adjust Records** — summarizes adjust records, or shows a deterministic empty-state line
+- **Current Status** — includes OTUnit status, requiresConfirmation, repository source, and persistence flag
+
+#### Deterministic Empty-state Lines
+
+When a record type has no records, the summary displays:
+
+```
+Do Records: No follow-up records in this process-local session.
+Check Records: No review/check records in this process-local session.
+Adjust Records: No adjust records in this process-local session.
+```
+
+#### Human-readable Output Shape (with records)
+
+```
+--- O'PDCA Summary ---
+Objective / Plan:
+Objective: Q3 收入目标
+OTUnit: 完成第一批体验客户访谈
+Judgment Criteria: 完成 3 位体验客户访谈并形成记录
+Plan / Action Items:
+1. 约访客户
+2. 完成访谈
+3. 记录结论
+
+Do Records:
+- 今天完成 2 位客户访谈，并约好第 3 位
+
+Check Records:
+- Result: 已完成 2 位客户访谈，第 3 位已预约
+  Difference / Variance: 距离判断标准还差 1 位客户访谈记录
+
+Adjust Records:
+- Action: 明天补访第 3 位客户，并整理三位客户共通问题
+  Reason: 当前距离判断标准还差 1 位客户访谈记录，需要补齐后再判断
+
+Current Status:
+Status: confirmed
+Requires Confirmation: false
+Repository: process-local in-memory
+Persistence: false
+```
+
+#### Machine-readable Output
+
+The `show <id>` JSON output includes:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `opdcaSummaryAvailable` | boolean | `true` when structured context is available |
+| `opdcaSummary.objective` | string | Objective text from structured context |
+| `opdcaSummary.planItems` | string[] | Plan / action items from structured context |
+| `opdcaSummary.doRecordCount` | number | Number of follow-up records |
+| `opdcaSummary.checkRecordCount` | number | Number of review/check records |
+| `opdcaSummary.adjustRecordCount` | number | Number of adjust records |
+| `opdcaSummary.currentStatus` | object | Current status including status, requiresConfirmation, repositorySource, persistence |
+
+#### Example Machine-readable Output
+
+```json
+{
+  "opdcaSummaryAvailable": true,
+  "opdcaSummary": {
+    "objective": "Q3 收入目标",
+    "planItems": ["1. 约访客户", "2. 完成访谈", "3. 记录结论"],
+    "doRecordCount": 1,
+    "checkRecordCount": 1,
+    "adjustRecordCount": 1,
+    "currentStatus": {
+      "status": "confirmed",
+      "requiresConfirmation": false,
+      "repositorySource": "process_local_in_memory",
+      "persistence": false
+    }
+  }
+}
+```
+
+#### Available Commands (Updated)
+
+After the summary is printed, the following commands are available:
+
+- `list` — prints all OTUnits from the session-local in-memory repository as JSON
+- `show <id>` — prints human-readable O 单 detail, follow-up records, review/check records, adjust records, and O'PDCA Summary, followed by machine-readable JSON
+- `follow <id>` — adds a follow-up record for a confirmed OTUnit
+- `check <id>` — adds a review/check record for a confirmed OTUnit
+- `adjust <id>` — adds an adjust record for a confirmed OTUnit
+- `/exit` or `exit` — exits the loop
+
+#### show Output (Updated)
+
+After O'PDCA Summary is added, `show <id>` displays:
+
+Human-readable:
+```
+--- O 单 Detail ---
+...
+Status: confirmed
+...
+
+--- Follow-up Records ---
+1. <follow-up text>
+
+--- Review / Check Records ---
+1. Result: <check result text>
+   Difference / Variance: <difference text>
+
+--- Adjust Records ---
+1. Action: <action text>
+   Reason: <reason text>
+
+--- O'PDCA Summary ---
+... (derived from structured context and records)
+
+```
+
+Machine-readable (extended with):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `opdcaSummaryAvailable` | boolean | Whether O'PDCA summary is available (true when structured context exists) |
+| `opdcaSummary` | object | O'PDCA summary with objective, planItems, doRecordCount, checkRecordCount, adjustRecordCount, currentStatus |
+
+#### Boundary
+
+- O'PDCA Summary is derived from existing structured context and process-local session records
+- O'PDCA Summary is human-readable only inside `show <id>`
+- No new session command is added
+- No persistence, no provider, no database, no durable runtime state
+- Existing follow/check/adjust behavior remains unchanged
+- Existing evidence refs delimiter normalization remains unchanged
+- Existing structured context snapshot behavior remains unchanged
+- Existing otunit command remains inspection-only
+- No mutation subcommands under existing otunit
