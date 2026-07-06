@@ -2,39 +2,48 @@
 
 **PR: #56**
 
-Stable boundary surface that unifies the five OTUnit revision chain boundary
-contracts (PR #50, #52, #53, #54, #55) into a single exported index.
+This document describes the stable boundary surface for OTUnit revision chain contracts.
 
-## Purpose
+The revision chain boundary covers:
+
+1. Revision preview boundary
+2. Proposed revised OTUnit boundary
+3. Proposed revised OTUnit decision boundary
+4. Supersession boundary
+5. Revision lifecycle projection boundary
 
 Each revision boundary contract is independently deliverable and independently
 testable. The boundary index provides a single import path for consumers that
 need the entire revision chain without importing individual modules.
 
-The index does **not** add runtime behavior, persistence, CLI, repository
-access, or UI. It is purely a re-export and registry layer.
+## Chain Stage Order
+
+The revision chain order is:
+
+- revision intent
+- → revision preview
+- → proposed revised OTUnit
+- → proposed revised OTUnit decision
+- → supersession declaration
+- → lifecycle projection
 
 ## Boundary Modules
 
 | # | Module | PR | Status |
 |---|--------|----|--------|
-| 1 | `otunit-revision-preview-boundary` | #50 | previewed / requires_confirmation / confirmed / rejected |
-| 2 | `otunit-proposed-revision-boundary` | #52 | proposed / accepted / rejected |
-| 3 | `otunit-proposed-revision-decision-boundary` | #53 | accepted / rejected |
-| 4 | `otunit-supersession-boundary` | #54 | declared |
-| 5 | `otunit-revision-lifecycle-projection-boundary` | #55 | read-only projection across all 5 stages |
+| 1 | Revision preview boundary (`otunit-revision-preview-boundary`) | #50 | previewed / requires_confirmation / confirmed / rejected |
+| 2 | Proposed revised OTUnit boundary (`otunit-proposed-revision-boundary`) | #52 | proposed / accepted / rejected |
+| 3 | Proposed revised OTUnit decision boundary (`otunit-proposed-revision-decision-boundary`) | #53 | accepted / rejected |
+| 4 | Supersession boundary (`otunit-supersession-boundary`) | #54 | declared |
+| 5 | Revision lifecycle projection boundary (`otunit-revision-lifecycle-projection-boundary`) | #55 | read-only projection across all 5 stages |
 
-## Chain Stage Order
+## Scope
 
-The revision chain progresses through these stages in order:
+This boundary index does not implement repository persistence, CLI behavior,
+runtime mutation, source OTUnit replacement, provider integration, or UI.
 
-```
-revision_intent_recorded
-→ revision_previewed
-→ proposed_revised_otunit_created
-→ proposed_revised_otunit_decided
-→ supersession_declared
-```
+The index is purely a re-export and registry layer. It adds no runtime behavior
+of its own.
 
 ## Exported Symbols
 
