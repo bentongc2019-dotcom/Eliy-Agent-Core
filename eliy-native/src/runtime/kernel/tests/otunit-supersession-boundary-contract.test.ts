@@ -9,6 +9,7 @@
  */
 
 import { describe, it, expect } from "vitest";
+import { fileURLToPath } from "url";
 import path from "path";
 import fs from "fs";
 
@@ -41,9 +42,10 @@ import {
   declareOTUnitSupersessionFromAcceptedDecision,
 } from "../otunit-supersession-boundary";
 
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const boundaryPath = path.resolve(
-  process.cwd(),
-  "eliy-native/src/runtime/kernel/otunit-supersession-boundary.ts",
+  currentDir,
+  "../otunit-supersession-boundary.ts",
 );
 
 function buildSourceSnapshot(): SourceOTUnitSnapshot {
