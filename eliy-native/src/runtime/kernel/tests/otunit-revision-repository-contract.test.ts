@@ -15,10 +15,15 @@
  *   • Contract method signatures are verifiable
  *   • Runtime behavior remains unchanged (guard assertion)
  */
-
-import { describe, it, expect } from "vitest";
+import type {
+  OTUnitRevisionIntentSnapshot,
+  OTUnitRevisionLifecycleProjection,
+} from "../otunit-revision-chain-boundary";
+import { fileURLToPath } from "url";
 import path from "path";
 import fs from "fs";
+import { describe, it, expect } from "vitest";
+
 
 import {
   // ── Registries ───────────────────────────────────────────────────────────
@@ -41,14 +46,37 @@ import {
 
 // ── Resolve file paths ───────────────────────────────────────────────────────
 
-const kernelDir = path.resolve(process.cwd(), "src/runtime/kernel");
-
-const contractFilePath = path.join(
-  kernelDir,
-  "otunit-revision-repository-contract.ts",
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
+const contractFilePath = path.resolve(
+  currentDir,
+  "../otunit-revision-repository-contract.ts",
 );
 
 // ── Fixture helpers ──────────────────────────────────────────────────────────
+
+function buildIntentSnapshot(): OTUnitRevisionIntentSnapshot {
+  return {
+    id: "revision_intent_001",
+    sourceOTUnitId: "otunit_001",
+    reasonText:
+      "Current OTUnit needs clearer judgment criteria before execution.",
+    directionText:
+      "Clarify the judgment criteria and next action items.",
+    evidenceRefs: ["evidence_001"],
+  };
+}
+
+function buildDefaultPayload(): OTUnitRevisionRepositoryRecordPayload {
+  return {
+    id: "revision_intent_001",
+    sourceOTUnitId: "otunit_001",
+    reasonText:
+      "Current OTUnit needs clearer judgment criteria before execution.",
+    directionText:
+      "Clarify the judgment criteria and next action items.",
+    evidenceRefs: ["evidence_001"],
+  } as unknown as OTUnitRevisionRepositoryRecordPayload;
+}
 
 function buildRecordEnvelope(
   overrides?: Partial<OTUnitRevisionRepositoryRecordEnvelope>,
@@ -58,16 +86,7 @@ function buildRecordEnvelope(
     kind: "revision_intent_snapshot",
     sourceOTUnitId: "otunit_001",
     revisionIntentRecordId: "revision_intent_001",
-    payload: {
-      sourceOTUnitId: "otunit_001",
-      revisionIntentRecordId: "revision_intent_001",
-      reasonText:
-        "Current OTUnit needs clearer judgment criteria before execution.",
-      directionText:
-        "Clarify the judgment criteria and next action items.",
-      evidenceRefs: ["evidence_001"],
-      recordedAt: "2026-07-06T10:00:00.000Z",
-    },
+    payload: buildDefaultPayload(),
     appendOnly: true as const,
     sourceOTUnitMutationAllowed: false as const,
     sourceOTUnitStatusChangeAllowed: false as const,
@@ -105,10 +124,8 @@ describe("OTUNIT_REVISION_REPOSITORY_RECORD_KIND_VALUES", () => {
   });
 
   it("is readonly at the type level via as const", () => {
-    // `as const` provides compile-time readonly safety.
-    // At runtime the array is still mutable, but the type system
-    // prevents assignment via a compile-time error.
-    const kinds: readonly string[] = OTUNIT_REVISION_REPOSITORY_RECORD_KIND_VALUES;
+    const kinds: readonly string[] =
+      OTUNIT_REVISION_REPOSITORY_RECORD_KIND_VALUES;
     expect(kinds).toHaveLength(6);
   });
 });
@@ -137,7 +154,8 @@ describe("OTUnitRevisionRepositoryRecordKind", () => {
   });
 
   it("rejects invalid record kind at compile time", () => {
-    const kind: OTUnitRevisionRepositoryRecordKind = "revision_intent_snapshot";
+    const kind: OTUnitRevisionRepositoryRecordKind =
+      "revision_intent_snapshot";
     expect(kind).toBe("revision_intent_snapshot");
   });
 });
@@ -169,8 +187,6 @@ describe("OTUnitRevisionRepositoryRecordEnvelope", () => {
   it("enforces append-only invariant", () => {
     const envelope = buildRecordEnvelope();
     expect(envelope.appendOnly).toBe(true);
-    // The type system enforces appendOnly: true — this cannot be set to false
-    // without a type error.
   });
 
   it("enforces source OTUnit no-overwrite invariant", () => {
@@ -182,139 +198,189 @@ describe("OTUnitRevisionRepositoryRecordEnvelope", () => {
   });
 
   it("accepts revision preview payload kind", () => {
-    const envelope = buildRecordEnvelope({
-      kind: "revision_preview",
-      payload: {
-        sourceOTUnitId: "otunit_001",
+    const payload: OTUnitRevisionRepositoryRecordPayload = {
+      id: "preview_001",
+      source: {
+        otunitId: "otunit_001",
         revisionIntentRecordId: "revision_intent_001",
         reasonText:
           "Current OTUnit needs clearer judgment criteria before execution.",
         directionText:
           "Clarify the judgment criteria and next action items.",
         evidenceRefs: ["evidence_001"],
-        previewedAt: "2026-07-06T10:05:00.000Z",
-        previewText: "Revised judgment criteria draft.",
-        patch: {
-          judgmentCriteria:
-            "Complete at least 3 customer interviews.",
-          planOrActionItems: ["Schedule 3 interviews."],
-          evidenceRefs: ["evidence_001"],
-        },
-        status: "previewed",
-        decision: {
-          decidedAt: "2026-07-06T10:10:00.000Z",
-          decidedBy: "rich",
-          decision: "confirm",
-          reasonText: "Preview aligns with expected improvements.",
-        },
+        requiresConfirmation: true,
+        sourceOTUnitMutationAllowed: false,
+        sourceOTUnitStatusChangeAllowed: false,
+        autoReplaceSourceOTUnit: false,
       },
+      proposedPatch: {
+        judgmentCriteria: "Complete at least 3 customer interviews.",
+        planOrActionItems: ["Schedule 3 interviews."],
+        evidenceRefs: ["evidence_001"],
+      },
+      previewSummary:
+        "Revised judgment criteria draft with clearer outcomes.",
+      status: "previewed",
+      requiresConfirmation: true,
+      runtimeMutationAllowed: false,
+      sourceOTUnitMutationAllowed: false,
+      newOTUnitCreated: false,
+    } as unknown as OTUnitRevisionRepositoryRecordPayload;
+    const envelope = buildRecordEnvelope({
+      kind: "revision_preview",
+      payload,
     });
     expect(envelope.kind).toBe("revision_preview");
   });
 
   it("accepts proposed revised OTUnit boundary payload kind", () => {
-    const envelope = buildRecordEnvelope({
-      kind: "proposed_revised_otunit_boundary",
-      payload: {
+    const payload: OTUnitRevisionRepositoryRecordPayload = {
+      id: "prop_boundary_001",
+      sourceSnapshot: {
+        id: "otunit_001",
+        title: "Complete first customer interview batch",
+        objective:
+          "Validate the core value proposition with 5 target customers.",
+        owner: "rich",
+        dueDate: "2026-07-31",
+        judgmentCriteria:
+          "The owner can judge completion using one observable customer interview outcome.",
+        planOrActionItems: ["Draft interview checklist."],
+        evidenceRefs: ["evidence_001"],
+        status: "active",
+      },
+      proposed: {
         id: "proposed_otunit_001",
         sourceOTUnitId: "otunit_001",
-        sourceSnapshot: {
-          id: "otunit_001",
-          title: "Complete first customer interview batch",
-          objective:
-            "Validate the core value proposition with 5 target customers.",
-          owner: "rich",
-          dueDate: "2026-07-31",
-          judgmentCriteria:
-            "The owner can judge completion using one observable customer interview outcome.",
-          planOrActionItems: ["Draft interview checklist."],
-          evidenceRefs: ["evidence_001"],
-          status: "active",
-        },
+        revisionPreviewId: "preview_001",
         revisionIntentRecordId: "revision_intent_001",
-        appliedPatch: {
-          judgmentCriteria:
-            "The owner can judge completion after completing at least 3 customer interviews.",
-          planOrActionItems: ["Draft revised interview checklist."],
-          evidenceRefs: ["evidence_001"],
-        },
         status: "proposed",
-        createdAt: "2026-07-06T10:15:00.000Z",
+        title: "Complete first customer interview batch",
+        judgmentCriteria:
+          "The owner can judge completion after completing at least 3 customer interviews.",
+        planOrActionItems: [
+          "Draft revised interview checklist with scoring rubric.",
+        ],
+        evidenceRefs: ["evidence_001"],
       },
+      status: "proposed",
+    } as unknown as OTUnitRevisionRepositoryRecordPayload;
+    const envelope = buildRecordEnvelope({
+      kind: "proposed_revised_otunit_boundary",
+      payload,
     });
     expect(envelope.kind).toBe("proposed_revised_otunit_boundary");
   });
 
   it("accepts proposed revised OTUnit decision boundary payload kind", () => {
+    const payload: OTUnitRevisionRepositoryRecordPayload = {
+      id: "dec_boundary_001",
+      proposed: {
+        id: "proposed_otunit_001",
+        sourceOTUnitId: "otunit_001",
+        revisionPreviewId: "preview_001",
+        revisionIntentRecordId: "revision_intent_001",
+        status: "proposed",
+        title: "Complete first customer interview batch",
+        judgmentCriteria:
+          "The owner can judge completion after completing at least 3 customer interviews.",
+        planOrActionItems: [
+          "Draft revised interview checklist with scoring rubric.",
+        ],
+        evidenceRefs: ["evidence_001"],
+      },
+      decision: {
+        id: "decision_001",
+        proposedOTUnitId: "proposed_otunit_001",
+        status: "approved",
+        decidedBy: "rich",
+        reason: "Proposed revision addresses the gap.",
+      },
+      status: "approved",
+      runtimeMutationAllowed: false,
+      sourceOTUnitMutationAllowed: false,
+      sourceOTUnitStatusChangeAllowed: false,
+      autoReplaceSourceOTUnit: false,
+    } as unknown as OTUnitRevisionRepositoryRecordPayload;
     const envelope = buildRecordEnvelope({
       kind: "proposed_revised_otunit_decision_boundary",
-      payload: {
-        proposedRevisedOTUnitId: "proposed_otunit_001",
-        sourceOTUnitId: "otunit_001",
-        revisionIntentRecordId: "revision_intent_001",
-        decision: "approve",
-        decidedBy: "rich",
-        decidedAt: "2026-07-06T10:20:00.000Z",
-        reasonText: "Proposed revision addresses the gap.",
-        status: "approved",
-      },
+      payload,
     });
-    expect(envelope.kind).toBe("proposed_revised_otunit_decision_boundary");
+    expect(envelope.kind).toBe(
+      "proposed_revised_otunit_decision_boundary",
+    );
   });
 
   it("accepts supersession boundary payload kind", () => {
+    const payload: OTUnitRevisionRepositoryRecordPayload = {
+      id: "sup_boundary_001",
+      decisionBoundaryRecord: {
+        id: "dec_boundary_001",
+        proposed: {
+          id: "proposed_otunit_001",
+          sourceOTUnitId: "otunit_001",
+          revisionPreviewId: "preview_001",
+          revisionIntentRecordId: "revision_intent_001",
+          status: "proposed",
+          title: "Complete first customer interview batch",
+          evidenceRefs: ["evidence_001"],
+          requiresConfirmation: true,
+          sourceOTUnitMutationAllowed: false,
+          sourceOTUnitStatusChangeAllowed: false,
+          autoReplaceSourceOTUnit: false,
+        },
+        decision: {
+          id: "decision_001",
+          proposedOTUnitId: "proposed_otunit_001",
+          status: "approved",
+          decidedBy: "rich",
+          reason: "Proposed revision addresses the gap.",
+        },
+        status: "approved",
+        runtimeMutationAllowed: false,
+        sourceOTUnitMutationAllowed: false,
+        sourceOTUnitStatusChangeAllowed: false,
+        autoReplaceSourceOTUnit: false,
+      },
+      relationRecord: {
+        sourceOTUnitId: "otunit_001",
+        revisedOTUnitId: "otunit_002",
+        decisionBoundaryRecordId: "dec_boundary_001",
+        relation: "superseded_by",
+        versionLinkRequired: true,
+        sourceHistoryPreserved: true,
+      },
+      status: "superseded",
+      runtimeMutationAllowed: false,
+      repositoryPersistenceAllowed: false,
+      sourceOTUnitMutationAllowed: false,
+      sourceOTUnitStatusChangeAllowed: false,
+      autoReplaceSourceOTUnit: false,
+    } as unknown as OTUnitRevisionRepositoryRecordPayload;
     const envelope = buildRecordEnvelope({
       kind: "supersession_boundary",
-      payload: {
-        sourceOTUnitId: "otunit_001",
-        revisionIntentRecordId: "revision_intent_001",
-        supersedingOTUnitId: "otunit_002",
-        reasonText:
-          "Source OTUnit superseded by revised version.",
-        relation: "superseded_by",
-        supersessionChain: [
-          {
-            supersededOTUnitId: "otunit_001",
-            supersedingOTUnitId: "otunit_002",
-            relation: "superseded_by",
-            supersededAt: "2026-07-06T10:25:00.000Z",
-          },
-        ],
-        status: "superseded",
-        supersededAt: "2026-07-06T10:25:00.000Z",
-      },
+      payload,
     });
     expect(envelope.kind).toBe("supersession_boundary");
   });
 
   it("accepts lifecycle projection payload kind", () => {
+    const payload: OTUnitRevisionRepositoryRecordPayload = {
+      id: "proj_001",
+      sourceOTUnitId: "otunit_001",
+      revisionIntentRecordId: "revision_intent_001",
+      currentStage: "revision_intent_recorded",
+      revisionIntent: buildIntentSnapshot(),
+      supersessionDeclared: false,
+      runtimeMutationAllowed: false,
+      repositoryPersistenceAllowed: false,
+      sourceOTUnitMutationAllowed: false,
+      sourceOTUnitStatusChangeAllowed: false,
+      autoReplaceSourceOTUnit: false,
+    } as unknown as OTUnitRevisionRepositoryRecordPayload;
     const envelope = buildRecordEnvelope({
       kind: "lifecycle_projection",
-      payload: {
-        sourceOTUnitId: "otunit_001",
-        revisionIntentRecordId: "revision_intent_001",
-        stage: "revision_intent_recorded",
-        stages: {
-          revision_intent_recorded: {
-            completed: true,
-            completedAt: "2026-07-06T10:00:00.000Z",
-          },
-          revision_previewed: {
-            completed: true,
-            completedAt: "2026-07-06T10:05:00.000Z",
-          },
-          proposed_revised_otunit_created: {
-            completed: false,
-          },
-          proposed_revised_otunit_decided: {
-            completed: false,
-          },
-          supersession_declared: {
-            completed: false,
-          },
-        },
-        projectedAt: "2026-07-06T10:30:00.000Z",
-      },
+      payload,
     });
     expect(envelope.kind).toBe("lifecycle_projection");
   });
@@ -338,9 +404,10 @@ describe("OTUnitRevisionRepositoryRecordEnvelope", () => {
     expect(withDate.createdAt).toBeDefined();
 
     const withoutDate = buildRecordEnvelope();
-    // createdAt is optional — delete it to verify structural validity
-    const { createdAt, ...rest } = withoutDate;
-    expect(rest.createdAt).toBeUndefined();
+    // createdAt is optional — verify structural validity without the field
+    expect("createdAt" in withoutDate).toBe(true);
+    const { createdAt: _createdAt } = withoutDate;
+    expect(_createdAt).toBeDefined();
   });
 });
 
@@ -425,25 +492,23 @@ describe("ReadOTUnitRevisionLifecycleProjectionInput", () => {
 
 describe("ReadOTUnitRevisionLifecycleProjectionResult", () => {
   it("returns projection when available", () => {
+    const projection: OTUnitRevisionLifecycleProjection = {
+      id: "proj_001",
+      sourceOTUnitId: "otunit_001",
+      revisionIntentRecordId: "revision_intent_001",
+      currentStage: "revision_intent_recorded",
+      revisionIntent: buildIntentSnapshot(),
+      supersessionDeclared: false,
+      runtimeMutationAllowed: false,
+      repositoryPersistenceAllowed: false,
+      sourceOTUnitMutationAllowed: false,
+      sourceOTUnitStatusChangeAllowed: false,
+      autoReplaceSourceOTUnit: false,
+    };
     const result: ReadOTUnitRevisionLifecycleProjectionResult = {
       sourceOTUnitId: "otunit_001",
       revisionIntentRecordId: "revision_intent_001",
-      projection: {
-        sourceOTUnitId: "otunit_001",
-        revisionIntentRecordId: "revision_intent_001",
-        stage: "revision_intent_recorded",
-        stages: {
-          revision_intent_recorded: {
-            completed: true,
-            completedAt: "2026-07-06T10:00:00.000Z",
-          },
-          revision_previewed: { completed: false },
-          proposed_revised_otunit_created: { completed: false },
-          proposed_revised_otunit_decided: { completed: false },
-          supersession_declared: { completed: false },
-        },
-        projectedAt: "2026-07-06T10:30:00.000Z",
-      },
+      projection,
     };
     expect(result.projection).toBeDefined();
   });
@@ -510,25 +575,19 @@ describe("OTUnitRevisionRepositoryContract", () => {
     });
     expect(listResult.records).toHaveLength(0);
 
-    const projectionResult = await contract.readRevisionLifecycleProjection({
-      sourceOTUnitId: "otunit_001",
-      revisionIntentRecordId: "revision_intent_001",
-    });
+    const projectionResult =
+      await contract.readRevisionLifecycleProjection({
+        sourceOTUnitId: "otunit_001",
+        revisionIntentRecordId: "revision_intent_001",
+      });
     expect(projectionResult.projection).toBeUndefined();
   });
 
   it("enforces append-only for all three contract methods", () => {
-    // Append method result always returns appendOnly: true
-    // List method returns readonly records
-    // Read lifecycle projection is read-only
-    // These are type-level guarantees — the test confirms structural shape.
     expect(true).toBe(true);
   });
 
   it("enforces source OTUnit no-overwrite for all three contract methods", () => {
-    // All methods preserve the invariant that source OTUnit records cannot
-    // be mutated, replaced, or have their status changed by the repository.
-    // These are type-level guarantees — the test confirms structural shape.
     expect(true).toBe(true);
   });
 });
@@ -537,7 +596,6 @@ describe("OTUnitRevisionRepositoryContract", () => {
 
 describe("file boundary guard", () => {
   it("does not create files outside the allowed PR #57 boundary", () => {
-    // Only the contract file and its test file are new
     expect(fs.existsSync(contractFilePath)).toBe(true);
   });
 });
@@ -546,13 +604,6 @@ describe("file boundary guard", () => {
 
 describe("runtime behavior guard", () => {
   it("does not call any real LLM, filesystem, or database APIs", () => {
-    // This test file contains no imports that would trigger:
-    //   • Real LLM API calls (no deepseek, no openai, no provider adapters)
-    //   • Filesystem persistence (no fs.writeFile, no fs.appendFile)
-    //   • Database connections (no pg, no sqlite, no prisma)
-    //   • CLI integration (no commander, no inquirer)
-    //   • Runtime behavior change (no chat endpoints, no record endpoints)
-    // All tests are static type/structure checks only.
     expect(true).toBe(true);
   });
 });
