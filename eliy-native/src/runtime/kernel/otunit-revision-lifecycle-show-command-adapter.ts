@@ -61,7 +61,6 @@ export interface OTUnitRevisionLifecycleShowCommandAdapterResult {
   autoReplaceSourceOTUnit: false;
   createdAt?: string;
 }
-
 export interface ProjectOTUnitRevisionLifecycleShowCommandAdapterInput {
   id: string;
   boundaryResult: OTUnitRevisionLifecycleShowCommandBoundaryResult;
@@ -204,4 +203,3 @@ export function projectOTUnitRevisionLifecycleShowCommandAdapter(
     createdAt: input.createdAt,
   };
 }
-
