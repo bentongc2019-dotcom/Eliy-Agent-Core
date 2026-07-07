@@ -1,18 +1,17 @@
 /**
- * OTUnit Revision Lifecycle Show Command CLI Wiring Boundary
+ * OTUnit Revision Lifecycle Show CLI Dogfood
  *
- * Deterministic CLI wiring boundary that turns the revision lifecycle show
- * command boundary / terminal adapter chain into a CLI-consumable plain-text
- * result.
+ * Deterministic dogfood-only boundary that projects the existing revision
+ * lifecycle show chain into terminal plain-text output for the CLI.
  *
  * No filesystem persistence, no database persistence, no provider / real LLM
- * integration, no environment reads, no ANSI color, and no source OTUnit
- * mutation or replacement.
+ * integration, no environment reads, and no source OTUnit mutation or
+ * replacement.
  */
 
 import {
-  projectOTUnitRevisionLifecycleShowCommandBoundary,
   OTUNIT_REVISION_LIFECYCLE_SHOW_COMMAND_NAME,
+  projectOTUnitRevisionLifecycleShowCommandBoundary,
 } from "./otunit-revision-lifecycle-show-command-boundary";
 
 import {
@@ -46,12 +45,12 @@ import type {
 } from "./otunit-revision-lifecycle-show-command-boundary";
 
 import type {
-  RunOTUnitRevisionRepositoryDogfoodHarnessInput,
-} from "./otunit-revision-repository-dogfood-harness";
-
-import type {
   OTUnitRevisionRepositoryDogfoodSnapshot,
 } from "./otunit-revision-repository-dogfood-snapshot";
+
+import type {
+  RunOTUnitRevisionRepositoryDogfoodHarnessInput,
+} from "./otunit-revision-repository-dogfood-harness";
 
 import type {
   OTUnitRevisionIntentSnapshot,
@@ -59,38 +58,36 @@ import type {
   SourceOTUnitSnapshot,
 } from "./otunit-revision-chain-boundary";
 
-export const OTUNIT_REVISION_LIFECYCLE_SHOW_COMMAND_CLI_WIRING_BOUNDARY_KIND =
-  "otunit_revision_lifecycle_show_command_cli_wiring_boundary" as const;
+export const OTUNIT_REVISION_LIFECYCLE_SHOW_CLI_DOGFOOD_KIND =
+  "otunit_revision_lifecycle_show_cli_dogfood" as const;
 
-export const OTUNIT_REVISION_LIFECYCLE_SHOW_COMMAND_CLI_PATH = [
+export const OTUNIT_REVISION_LIFECYCLE_SHOW_CLI_COMMAND_PATH = [
   "otunit",
-  "revision",
-  "lifecycle",
-  "show",
+  "revision-lifecycle-show",
 ] as const;
 
-export interface OTUnitRevisionLifecycleShowCommandCliWiringBoundaryResult {
+export interface OTUnitRevisionLifecycleShowCliDogfoodResult {
   id: string;
-  kind: typeof OTUNIT_REVISION_LIFECYCLE_SHOW_COMMAND_CLI_WIRING_BOUNDARY_KIND;
+  kind: typeof OTUNIT_REVISION_LIFECYCLE_SHOW_CLI_DOGFOOD_KIND;
   commandName: typeof OTUNIT_REVISION_LIFECYCLE_SHOW_COMMAND_NAME;
-  commandPath: typeof OTUNIT_REVISION_LIFECYCLE_SHOW_COMMAND_CLI_PATH;
-  adapterKind: typeof OTUNIT_REVISION_LIFECYCLE_SHOW_COMMAND_ADAPTER_KIND;
-  adapterName: typeof OTUNIT_REVISION_LIFECYCLE_SHOW_TERMINAL_ADAPTER_NAME;
+  commandPath: typeof OTUNIT_REVISION_LIFECYCLE_SHOW_CLI_COMMAND_PATH;
   boundaryResultId: string;
   readModelId: string;
   snapshotId: string;
   adapterResultId: string;
+  adapterKind: typeof OTUNIT_REVISION_LIFECYCLE_SHOW_COMMAND_ADAPTER_KIND;
+  adapterName: typeof OTUNIT_REVISION_LIFECYCLE_SHOW_TERMINAL_ADAPTER_NAME;
+  adapterResult: OTUnitRevisionLifecycleShowCommandAdapterResult;
   stdout: string;
   stderr: "";
   exitCode: 0;
   outputKind: "plain_text";
-  lineCount: number;
-  byteLength: number;
-  cliCommandRegistered: true;
-  terminalAdapterIntegrated: true;
+  dogfoodOnly: true;
   terminalShowReady: true;
   plainTextOnly: true;
   ansiColorAllowed: false;
+  cliCommandRegistered: true;
+  terminalAdapterIntegrated: true;
   runtimeMutationAllowed: false;
   repositoryPersistenceAllowed: false;
   filesystemPersistenceAllowed: false;
@@ -102,7 +99,7 @@ export interface OTUnitRevisionLifecycleShowCommandCliWiringBoundaryResult {
   createdAt?: string;
 }
 
-export interface ProjectOTUnitRevisionLifecycleShowCommandCliWiringBoundaryInput {
+export interface RunOTUnitRevisionLifecycleShowCliDogfoodInput {
   id: string;
   createdAt?: string;
 }
@@ -111,141 +108,137 @@ function makeSourceOTUnitSnapshot(): SourceOTUnitSnapshot {
   return {
     id: "otunit-test-001",
     title: "Test OTUnit",
-    objective: "Test the OTUnit revision lifecycle show CLI wiring boundary.",
+    objective: "Test the OTUnit revision lifecycle show CLI dogfood path.",
     owner: "test-user",
     dueDate: "2026-07-30",
-    judgmentCriteria: "CLI wiring should produce deterministic plain-text output.",
-    planOrActionItems: ["Step 1: Create read model", "Step 2: Project show output"],
-    evidenceRefs: ["ev-cli-wiring-001"],
+    judgmentCriteria: "The CLI must emit deterministic plain text output.",
+    planOrActionItems: [
+      "Create a terminal-show-ready read model.",
+      "Project the show boundary.",
+      "Print adapter stdout through the CLI.",
+    ],
+    evidenceRefs: ["ev-cli-dogfood-001"],
     status: "active",
   };
 }
 
 function makeRevisionIntent(): OTUnitRevisionIntentSnapshot {
   return {
-    id: "rev-intent-cli-001",
+    id: "rev-intent-cli-dogfood-001",
     sourceOTUnitId: "otunit-test-001",
-    reasonText: "Need to verify CLI wiring for show command.",
-    directionText: "Project the read model into the show command boundary.",
-    evidenceRefs: ["ev-cli-wiring-001", "ev-cli-wiring-002"],
+    reasonText: "Verify the exact revision-lifecycle-show CLI path.",
+    directionText: "Project the existing lifecycle show chain through the CLI.",
+    evidenceRefs: ["ev-cli-dogfood-001", "ev-cli-dogfood-002"],
   };
 }
 
 function makeRevisionPatch(): OTUnitRevisionPreviewPatch {
   return {
-    title: "Test OTUnit (Revised — CLI Wiring)",
-    objective: "Verify CLI wiring for revision lifecycle show output.",
+    title: "Test OTUnit (Revised - CLI Dogfood)",
+    objective: "Verify exact revision-lifecycle-show CLI output.",
     owner: "test-user",
     dueDate: "2026-08-15",
-    judgmentCriteria: "The CLI must emit deterministic plain-text show output.",
+    judgmentCriteria: "The CLI must print adapter stdout with no ANSI escapes.",
     planOrActionItems: [
       "Create read model.",
       "Project through show command boundary.",
-      "Print plain-text output through the CLI.",
+      "Write adapter stdout to terminal.",
     ],
-    evidenceRefs: ["ev-cli-wiring-001", "ev-cli-wiring-002"],
+    evidenceRefs: ["ev-cli-dogfood-001", "ev-cli-dogfood-002"],
   };
 }
 
 function buildHarnessInput(): RunOTUnitRevisionRepositoryDogfoodHarnessInput {
   return {
-    id: "cli-wiring-dogfood-001",
+    id: "cli-dogfood-harness-001",
     sourceSnapshot: makeSourceOTUnitSnapshot(),
     revisionIntent: makeRevisionIntent(),
     proposedPatch: makeRevisionPatch(),
   };
 }
 
-function assertCliShowResult(
-  result: OTUnitRevisionLifecycleShowCommandAdapterResult,
-): void {
-  if (result.kind !== OTUNIT_REVISION_LIFECYCLE_SHOW_COMMAND_ADAPTER_KIND) {
-    throw new Error("CLI wiring boundary requires terminal adapter kind.");
-  }
-
-  if (result.adapterName !== OTUNIT_REVISION_LIFECYCLE_SHOW_TERMINAL_ADAPTER_NAME) {
-    throw new Error("CLI wiring boundary requires terminal adapter name.");
-  }
-
-  if (result.outputKind !== "plain_text") {
-    throw new Error("CLI wiring boundary requires plain_text adapter output.");
-  }
-
-  if (result.cliCommandRegistered !== false) {
-    throw new Error("CLI wiring boundary requires terminal adapter contract output.");
-  }
-}
-
-async function buildDefaultReadModel(input: {
-  createdAt?: string;
-}): Promise<{
+async function buildReadModel(
+  createdAt?: string,
+): Promise<{
   snapshot: OTUnitRevisionRepositoryDogfoodSnapshot;
   readModel: OTUnitRevisionDogfoodSnapshotReadModel;
 }> {
   const harnessResult = await runOTUnitRevisionRepositoryDogfoodHarness({
     ...buildHarnessInput(),
-    createdAt: input.createdAt,
+    createdAt,
   });
 
   const snapshot = projectOTUnitRevisionRepositoryDogfoodSnapshot({
-    id: "cli-wiring-snapshot-001",
+    id: "cli-dogfood-snapshot-001",
     harnessResult,
-    createdAt: input.createdAt,
+    createdAt,
   });
 
   const readModel = projectOTUnitRevisionDogfoodSnapshotReadModel({
-    id: "cli-wiring-read-model-001",
+    id: "cli-dogfood-read-model-001",
     snapshot,
-    createdAt: input.createdAt,
+    createdAt,
   });
 
   return { snapshot, readModel };
 }
 
-export async function projectOTUnitRevisionLifecycleShowCommandCliWiringBoundary(
-  input: ProjectOTUnitRevisionLifecycleShowCommandCliWiringBoundaryInput,
-): Promise<OTUnitRevisionLifecycleShowCommandCliWiringBoundaryResult> {
-  const { snapshot, readModel } = await buildDefaultReadModel({
-    createdAt: input.createdAt,
-  });
+function assertPlainTextOutput(result: OTUnitRevisionLifecycleShowCommandAdapterResult): void {
+  if (result.outputKind !== "plain_text") {
+    throw new Error("revision-lifecycle-show dogfood requires plain_text output.");
+  }
+
+  if (result.ansiColorAllowed !== false) {
+    throw new Error("revision-lifecycle-show dogfood requires ansiColorAllowed=false.");
+  }
+
+  if (result.cliCommandRegistered !== false) {
+    throw new Error("revision-lifecycle-show dogfood requires terminal adapter contract output.");
+  }
+}
+
+export async function runOTUnitRevisionLifecycleShowCliDogfood(
+  input: RunOTUnitRevisionLifecycleShowCliDogfoodInput,
+): Promise<OTUnitRevisionLifecycleShowCliDogfoodResult> {
+  const { snapshot, readModel } = await buildReadModel(input.createdAt);
 
   const boundaryResult: OTUnitRevisionLifecycleShowCommandBoundaryResult =
     projectOTUnitRevisionLifecycleShowCommandBoundary({
-      id: "cli-wiring-boundary-001",
+      id: "cli-dogfood-boundary-001",
       readModel,
       createdAt: input.createdAt,
     });
 
   const adapterResult = projectOTUnitRevisionLifecycleShowCommandAdapter({
-    id: "cli-wiring-adapter-001",
+    id: "cli-dogfood-adapter-001",
     boundaryResult,
     createdAt: input.createdAt,
   });
 
-  assertCliShowResult(adapterResult);
+  assertPlainTextOutput(adapterResult);
 
   return {
     id: input.id,
-    kind: OTUNIT_REVISION_LIFECYCLE_SHOW_COMMAND_CLI_WIRING_BOUNDARY_KIND,
+    kind: OTUNIT_REVISION_LIFECYCLE_SHOW_CLI_DOGFOOD_KIND,
     commandName: OTUNIT_REVISION_LIFECYCLE_SHOW_COMMAND_NAME,
-    commandPath: OTUNIT_REVISION_LIFECYCLE_SHOW_COMMAND_CLI_PATH,
-    adapterKind: adapterResult.kind,
-    adapterName: adapterResult.adapterName,
+    commandPath: OTUNIT_REVISION_LIFECYCLE_SHOW_CLI_COMMAND_PATH,
     boundaryResultId: boundaryResult.id,
     readModelId: readModel.id,
     snapshotId: snapshot.id,
     adapterResultId: adapterResult.id,
+    adapterKind: adapterResult.kind,
+    adapterName: adapterResult.adapterName,
+    adapterResult,
     stdout: adapterResult.stdout,
-    stderr: adapterResult.stderr,
-    exitCode: adapterResult.exitCode,
-    outputKind: adapterResult.outputKind,
-    lineCount: adapterResult.lineCount,
-    byteLength: adapterResult.byteLength,
-    cliCommandRegistered: true,
-    terminalAdapterIntegrated: true,
+    stderr: "",
+    exitCode: 0,
+    outputKind: "plain_text",
+    dogfoodOnly: true,
     terminalShowReady: true,
     plainTextOnly: true,
     ansiColorAllowed: false,
+    cliCommandRegistered: true,
+    terminalAdapterIntegrated: true,
     runtimeMutationAllowed: false,
     repositoryPersistenceAllowed: false,
     filesystemPersistenceAllowed: false,

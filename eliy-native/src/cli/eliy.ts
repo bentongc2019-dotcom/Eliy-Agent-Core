@@ -21,8 +21,8 @@ import { completeChat, readProviderState } from "../provider/openai-compatible.j
 import { EliyNativeRuntime } from "../runtime/kernel/runtime.js";
 import type { RuntimeResult } from "../runtime/kernel/schemas/index.js";
 import {
-  projectOTUnitRevisionLifecycleShowCommandCliWiringBoundary,
-} from "../runtime/kernel/otunit-revision-lifecycle-show-command-cli-wiring-boundary.js";
+  runOTUnitRevisionLifecycleShowCliDogfood,
+} from "../runtime/kernel/otunit-revision-lifecycle-show-cli-dogfood.js";
 import {
   createSessionTranscript,
   formatSessionTranscriptDebugSummary,
@@ -1548,12 +1548,18 @@ function runtime(): EliyNativeRuntime {
   return new EliyNativeRuntime(process.cwd());
 }
 
-async function runTerminalRevisionLifecycleShowCommand(): Promise<void> {
-  const result = await projectOTUnitRevisionLifecycleShowCommandCliWiringBoundary({
-    id: "cli-wiring-run-001"
+async function runTerminalRevisionLifecycleShowCommand(dogfood: boolean): Promise<void> {
+  if (!dogfood) {
+    process.stderr.write("revision-lifecycle-show requires --dogfood in current boundary phase.\n");
+    process.exitCode = 1;
+    return;
+  }
+
+  const result = await runOTUnitRevisionLifecycleShowCliDogfood({
+    id: "cli-dogfood-run-001"
   });
 
-  console.log(result.stdout);
+  process.stdout.write(result.stdout);
 }
 
 async function main(): Promise<void> {
@@ -1803,18 +1809,17 @@ The revision lifecycle show path is wired separately as a deterministic read-onl
       });
     });
 
-  const otunitRevision = otunit.command("revision").description("OTUnit revision commands");
-  const otunitRevisionLifecycle = otunitRevision.command("lifecycle").description("OTUnit revision lifecycle commands");
-  otunitRevisionLifecycle
-    .command("show")
+  otunit
+    .command("revision-lifecycle-show")
     .description("Show the revision lifecycle as deterministic plain text")
+    .option("--dogfood", "Enable the current dogfood-only boundary phase", false)
     .addHelpText("after", `
 
 This command is read-only.
 It does not mutate source OTUnits.
 It does not persist to files, databases, or provider-backed state.`)
-    .action(async () => {
-      await runTerminalRevisionLifecycleShowCommand();
+    .action(async (options) => {
+      await runTerminalRevisionLifecycleShowCommand(Boolean(options.dogfood));
     });
 
 
