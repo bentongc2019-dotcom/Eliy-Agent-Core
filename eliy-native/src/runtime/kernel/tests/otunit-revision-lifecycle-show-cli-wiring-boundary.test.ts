@@ -8,7 +8,9 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { resolve, join } from "node:path";
+import { readFileSync } from "node:fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -16,9 +18,9 @@ import {
   runOTUnitRevisionLifecycleShowCliDogfood,
 } from "../otunit-revision-lifecycle-show-cli-dogfood";
 
-const projectRoot = resolve(__dirname, "../../../..");
-const cliPath = join(projectRoot, "src/cli/eliy.ts");
-const tsxLoaderPath = join(projectRoot, "node_modules/tsx/dist/loader.mjs");
+const projectRoot = path.resolve(__dirname, "../../../..");
+const cliPath = path.join(projectRoot, "src/cli/eliy.ts");
+const tsxLoaderPath = path.join(projectRoot, "node_modules/tsx/dist/loader.mjs");
 
 function runCli(args: string[]): ReturnType<typeof spawnSync> {
   return spawnSync(process.execPath, ["--import", tsxLoaderPath, cliPath, ...args], {
@@ -28,7 +30,16 @@ function runCli(args: string[]): ReturnType<typeof spawnSync> {
   });
 }
 
-describe("otunit-revision-lifecycle-show-cli-dogfood.ts", () => {
+describe("otunit-revision-lifecycle-show-command-cli-wiring-boundary.ts", () => {
+  it("exists as a file on disk", () => {
+    const currentDir = path.dirname(fileURLToPath(import.meta.url));
+    const sourcePath = path.resolve(
+      currentDir,
+      "../otunit-revision-lifecycle-show-cli-dogfood.ts",
+    );
+    expect(readFileSync(sourcePath, "utf8").length).toBeGreaterThan(0);
+  });
+
   it("exports the dogfood kind", () => {
     expect(OTUNIT_REVISION_LIFECYCLE_SHOW_CLI_DOGFOOD_KIND).toBe(
       "otunit_revision_lifecycle_show_cli_dogfood",
@@ -56,41 +67,32 @@ describe("otunit-revision-lifecycle-show-cli-dogfood.ts", () => {
     expect(result.stdout).not.toMatch(/[\u001b\u009b]/);
   });
 
-  it("fails without dogfood in the exact CLI boundary phase", () => {
-    const result = runCli(["otunit", "revision-lifecycle-show"]);
+  it("wires the revision lifecycle show command into the CLI", () => {
+    const dogfoodResult = runCli(["otunit", "revision-lifecycle-show", "--dogfood"]);
+    const missingDogfoodResult = runCli(["otunit", "revision-lifecycle-show"]);
+    const otunitHelpResult = runCli(["otunit", "--help"]);
+    const showHelpResult = runCli(["otunit", "revision-lifecycle-show", "--help"]);
 
-    expect(result.status).toBe(1);
-    expect(result.stdout).toBe("");
-    expect(result.stderr).toContain(
+    expect(dogfoodResult.status).toBe(0);
+    expect(dogfoodResult.error).toBeUndefined();
+    expect(dogfoodResult.stderr).toBe("");
+    expect(dogfoodResult.stdout).toContain("OTUnit Revision Lifecycle");
+    expect(dogfoodResult.stdout).toContain("Read Model:");
+    expect(dogfoodResult.stdout).toContain("Snapshot:");
+    expect(dogfoodResult.stdout).toContain("Record Steps");
+    expect(dogfoodResult.stdout).not.toMatch(/[\u001b\u009b]/);
+
+    expect(missingDogfoodResult.status).toBe(1);
+    expect(missingDogfoodResult.stdout).toBe("");
+    expect(missingDogfoodResult.stderr).toContain(
       "revision-lifecycle-show requires --dogfood in current boundary phase.",
     );
-  });
 
-  it("prints plain text and no stderr when dogfood is provided", () => {
-    const result = runCli(["otunit", "revision-lifecycle-show", "--dogfood"]);
+    expect(otunitHelpResult.status).toBe(0);
+    expect(otunitHelpResult.stdout).toContain("revision-lifecycle-show");
 
-    expect(result.status).toBe(0);
-    expect(result.error).toBeUndefined();
-    expect(result.stderr).toBe("");
-    expect(result.stdout).toContain("OTUnit Revision Lifecycle");
-    expect(result.stdout).toContain("Read Model:");
-    expect(result.stdout).toContain("Snapshot:");
-    expect(result.stdout).toContain("Record Steps");
-    expect(result.stdout).not.toMatch(/[\u001b\u009b]/);
-  });
-
-  it("exposes revision-lifecycle-show in otunit help", () => {
-    const result = runCli(["otunit", "--help"]);
-
-    expect(result.status).toBe(0);
-    expect(result.stdout).toContain("revision-lifecycle-show");
-  });
-
-  it("exposes dogfood help for the exact command", () => {
-    const result = runCli(["otunit", "revision-lifecycle-show", "--help"]);
-
-    expect(result.status).toBe(0);
-    expect(result.stdout).toContain("revision-lifecycle-show");
-    expect(result.stdout).toContain("--dogfood");
+    expect(showHelpResult.status).toBe(0);
+    expect(showHelpResult.stdout).toContain("revision-lifecycle-show");
+    expect(showHelpResult.stdout).toContain("--dogfood");
   });
 });
