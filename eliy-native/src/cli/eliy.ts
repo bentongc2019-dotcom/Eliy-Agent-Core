@@ -21,6 +21,9 @@ import { completeChat, readProviderState } from "../provider/openai-compatible.j
 import { EliyNativeRuntime } from "../runtime/kernel/runtime.js";
 import type { RuntimeResult } from "../runtime/kernel/schemas/index.js";
 import {
+  runOTUnitRevisionLifecycleShowCliDogfood,
+} from "../runtime/kernel/otunit-revision-lifecycle-show-cli-dogfood.js";
+import {
   createSessionTranscript,
   formatSessionTranscriptDebugSummary,
   recordSessionTranscriptTurn
@@ -1545,6 +1548,20 @@ function runtime(): EliyNativeRuntime {
   return new EliyNativeRuntime(process.cwd());
 }
 
+async function runTerminalRevisionLifecycleShowCommand(dogfood: boolean): Promise<void> {
+  if (!dogfood) {
+    process.stderr.write("revision-lifecycle-show requires --dogfood in current boundary phase.\n");
+    process.exitCode = 1;
+    return;
+  }
+
+  const result = await runOTUnitRevisionLifecycleShowCliDogfood({
+    id: "cli-dogfood-run-001"
+  });
+
+  process.stdout.write(result.stdout);
+}
+
 async function main(): Promise<void> {
   const program = new Command();
   program.name("eliy").description("Eliy Native Runtime Kernel CLI").version("0.1.0");
@@ -1637,7 +1654,7 @@ Non-empty input returns a deterministic skeleton response when provider config i
       printResult(runtime().objectiveStatus(objective_id, options.workspace));
     });
 
-  program
+  const otunit = program
     .command("otunit")
     .description("OTUnit commands")
     .addHelpText("after", `
@@ -1645,7 +1662,8 @@ Non-empty input returns a deterministic skeleton response when provider config i
 This is a deterministic inspection-only command.
 It does not create, save, list, show, or confirm OTUnits from user input.
 It does not wait for stdin.
-It does not require provider config.`)
+It does not require provider config.
+The revision lifecycle show path is wired separately as a deterministic read-only CLI command.`)
     .action(() => {
       const repo = createInMemoryOTUnitRepository();
 
@@ -1789,6 +1807,19 @@ It does not require provider config.`)
         waitsForStdin: false,
         persistence: false
       });
+    });
+
+  otunit
+    .command("revision-lifecycle-show")
+    .description("Show the revision lifecycle as deterministic plain text")
+    .option("--dogfood", "Enable the current dogfood-only boundary phase", false)
+    .addHelpText("after", `
+
+This command is read-only.
+It does not mutate source OTUnits.
+It does not persist to files, databases, or provider-backed state.`)
+    .action(async (options) => {
+      await runTerminalRevisionLifecycleShowCommand(Boolean(options.dogfood));
     });
 
 
