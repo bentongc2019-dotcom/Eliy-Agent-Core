@@ -21,6 +21,9 @@ import { completeChat, readProviderState } from "../provider/openai-compatible.j
 import { EliyNativeRuntime } from "../runtime/kernel/runtime.js";
 import type { RuntimeResult } from "../runtime/kernel/schemas/index.js";
 import {
+  projectOTUnitRevisionLifecycleShowCommandCliWiringBoundary,
+} from "../runtime/kernel/otunit-revision-lifecycle-show-command-cli-wiring-boundary.js";
+import {
   createSessionTranscript,
   formatSessionTranscriptDebugSummary,
   recordSessionTranscriptTurn
@@ -1545,6 +1548,14 @@ function runtime(): EliyNativeRuntime {
   return new EliyNativeRuntime(process.cwd());
 }
 
+async function runTerminalRevisionLifecycleShowCommand(): Promise<void> {
+  const result = await projectOTUnitRevisionLifecycleShowCommandCliWiringBoundary({
+    id: "cli-wiring-run-001"
+  });
+
+  console.log(result.stdout);
+}
+
 async function main(): Promise<void> {
   const program = new Command();
   program.name("eliy").description("Eliy Native Runtime Kernel CLI").version("0.1.0");
@@ -1637,7 +1648,7 @@ Non-empty input returns a deterministic skeleton response when provider config i
       printResult(runtime().objectiveStatus(objective_id, options.workspace));
     });
 
-  program
+  const otunit = program
     .command("otunit")
     .description("OTUnit commands")
     .addHelpText("after", `
@@ -1645,7 +1656,8 @@ Non-empty input returns a deterministic skeleton response when provider config i
 This is a deterministic inspection-only command.
 It does not create, save, list, show, or confirm OTUnits from user input.
 It does not wait for stdin.
-It does not require provider config.`)
+It does not require provider config.
+The revision lifecycle show path is wired separately as a deterministic read-only CLI command.`)
     .action(() => {
       const repo = createInMemoryOTUnitRepository();
 
@@ -1789,6 +1801,20 @@ It does not require provider config.`)
         waitsForStdin: false,
         persistence: false
       });
+    });
+
+  const otunitRevision = otunit.command("revision").description("OTUnit revision commands");
+  const otunitRevisionLifecycle = otunitRevision.command("lifecycle").description("OTUnit revision lifecycle commands");
+  otunitRevisionLifecycle
+    .command("show")
+    .description("Show the revision lifecycle as deterministic plain text")
+    .addHelpText("after", `
+
+This command is read-only.
+It does not mutate source OTUnits.
+It does not persist to files, databases, or provider-backed state.`)
+    .action(async () => {
+      await runTerminalRevisionLifecycleShowCommand();
     });
 
 
