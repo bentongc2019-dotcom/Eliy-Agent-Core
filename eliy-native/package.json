@@ -15,11 +15,18 @@
     "otunit:loop": "tsx src/cli/eliy.ts otunit-core-loop"
   },
   "dependencies": {
+    "@assistant-ui/react": "^0.14.26",
     "commander": "^13.0.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^22.15.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "jsdom": "^29.1.1",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4"
