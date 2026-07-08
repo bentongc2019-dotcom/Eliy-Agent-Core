@@ -7,6 +7,11 @@ import {
   createCapabilityInvocationTraceRecord,
   type CapabilityInvocationTraceRecord,
 } from "./capability-invocation-trace-record";
+import type {
+  LlmCapabilityAdapter,
+  LlmCapabilityAdapterInput,
+  LlmCapabilityAdapterResult,
+} from "./llm-capability-adapter-contract";
 
 export interface CapabilityInvocationBoundaryInput {
   invocationId: string;
@@ -15,26 +20,12 @@ export interface CapabilityInvocationBoundaryInput {
   createdAt: string;
   mode?: "mock" | "real";
   enableRealLlm?: boolean;
-  realLlmAdapter?: RealLlmCapabilityInvocationAdapter;
+  llmAdapter?: LlmCapabilityAdapter;
+  realLlmAdapter?: LlmCapabilityAdapter;
 }
 
-export interface RealLlmCapabilityInvocationResult {
-  ok: true;
-  mode: "real";
-  capabilityId: string;
-  resultText: string;
-  handler: string;
-  traceRecordCompatible: true;
-}
-
-export type RealLlmCapabilityInvocationAdapter = (
-  input: Readonly<{
-    invocationId: string;
-    capabilityId: string;
-    payload: MockCapabilityInvocationPayload;
-    createdAt: string;
-  }>,
-) => RealLlmCapabilityInvocationResult | Promise<RealLlmCapabilityInvocationResult>;
+export type RealLlmCapabilityInvocationResult = LlmCapabilityAdapterResult;
+export type RealLlmCapabilityInvocationAdapter = LlmCapabilityAdapter;
 
 export interface CapabilityInvocationBoundaryMockResult {
   ok: true;
@@ -77,16 +68,22 @@ async function createRealBoundaryResult(
     throw new Error("real mode requires enableRealLlm: true");
   }
 
-  if (typeof input.realLlmAdapter !== "function") {
-    throw new Error("real mode requires a realLlmAdapter");
+  const llmAdapter = input.llmAdapter ?? input.realLlmAdapter;
+
+  if (typeof llmAdapter !== "function") {
+    throw new Error("real mode requires a llmAdapter");
   }
 
-  return input.realLlmAdapter({
-    invocationId: input.invocationId,
-    capabilityId: input.capabilityId,
-    payload: input.payload,
-    createdAt: input.createdAt,
-  });
+  const mockResult = invokeMockCapability(input.capabilityId, input.payload);
+  const adapterInput: LlmCapabilityAdapterInput = {
+    capabilityId: mockResult.capabilityId,
+    capabilityName: mockResult.capabilityName,
+    capabilityVersion: mockResult.capabilityVersion,
+    capabilityKind: mockResult.capabilityKind,
+    payload: mockResult.payload,
+  };
+
+  return llmAdapter(adapterInput);
 }
 
 export async function invokeCapabilityWithRealLlmBoundary(
