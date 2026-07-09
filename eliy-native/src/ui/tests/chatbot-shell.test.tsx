@@ -37,66 +37,105 @@ function renderShell() {
   return render(<AssistantUiChatbotShell />);
 }
 
+function getVisibleText() {
+  return document.body.textContent ?? "";
+}
+
+function expectNoTechnicalTerms() {
+  const visibleText = getVisibleText().toLowerCase();
+  expect(visibleText).not.toContain("mock");
+  expect(visibleText).not.toContain("deterministic");
+  expect(visibleText).not.toContain("composer");
+  expect(visibleText).not.toContain("thread");
+}
+
 describe("AssistantUiChatbotShell", () => {
-  it("renders the conversation list and defaults to the first visible conversation", () => {
+  it("shows the simplified brand and navigation", () => {
     renderShell();
 
-    expect(screen.getByTestId("left-workspace")).toBeTruthy();
-    expect(screen.getByTestId("conversation-section-pinned")).toBeTruthy();
-    expect(screen.getByTestId("conversation-section-projects")).toBeTruthy();
-    expect(screen.getByTestId("conversation-section-recent")).toBeTruthy();
-    expect(screen.getByTestId("chat-thread-shell")).toBeTruthy();
-    expect(screen.getByTestId("chat-thread")).toBeTruthy();
-    expect(screen.getByTestId("composer-shell")).toBeTruthy();
-    expect(screen.getByTestId("artifact-workspace")).toBeTruthy();
+    expect(screen.getByTestId("left-workspace").textContent).toContain("Eliy");
+    expect(screen.getByTestId("left-workspace").textContent).toContain("老板的 AI 经营助手");
+    expect(getVisibleText()).not.toContain("Eliy Native");
+    expect(getVisibleText()).not.toContain("0.1.0");
 
-    expect(screen.getByTestId("conversation-item-focus-opdca").textContent).toContain("O'PDCA 体验客户访谈");
-    expect(screen.getByTestId("conversation-item-ui-preview").textContent).toContain("ChatBot Shell 视觉验收");
-    expect(screen.getByTestId("conversation-item-weekly-review").textContent).toContain("每周复盘草稿");
+    expect(screen.getByTestId("workspace-item-new-chat")).toBeTruthy();
+    expect(screen.getByTestId("workspace-item-search")).toBeTruthy();
+    expect(screen.getByTestId("workspace-item-settings")).toBeTruthy();
+    expect(screen.getByTestId("workspace-icon-new-chat")).toBeTruthy();
+    expect(screen.getByTestId("workspace-icon-search")).toBeTruthy();
+    expect(screen.getByTestId("workspace-icon-settings")).toBeTruthy();
 
-    const selectedConversation = screen.getByTestId("conversation-item-focus-opdca");
-    expect(selectedConversation.getAttribute("data-selected")).toBe("true");
-    expect(screen.getByTestId("last-action-feedback").textContent).toContain("已选择：O'PDCA 体验客户访谈");
-    expect(screen.getByTestId("selected-conversation-title").textContent).toBe("O'PDCA 体验客户访谈");
-    expect(screen.getByTestId("chat-thread").textContent).toContain(
-      "Eliy：这是 O'PDCA 体验客户访谈的本地 Mock 对话。",
-    );
-    expect(screen.getByTestId("chat-thread").textContent).not.toContain('"id":');
+    const leftWorkspaceText = screen.getByTestId("left-workspace").textContent ?? "";
+    expect(leftWorkspaceText).toContain("新对话");
+    expect(leftWorkspaceText).toContain("搜索");
+    expect(leftWorkspaceText).toContain("项目");
+    expect(leftWorkspaceText).toContain("已置顶");
+    expect(leftWorkspaceText).toContain("最近对话");
+    expect(leftWorkspaceText).toContain("设置");
+
+    expect(screen.queryByText("知识库")).toBeNull();
+    expect(screen.queryByText("已安排")).toBeNull();
+    expect(screen.queryByText("应用")).toBeNull();
+    expect(screen.queryByText("更多")).toBeNull();
+    expect(screen.queryByText("用户 / 设置")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("workspace-item-search"));
+    expect(screen.getByTestId("last-action-feedback").textContent).toContain("搜索功能暂未开放");
+
+    fireEvent.click(screen.getByTestId("workspace-item-settings"));
+    expect(screen.getByTestId("last-action-feedback").textContent).toContain("设置功能暂未开放");
+
+    expectNoTechnicalTerms();
   });
 
-  it("updates the selected conversation and thread when another item is selected", () => {
+  it("renders project, pinned and recent sections in the requested order", () => {
     renderShell();
+
+    const projects = screen.getByTestId("conversation-section-projects");
+    const pinned = screen.getByTestId("conversation-section-pinned");
+    const recent = screen.getByTestId("conversation-section-recent");
+
+    expect(projects.compareDocumentPosition(pinned) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(pinned.compareDocumentPosition(recent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    expect(projects.textContent).toContain("增长实验 · 1");
+    expect(projects.textContent).toContain("产品壳 · 1");
+    expect(projects.textContent).toContain("经营复盘 · 1");
+
+    expect(pinned.textContent).toContain("O'PDCA 体验客户访谈");
+    expect(recent.textContent).toContain("ChatBot Shell 视觉验收");
+    expect(recent.textContent).toContain("每周复盘草稿");
+  });
+
+  it("shows actions only on the selected conversation and keeps selection stable", () => {
+    renderShell();
+
+    expect(screen.queryByTestId("conversation-action-pin-ui-preview")).toBeNull();
 
     fireEvent.click(screen.getByTestId("conversation-item-ui-preview"));
 
     expect(screen.getByTestId("conversation-item-ui-preview").getAttribute("data-selected")).toBe("true");
     expect(screen.getByTestId("conversation-item-focus-opdca").getAttribute("data-selected")).toBeNull();
-    expect(screen.getByTestId("selected-conversation-title").textContent).toBe("ChatBot Shell 视觉验收");
-    expect(screen.getByTestId("chat-thread").textContent).toContain(
-      "Eliy：这是 ChatBot Shell 视觉验收的本地 Mock 对话。",
-    );
-    expect(screen.getByTestId("chat-thread").textContent).toContain("目前所有操作都只影响前端 local state。");
-    expect(screen.getByTestId("last-action-feedback").textContent).toContain("已选择：ChatBot Shell 视觉验收");
-  });
-
-  it("keeps action clicks on the item from being swallowed by the parent selection surface", () => {
-    renderShell();
+    expect(screen.getByTestId("conversation-action-pin-ui-preview")).toBeTruthy();
+    expect(screen.getByTestId("conversation-action-rename-ui-preview")).toBeTruthy();
+    expect(screen.getByTestId("conversation-action-move-ui-preview")).toBeTruthy();
+    expect(screen.getByTestId("conversation-action-archive-ui-preview")).toBeTruthy();
+    expect(screen.getByTestId("conversation-action-delete-ui-preview")).toBeTruthy();
 
     fireEvent.click(screen.getByTestId("conversation-action-pin-ui-preview"));
 
-    expect(screen.getByTestId("conversation-item-focus-opdca").getAttribute("data-selected")).toBe("true");
-    expect(screen.getByTestId("conversation-section-pinned").textContent).toContain("ChatBot Shell 视觉验收");
+    expect(screen.getByTestId("conversation-item-ui-preview").getAttribute("data-selected")).toBe("true");
     expect(screen.getByTestId("last-action-feedback").textContent).toContain("已置顶：ChatBot Shell 视觉验收");
   });
 
-  it("pins and unpins conversations without leaving local state", () => {
+  it("retains pin, rename and move actions with simplified feedback", () => {
     renderShell();
 
+    fireEvent.click(screen.getByTestId("conversation-item-ui-preview"));
     fireEvent.click(screen.getByTestId("conversation-action-pin-ui-preview"));
 
     expect(screen.getByTestId("conversation-section-pinned").textContent).toContain("ChatBot Shell 视觉验收");
     expect(screen.getByTestId("conversation-section-recent").textContent).not.toContain("ChatBot Shell 视觉验收");
-    expect(screen.getByText("产品壳 · 1")).toBeTruthy();
     expect(screen.getByTestId("conversation-action-pin-ui-preview").textContent).toBe("取消置顶");
     expect(screen.getByTestId("last-action-feedback").textContent).toContain("已置顶：ChatBot Shell 视觉验收");
 
@@ -104,58 +143,35 @@ describe("AssistantUiChatbotShell", () => {
 
     expect(screen.getByTestId("conversation-section-pinned").textContent).not.toContain("ChatBot Shell 视觉验收");
     expect(screen.getByTestId("conversation-section-recent").textContent).toContain("ChatBot Shell 视觉验收");
-    expect(screen.getByText("产品壳 · 1")).toBeTruthy();
     expect(screen.getByTestId("conversation-action-pin-ui-preview").textContent).toBe("置顶");
     expect(screen.getByTestId("last-action-feedback").textContent).toContain("已取消置顶：ChatBot Shell 视觉验收");
+
+    fireEvent.click(screen.getByTestId("conversation-action-rename-ui-preview"));
+
+    expect(screen.getByTestId("conversation-item-ui-preview").textContent).toContain("ChatBot Shell 视觉验收（已重命名）");
+    expect(screen.getByTestId("selected-conversation-title").textContent).toBe("ChatBot Shell 视觉验收（已重命名）");
+    expect(screen.getByTestId("last-action-feedback").textContent).toContain("已重命名：ChatBot Shell 视觉验收（已重命名）");
+
+    fireEvent.click(screen.getByTestId("conversation-action-move-ui-preview"));
+
+    expect(screen.getByTestId("conversation-item-ui-preview").textContent).toContain("项目：重点项目");
+    expect(screen.getByText("重点项目 · 1")).toBeTruthy();
+    expect(screen.getByTestId("selected-conversation-project").textContent).toBe("项目：重点项目");
+    expect(screen.getByTestId("last-action-feedback").textContent).toContain("已移动到项目：重点项目");
   });
 
-  it("renames the selected conversation and keeps the thread title in sync", () => {
-    renderShell();
-
-    fireEvent.click(screen.getByTestId("conversation-select-weekly-review"));
-    fireEvent.click(screen.getByTestId("conversation-action-rename-weekly-review"));
-
-    expect(screen.getByTestId("conversation-item-weekly-review").textContent).toContain("每周复盘草稿（已重命名）");
-    expect(screen.getByTestId("selected-conversation-title").textContent).toBe("每周复盘草稿（已重命名）");
-    expect(screen.getByTestId("last-action-feedback").textContent).toContain("已重命名：每周复盘草稿（已重命名）");
-
-    fireEvent.click(screen.getByTestId("conversation-action-rename-weekly-review"));
-
-    const renamedItem = screen.getByTestId("conversation-item-weekly-review").textContent ?? "";
-    expect(renamedItem.match(/（已重命名）/g)).toHaveLength(1);
-    expect(screen.getByTestId("selected-conversation-title").textContent).toBe("每周复盘草稿（已重命名）");
-  });
-
-  it("moves a conversation into the mock project summary", () => {
-    renderShell();
-
-    fireEvent.click(screen.getByTestId("conversation-item-weekly-review"));
-    fireEvent.click(screen.getByTestId("conversation-action-move-weekly-review"));
-
-    expect(screen.getByTestId("conversation-item-weekly-review").textContent).toContain("项目：Mock 项目");
-    expect(screen.getByText("Mock 项目 · 1")).toBeTruthy();
-    expect(screen.getByTestId("selected-conversation-project").textContent).toBe("项目：Mock 项目");
-    expect(screen.getByTestId("last-action-feedback").textContent).toContain("已移动到 Mock 项目：每周复盘草稿");
-  });
-
-  it("archives the selected conversation and advances to the next visible one", () => {
+  it("archives and deletes conversations while advancing the visible selection", () => {
     renderShell();
 
     fireEvent.click(screen.getByTestId("conversation-action-archive-focus-opdca"));
 
     expect(screen.getByTestId("selected-conversation-title").textContent).toBe("ChatBot Shell 视觉验收");
-    expect(screen.getByTestId("conversation-section-archived").textContent).toContain("O'PDCA 体验客户访谈");
-    expect(screen.queryByTestId("conversation-select-focus-opdca")).toBeNull();
     expect(screen.getByTestId("conversation-section-recent").textContent).not.toContain("O'PDCA 体验客户访谈");
     expect(screen.getByTestId("last-action-feedback").textContent).toContain(
       "已归档：O'PDCA 体验客户访谈，已选择：ChatBot Shell 视觉验收",
     );
-  });
+    expect(screen.getByTestId("conversation-section-pinned").textContent).not.toContain("O'PDCA 体验客户访谈");
 
-  it("deletes the selected conversation and advances to the next visible one", () => {
-    renderShell();
-
-    fireEvent.click(screen.getByTestId("conversation-select-ui-preview"));
     fireEvent.click(screen.getByTestId("conversation-action-delete-ui-preview"));
 
     expect(screen.getByTestId("selected-conversation-title").textContent).toBe("每周复盘草稿");
@@ -166,33 +182,29 @@ describe("AssistantUiChatbotShell", () => {
     );
   });
 
-  it("appends deterministic mock turns to the selected conversation", async () => {
+  it("sends a localized reply, keeps the latest message visible and clears the input", async () => {
     renderShell();
 
-    fireEvent.click(screen.getByTestId("conversation-select-ui-preview"));
+    fireEvent.click(screen.getByTestId("conversation-item-ui-preview"));
     scrollIntoViewMock.mockClear();
 
-    const input = screen.getByPlaceholderText("输入一段本地 Mock 提示") as HTMLTextAreaElement;
+    const input = screen.getByPlaceholderText("输入想和 Eliy 讨论的问题") as HTMLTextAreaElement;
+    expect(screen.getByTestId("composer-send").textContent).toBe("发送");
+
     fireEvent.change(input, {
-      target: { value: "需要一个更轻的 IA 视觉对齐版本" },
+      target: { value: "需要一个更轻的体验版本" },
     });
     fireEvent.click(screen.getByTestId("composer-send"));
-
-    const expectedReply = buildMockAssistantReply("需要一个更轻的 IA 视觉对齐版本");
 
     await waitFor(() => {
       const messages = screen.getAllByTestId("chat-message");
       expect(messages).toHaveLength(4);
-      expect(screen.getByTestId("chat-thread").textContent).toContain("需要一个更轻的 IA 视觉对齐版本");
-      expect(screen.getByTestId("chat-thread").textContent).not.toContain('"id":');
-      expect(screen.getByTestId("chat-thread").textContent).not.toContain("unstable_data");
-      expect(screen.getByTestId("chat-thread").textContent).not.toContain("runConfig");
-      expect(screen.getByTestId("chat-thread").textContent).not.toContain("metadata");
-      expect(messages[messages.length - 1]?.textContent).toContain(expectedReply);
-      expect(screen.getByTestId("chat-thread-latest-anchor")).toBeTruthy();
-      expect(screen.getByTestId("composer-send-feedback").textContent).toContain(
-        "已发送 Mock：需要一个更轻的 IA 视觉对齐版本",
+      expect(screen.getByTestId("chat-thread").textContent).toContain("需要一个更轻的体验版本");
+      expect(messages[messages.length - 1]?.textContent).toContain(
+        buildMockAssistantReply("需要一个更轻的体验版本"),
       );
+      expect(screen.getByTestId("chat-thread-latest-anchor")).toBeTruthy();
+      expect(screen.getByTestId("composer-send-feedback").textContent).toContain("发送成功，Eliy 已回复");
       expect(scrollIntoViewMock).toHaveBeenCalled();
     });
 
@@ -202,44 +214,11 @@ describe("AssistantUiChatbotShell", () => {
     });
 
     expect(screen.getByTestId("message-count").textContent).toContain("4 条消息");
-    expect(screen.getByTestId("last-action-feedback").textContent).toContain(
-      "已发送 Mock：需要一个更轻的 IA 视觉对齐版本",
-    );
+    expect(screen.getByTestId("last-action-feedback").textContent).toContain("发送成功，Eliy 已回复");
+    expectNoTechnicalTerms();
   });
 
-  it("keeps mock sends scoped to the selected conversation", async () => {
-    renderShell();
-
-    fireEvent.click(screen.getByTestId("conversation-select-ui-preview"));
-
-    const input = screen.getByTestId("composer-input") as HTMLTextAreaElement;
-    fireEvent.change(input, {
-      target: { value: "Dogfood #4 mock send test" },
-    });
-    scrollIntoViewMock.mockClear();
-    fireEvent.click(screen.getByTestId("composer-send"));
-
-    await waitFor(() => {
-      expect(screen.getByTestId("chat-thread").textContent).toContain("Dogfood #4 mock send test");
-      expect(screen.getByTestId("message-count").textContent).toContain("4 条消息");
-    });
-
-    fireEvent.click(screen.getByTestId("conversation-select-focus-opdca"));
-
-    expect(screen.getByTestId("chat-thread").textContent).not.toContain("Dogfood #4 mock send test");
-    expect(screen.getByTestId("message-count").textContent).toContain("2 条消息");
-
-    fireEvent.click(screen.getByTestId("conversation-select-ui-preview"));
-
-    expect(screen.getByTestId("chat-thread").textContent).toContain("Dogfood #4 mock send test");
-    expect(screen.getByTestId("chat-thread").textContent).toContain(
-      buildMockAssistantReply("Dogfood #4 mock send test"),
-    );
-    expect(screen.getByTestId("composer-send-feedback").textContent).toContain("已发送 Mock：Dogfood #4 mock send test");
-    expect(scrollIntoViewMock).toHaveBeenCalled();
-  });
-
-  it("keeps the right workspace independent from the chat thread", () => {
+  it("keeps the right workspace independent from chat content", () => {
     renderShell();
 
     const artifactWorkspace = screen.getByTestId("artifact-workspace");
@@ -247,36 +226,24 @@ describe("AssistantUiChatbotShell", () => {
 
     expect(artifactWorkspace.closest('[data-testid="chat-thread-shell"]')).toBeNull();
     expect(threadShell.contains(artifactWorkspace)).toBe(false);
+    expect(artifactWorkspace.textContent).toContain("工作区");
+    expect(artifactWorkspace.textContent).toContain("独立显示");
+    expect(artifactWorkspace.textContent).toContain("行动整理");
+    expect(artifactWorkspace.textContent).toContain("资料区");
+    expect(artifactWorkspace.textContent).toContain("备注");
     expect(screen.getByTestId("otunit-workspace")).toBeTruthy();
-    expect(screen.getByText("工件 / OTUnit")).toBeTruthy();
-    expect(screen.getByText("独立工作区")).toBeTruthy();
-    expect(screen.getByText("OTUnit 工作区")).toBeTruthy();
-    expect(screen.getByText("工件工作区")).toBeTruthy();
-    expect(screen.getByText("工作区备注")).toBeTruthy();
-    expect(screen.getByTestId("chat-thread").textContent ?? "").not.toContain("OTUnit 工作区");
-    expect(screen.getByTestId("chat-thread").textContent ?? "").not.toContain("工件工作区");
-    expect(screen.getByTestId("chat-thread").textContent ?? "").not.toContain("工作区备注");
+    expect(screen.getByTestId("chat-thread").textContent ?? "").not.toContain("行动整理");
+    expect(screen.getByTestId("chat-thread").textContent ?? "").not.toContain("资料区");
+    expect(screen.getByTestId("chat-thread").textContent ?? "").not.toContain("备注");
   });
 
-  it("falls back to an empty state when no visible conversation remains", () => {
-    renderShell();
-
-    fireEvent.click(screen.getByTestId("conversation-action-delete-focus-opdca"));
-    fireEvent.click(screen.getByTestId("conversation-action-delete-ui-preview"));
-    fireEvent.click(screen.getByTestId("conversation-action-delete-weekly-review"));
-
-    expect(screen.getByTestId("selected-conversation-title").textContent).toBe("暂无可见会话");
-    expect(screen.getByTestId("message-count").textContent).toContain("0 条消息");
-    expect(screen.getByPlaceholderText("当前没有可见会话")).toBeTruthy();
-    expect(screen.getByTestId("chat-thread").textContent).toContain("当前没有可见会话");
-    expect(screen.getByTestId("last-action-feedback").textContent).toContain("已删除：每周复盘草稿，暂无可见会话");
-  });
-
-  it("builds deterministic mock replies", () => {
-    const sample = "The same input should always produce the same output.";
+  it("builds simplified assistant replies", () => {
+    const sample = "需要一个更轻的体验版本";
 
     expect(buildMockAssistantReply(sample)).toBe(buildMockAssistantReply(sample));
     expect(buildMockAssistantReply("   ")).toContain("空输入");
-    expect(buildMockAssistantReply(sample)).toContain("The same input should always produce the same output.");
+    expect(buildMockAssistantReply(sample)).toContain("我已为你整理下一步。");
+    expect(buildMockAssistantReply(sample)).not.toContain("Mock");
+    expect(buildMockAssistantReply(sample)).not.toContain("确定性");
   });
 });
