@@ -6,6 +6,7 @@ export default defineConfig({
       "src/runtime/kernel/tests/**/*.test.ts",
       "src/runtime/capabilities/tests/**/*.test.ts",
       "src/runtime/provider/tests/**/*.test.ts",
+      "src/ui/tests/**/*.test.tsx",
     ],
     environment: "node"
   }
