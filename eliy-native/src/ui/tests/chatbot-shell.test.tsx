@@ -88,15 +88,33 @@ describe("AssistantUiChatbotShell", () => {
     expectNoTechnicalTerms();
   });
 
+  it("marks the shell as compact desktop density", () => {
+    renderShell();
+
+    const shellRoot = screen.getByTestId("chatbot-shell-root");
+    const shellGrid = screen.getByTestId("chatbot-shell-grid");
+
+    expect(shellRoot.getAttribute("data-desktop-density")).toBe("compact");
+    expect(shellGrid.style.gap).toBe("12px");
+    expect(shellGrid.style.gridTemplateColumns).toContain("272px");
+    expect(shellGrid.style.gridTemplateColumns).toContain("296px");
+  });
+
   it("renders project, pinned and recent sections in the requested order", () => {
     renderShell();
 
+    const newChat = screen.getByTestId("workspace-item-new-chat");
+    const search = screen.getByTestId("workspace-item-search");
     const projects = screen.getByTestId("conversation-section-projects");
     const pinned = screen.getByTestId("conversation-section-pinned");
     const recent = screen.getByTestId("conversation-section-recent");
+    const settings = screen.getByTestId("workspace-item-settings");
 
+    expect(newChat.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(search.compareDocumentPosition(projects) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(projects.compareDocumentPosition(pinned) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(pinned.compareDocumentPosition(recent) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(recent.compareDocumentPosition(settings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
     expect(projects.textContent).toContain("增长实验 · 1");
     expect(projects.textContent).toContain("产品壳 · 1");
@@ -190,6 +208,7 @@ describe("AssistantUiChatbotShell", () => {
 
     const input = screen.getByPlaceholderText("输入想和 Eliy 讨论的问题") as HTMLTextAreaElement;
     expect(screen.getByTestId("composer-send").textContent).toBe("发送");
+    expect(screen.getByTestId("composer-send").getAttribute("disabled")).not.toBeNull();
 
     fireEvent.change(input, {
       target: { value: "需要一个更轻的体验版本" },
@@ -216,6 +235,42 @@ describe("AssistantUiChatbotShell", () => {
     expect(screen.getByTestId("message-count").textContent).toContain("4 条消息");
     expect(screen.getByTestId("last-action-feedback").textContent).toContain("发送成功，Eliy 已回复");
     expectNoTechnicalTerms();
+  });
+
+  it("supports repeated sends with consistent counts and feedback", async () => {
+    renderShell();
+
+    fireEvent.click(screen.getByTestId("conversation-item-ui-preview"));
+    scrollIntoViewMock.mockClear();
+
+    const input = screen.getByPlaceholderText("输入想和 Eliy 讨论的问题") as HTMLTextAreaElement;
+
+    fireEvent.change(input, {
+      target: { value: "第一条需求" },
+    });
+    fireEvent.click(screen.getByTestId("composer-send"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("message-count").textContent).toContain("4 条消息");
+      expect(screen.getByTestId("composer-send-feedback").textContent).toContain("发送成功，Eliy 已回复");
+      expect(screen.getByTestId("chat-thread").textContent).toContain("第一条需求");
+    });
+
+    fireEvent.change(input, {
+      target: { value: "第二条需求" },
+    });
+    fireEvent.click(screen.getByTestId("composer-send"));
+
+    await waitFor(() => {
+      const messages = screen.getAllByTestId("chat-message");
+      expect(messages).toHaveLength(6);
+      expect(screen.getByTestId("chat-thread").textContent).toContain("第二条需求");
+      expect(messages[messages.length - 1]?.textContent).toContain(buildMockAssistantReply("第二条需求"));
+      expect(screen.getByTestId("composer-send-feedback").textContent).toContain("发送成功，Eliy 已回复");
+    });
+
+    expect(screen.getByTestId("message-count").textContent).toContain("6 条消息");
+    expect((screen.getByTestId("composer-input") as HTMLTextAreaElement).value).toBe("");
   });
 
   it("keeps the right workspace independent from chat content", () => {
