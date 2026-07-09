@@ -62,7 +62,7 @@ export const initialMockThreadMessages: ThreadMessageLike[] = [...initialConvers
 
 const shellStyle: CSSProperties = {
   minHeight: "100vh",
-  padding: "24px",
+  padding: "16px",
   boxSizing: "border-box",
   overflowX: "hidden",
   color: "#e8eefc",
@@ -74,10 +74,10 @@ const shellStyle: CSSProperties = {
 
 const gridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "minmax(0, 300px) minmax(0, 1fr) minmax(0, 336px)",
-  gap: "16px",
+  gridTemplateColumns: "minmax(0, 272px) minmax(0, 1fr) minmax(0, 296px)",
+  gap: "12px",
   alignItems: "stretch",
-  minHeight: "calc(100vh - 48px)",
+  minHeight: "calc(100vh - 32px)",
   minWidth: 0,
 };
 
@@ -103,25 +103,25 @@ const panelHeaderStyle: CSSProperties = {
   alignItems: "center",
   justifyContent: "space-between",
   gap: "12px",
-  padding: "18px 18px 14px",
+  padding: "14px 14px 10px",
   borderBottom: "1px solid rgba(148, 163, 184, 0.12)",
 };
 
 const panelBodyStyle: CSSProperties = {
-  padding: "16px 18px 18px",
+  padding: "12px 14px 14px",
 };
 
 const sectionStackStyle: CSSProperties = {
   display: "grid",
-  gap: "14px",
-  marginTop: "16px",
+  gap: "10px",
+  marginTop: "12px",
 };
 
 const sectionStyle: CSSProperties = {
   display: "grid",
-  gap: "10px",
-  padding: "14px",
-  borderRadius: "18px",
+  gap: "8px",
+  padding: "10px",
+  borderRadius: "16px",
   border: "1px solid rgba(148, 163, 184, 0.12)",
   background: "rgba(6, 11, 22, 0.5)",
 };
@@ -151,9 +151,9 @@ const projectChipWrapStyle: CSSProperties = {
 
 const feedbackBannerStyle: CSSProperties = {
   display: "grid",
-  gap: "6px",
-  padding: "12px 14px",
-  borderRadius: "16px",
+  gap: "4px",
+  padding: "10px 12px",
+  borderRadius: "14px",
   border: "1px solid rgba(96, 165, 250, 0.24)",
   background: "linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(10, 16, 30, 0.92))",
   color: "#eef4ff",
@@ -162,7 +162,7 @@ const feedbackBannerStyle: CSSProperties = {
 
 const headingStyle: CSSProperties = {
   margin: 0,
-  fontSize: "14px",
+  fontSize: "13px",
   letterSpacing: "0.08em",
   textTransform: "uppercase",
   color: "#9fb0d0",
@@ -170,16 +170,16 @@ const headingStyle: CSSProperties = {
 
 const titleStyle: CSSProperties = {
   margin: 0,
-  fontSize: "20px",
-  lineHeight: 1.2,
+  fontSize: "18px",
+  lineHeight: 1.18,
   color: "#f8fbff",
 };
 
 const mutedTextStyle: CSSProperties = {
   margin: 0,
   color: "#b7c3dd",
-  lineHeight: 1.6,
-  fontSize: "13px",
+  lineHeight: 1.45,
+  fontSize: "12px",
 };
 
 const navListStyle: CSSProperties = {
@@ -195,13 +195,13 @@ const navButtonStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "flex-start",
-  gap: "10px",
+  gap: "8px",
   border: "1px solid transparent",
-  borderRadius: "12px",
+  borderRadius: "11px",
   background: "transparent",
   color: "#edf2ff",
-  padding: "10px 12px",
-  fontSize: "14px",
+  padding: "8px 10px",
+  fontSize: "13px",
   textAlign: "left",
   cursor: "pointer",
 };
@@ -226,11 +226,11 @@ const navLabelStyle: CSSProperties = {
 
 const conversationCardStyle: CSSProperties = {
   display: "grid",
-  gap: "10px",
+  gap: "8px",
   border: "1px solid rgba(148, 163, 184, 0.12)",
-  borderRadius: "16px",
+  borderRadius: "14px",
   background: "rgba(10, 16, 30, 0.84)",
-  padding: "12px",
+  padding: "10px",
 };
 
 const conversationCardSelectedStyle: CSSProperties = {
@@ -241,13 +241,13 @@ const conversationCardSelectedStyle: CSSProperties = {
 
 const conversationSelectStyle: CSSProperties = {
   display: "grid",
-  gap: "8px",
+  gap: "6px",
   width: "100%",
   border: "1px solid rgba(148, 163, 184, 0.08)",
-  borderRadius: "14px",
+  borderRadius: "12px",
   background: "rgba(3, 7, 18, 0.38)",
   color: "#edf2ff",
-  padding: "12px 12px 10px",
+  padding: "10px 10px 8px",
   textAlign: "left",
   cursor: "pointer",
 };
@@ -261,10 +261,10 @@ const conversationTitleRowStyle: CSSProperties = {
 
 const conversationTitleStyle: CSSProperties = {
   margin: 0,
-  fontSize: "14px",
+  fontSize: "13px",
   fontWeight: 600,
   color: "#f8fbff",
-  lineHeight: 1.45,
+  lineHeight: 1.35,
 };
 
 const conversationMetaRowStyle: CSSProperties = {
@@ -277,7 +277,7 @@ const conversationMetaRowStyle: CSSProperties = {
 const conversationActionRowStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
-  gap: "6px",
+  gap: "4px",
   position: "relative",
   zIndex: 1,
 };
@@ -285,8 +285,8 @@ const conversationActionRowStyle: CSSProperties = {
 const threadViewportStyle: CSSProperties = {
   display: "grid",
   alignContent: "start",
-  gap: "12px",
-  padding: "18px",
+  gap: "10px",
+  padding: "14px",
   overflowY: "auto",
   overflowX: "hidden",
   minHeight: 0,
@@ -299,8 +299,8 @@ const actionButtonStyle: CSSProperties = {
   borderRadius: "999px",
   background: "rgba(15, 23, 42, 0.78)",
   color: "#cdd8ef",
-  fontSize: "12px",
-  padding: "8px 10px",
+  fontSize: "11px",
+  padding: "6px 9px",
   cursor: "pointer",
 };
 
@@ -317,15 +317,15 @@ const selectedConversationBadgeStyle: CSSProperties = {
   border: "1px solid rgba(96, 165, 250, 0.32)",
   background: "rgba(37, 99, 235, 0.18)",
   color: "#dbeafe",
-  fontSize: "12px",
-  padding: "4px 8px",
+  fontSize: "11px",
+  padding: "3px 7px",
 };
 
 const messageCardStyle: CSSProperties = {
   border: "1px solid rgba(148, 163, 184, 0.12)",
-  borderRadius: "16px",
+  borderRadius: "14px",
   background: "rgba(10, 16, 30, 0.84)",
-  padding: "14px 16px",
+  padding: "12px 14px",
   minWidth: 0,
   maxWidth: "100%",
   overflow: "hidden",
@@ -334,7 +334,7 @@ const messageCardStyle: CSSProperties = {
 const messageTextStyle: CSSProperties = {
   margin: 0,
   color: "#edf2ff",
-  lineHeight: 1.7,
+  lineHeight: 1.55,
   whiteSpace: "pre-wrap",
   overflowWrap: "anywhere",
   wordBreak: "break-word",
@@ -342,39 +342,39 @@ const messageTextStyle: CSSProperties = {
 
 const composerStyle: CSSProperties = {
   borderTop: "1px solid rgba(148, 163, 184, 0.12)",
-  padding: "14px 18px 18px",
+  padding: "12px 14px 14px",
   background: "rgba(6, 11, 22, 0.62)",
   flex: "0 0 auto",
 };
 
 const composerSurfaceStyle: CSSProperties = {
   display: "grid",
-  gap: "10px",
+  gap: "8px",
   width: "100%",
   border: "1px solid rgba(148, 163, 184, 0.14)",
-  borderRadius: "18px",
+  borderRadius: "16px",
   background: "rgba(15, 23, 42, 0.8)",
-  padding: "14px",
+  padding: "10px 12px",
 };
 
 const composerFeedbackStyle: CSSProperties = {
   border: "1px solid rgba(96, 165, 250, 0.2)",
-  borderRadius: "14px",
+  borderRadius: "12px",
   background: "rgba(15, 23, 42, 0.74)",
   color: "#dbeafe",
-  fontSize: "13px",
-  lineHeight: 1.5,
-  padding: "10px 12px",
+  fontSize: "12px",
+  lineHeight: 1.4,
+  padding: "8px 10px",
 };
 
 const composerFieldStyle: CSSProperties = {
   width: "100%",
-  minHeight: "108px",
+  minHeight: "88px",
   border: "1px solid rgba(148, 163, 184, 0.14)",
-  borderRadius: "14px",
+  borderRadius: "12px",
   background: "rgba(3, 7, 18, 0.88)",
   color: "#f8fbff",
-  padding: "12px 14px",
+  padding: "10px 12px",
   boxSizing: "border-box",
   resize: "vertical",
   font: "inherit",
@@ -387,7 +387,7 @@ const composerActionsStyle: CSSProperties = {
   alignItems: "center",
   flexWrap: "wrap",
   justifyContent: "space-between",
-  gap: "12px",
+  gap: "10px",
 };
 
 const composerMetaStyle: CSSProperties = {
@@ -403,15 +403,15 @@ const primaryButtonStyle: CSSProperties = {
   background: "linear-gradient(180deg, rgba(99, 102, 241, 0.92), rgba(79, 70, 229, 0.92))",
   color: "#ffffff",
   borderRadius: "999px",
-  padding: "10px 16px",
-  fontSize: "14px",
+  padding: "8px 14px",
+  fontSize: "13px",
   fontWeight: 600,
   cursor: "pointer",
 };
 
 const composerPlusStyle: CSSProperties = {
-  width: "34px",
-  height: "34px",
+  width: "30px",
+  height: "30px",
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
@@ -419,7 +419,7 @@ const composerPlusStyle: CSSProperties = {
   border: "1px solid rgba(148, 163, 184, 0.16)",
   background: "rgba(15, 23, 42, 0.72)",
   color: "#ced8ef",
-  fontSize: "18px",
+  fontSize: "16px",
   lineHeight: 1,
   cursor: "not-allowed",
   opacity: 0.72,
@@ -433,8 +433,8 @@ const chipStyle: CSSProperties = {
   border: "1px solid rgba(148, 163, 184, 0.14)",
   background: "rgba(15, 23, 42, 0.78)",
   color: "#cdd8ef",
-  fontSize: "12px",
-  padding: "8px 10px",
+  fontSize: "11px",
+  padding: "6px 9px",
 };
 
 const projectChipStyle: CSSProperties = {
@@ -444,8 +444,8 @@ const projectChipStyle: CSSProperties = {
 
 const emptyStateStyle: CSSProperties = {
   border: "1px dashed rgba(148, 163, 184, 0.2)",
-  borderRadius: "16px",
-  padding: "16px",
+  borderRadius: "14px",
+  padding: "12px",
   color: "#b7c3dd",
   background: "rgba(3, 7, 18, 0.42)",
 };
@@ -1058,7 +1058,7 @@ function LeftWorkspacePanel({
         <div>
           <p style={headingStyle}>Eliy</p>
           <h1 style={titleStyle}>老板的 AI 经营助手</h1>
-          <p style={mutedTextStyle}>看清当前能做什么、点了会发生什么、下一步还能做什么。</p>
+          <p style={mutedTextStyle}>看清当前状态与可执行动作。</p>
         </div>
       </div>
       <div style={panelBodyStyle}>
@@ -1067,7 +1067,7 @@ function LeftWorkspacePanel({
           <p style={{ ...mutedTextStyle, margin: 0, color: "#e5eefc" }}>{lastActionFeedback}</p>
         </div>
 
-        <div style={{ display: "grid", gap: "12px", marginTop: "16px" }}>
+        <div style={{ display: "grid", gap: "10px", marginTop: "12px" }}>
           <div style={{ display: "grid", gap: "4px" }} aria-label="主导航">
             <button
               type="button"
@@ -1173,7 +1173,7 @@ function LeftWorkspacePanel({
             </section>
           </div>
 
-          <div style={{ display: "grid", gap: "4px", marginTop: "12px", borderTop: "1px solid rgba(148, 163, 184, 0.12)", paddingTop: "12px" }}>
+          <div style={{ display: "grid", gap: "4px", marginTop: "10px", borderTop: "1px solid rgba(148, 163, 184, 0.12)", paddingTop: "10px" }}>
             <button
               type="button"
               data-testid="workspace-item-settings"
@@ -1293,15 +1293,15 @@ function ArtifactWorkspacePanel() {
   const sections = [
     {
       title: "行动整理",
-      body: "用于整理下一步行动、复盘重点和待确认事项。",
+      body: "整理下一步行动与待确认事项。",
     },
     {
       title: "资料区",
-      body: "用于承载后续需要单独查看的资料内容。",
+      body: "承载后续要单独查看的资料。",
     },
     {
       title: "备注",
-      body: "这里和聊天内容分开显示，方便后续复盘。",
+      body: "与聊天分开显示，便于复盘。",
     },
   ];
 
@@ -1314,12 +1314,12 @@ function ArtifactWorkspacePanel() {
         </div>
         <span style={chipStyle}>独立显示</span>
       </div>
-      <div style={{ ...panelBodyStyle, display: "grid", gap: "14px" }}>
+      <div style={{ ...panelBodyStyle, display: "grid", gap: "12px" }}>
         {sections.map((section, index) => (
           <div
             key={section.title}
             data-testid={index === 0 ? "otunit-workspace" : undefined}
-            style={index === 0 ? { ...sectionStyle, borderTop: "none", paddingTop: "14px" } : sectionStyle}
+            style={index === 0 ? { ...sectionStyle, borderTop: "none", paddingTop: "10px" } : sectionStyle}
           >
             <p style={headingStyle}>{section.title}</p>
             <p style={mutedTextStyle}>{section.body}</p>
@@ -1372,8 +1372,8 @@ function ShellViewport() {
   const selectedConversation = findConversationById(state.conversations, state.selectedConversationId);
 
   return (
-    <main style={shellStyle}>
-      <div style={gridStyle}>
+    <main data-testid="chatbot-shell-root" data-desktop-density="compact" style={shellStyle}>
+      <div data-testid="chatbot-shell-grid" style={gridStyle}>
         <LeftWorkspacePanel
           conversations={state.conversations}
           onArchiveConversation={archiveConversation}
