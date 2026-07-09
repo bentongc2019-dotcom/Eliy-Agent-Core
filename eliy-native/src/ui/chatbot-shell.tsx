@@ -1,10 +1,5 @@
 import {
-  AssistantRuntimeProvider,
-  type ChatModelAdapter,
   type ThreadMessageLike,
-  useAui,
-  useAuiState,
-  useLocalRuntime,
 } from "@assistant-ui/react";
 import { useState, type CSSProperties } from "react";
 
@@ -14,7 +9,7 @@ export const initialMockThreadMessages: ThreadMessageLike[] = [
     content: [
       {
         type: "text",
-        text: "Eliy shell ready. The center thread is driven by assistant-ui with deterministic mock messages.",
+        text: "Eliy shell ready. The center thread is driven by deterministic mock messages.",
       },
     ],
     status: { type: "complete", reason: "stop" },
@@ -24,7 +19,7 @@ export const initialMockThreadMessages: ThreadMessageLike[] = [
     content: [
       {
         type: "text",
-        text: "Use the composer below to append another mock turn. The right-side OTUnit workspace stays separate from the thread.",
+        text: "Use the composer below to append another mock response while the Artifact / OTUnit workspace stays separate from the thread.",
       },
     ],
     status: { type: "complete", reason: "stop" },
@@ -35,6 +30,7 @@ const shellStyle: CSSProperties = {
   minHeight: "100vh",
   padding: "24px",
   boxSizing: "border-box",
+  overflowX: "hidden",
   color: "#e8eefc",
   background:
     "radial-gradient(circle at top left, rgba(98, 126, 255, 0.22), transparent 34%), linear-gradient(180deg, #09111f 0%, #0f1726 100%)",
@@ -44,10 +40,11 @@ const shellStyle: CSSProperties = {
 
 const gridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "280px minmax(0, 1fr) 336px",
+  gridTemplateColumns: "minmax(0, 280px) minmax(0, 1fr) minmax(0, 336px)",
   gap: "16px",
   alignItems: "stretch",
   minHeight: "calc(100vh - 48px)",
+  minWidth: 0,
 };
 
 const panelStyle: CSSProperties = {
@@ -57,6 +54,7 @@ const panelStyle: CSSProperties = {
   boxShadow: "0 20px 60px rgba(2, 6, 23, 0.38)",
   backdropFilter: "blur(18px)",
   overflow: "hidden",
+  minWidth: 0,
 };
 
 const panelHeaderStyle: CSSProperties = {
@@ -129,19 +127,16 @@ const navButtonAccentStyle: CSSProperties = {
   background: "rgba(63, 94, 251, 0.14)",
 };
 
-const threadStyle: CSSProperties = {
-  display: "grid",
-  gridTemplateRows: "auto minmax(0, 1fr) auto",
-  minHeight: "100%",
-};
-
 const threadViewportStyle: CSSProperties = {
   display: "grid",
   alignContent: "start",
   gap: "12px",
   padding: "18px",
-  minHeight: "100%",
   overflowY: "auto",
+  overflowX: "hidden",
+  minHeight: 0,
+  minWidth: 0,
+  flex: "1 1 auto",
 };
 
 const messageCardStyle: CSSProperties = {
@@ -149,6 +144,9 @@ const messageCardStyle: CSSProperties = {
   borderRadius: "16px",
   background: "rgba(10, 16, 30, 0.84)",
   padding: "14px 16px",
+  minWidth: 0,
+  maxWidth: "100%",
+  overflow: "hidden",
 };
 
 const messageTextStyle: CSSProperties = {
@@ -156,17 +154,21 @@ const messageTextStyle: CSSProperties = {
   color: "#edf2ff",
   lineHeight: 1.7,
   whiteSpace: "pre-wrap",
+  overflowWrap: "anywhere",
+  wordBreak: "break-word",
 };
 
 const composerStyle: CSSProperties = {
   borderTop: "1px solid rgba(148, 163, 184, 0.12)",
   padding: "14px 18px 18px",
   background: "rgba(6, 11, 22, 0.62)",
+  flex: "0 0 auto",
 };
 
 const composerSurfaceStyle: CSSProperties = {
   display: "grid",
   gap: "12px",
+  width: "100%",
   border: "1px solid rgba(148, 163, 184, 0.14)",
   borderRadius: "18px",
   background: "rgba(15, 23, 42, 0.8)",
@@ -185,6 +187,7 @@ const composerFieldStyle: CSSProperties = {
   resize: "vertical",
   font: "inherit",
   outline: "none",
+  overflowWrap: "anywhere",
 };
 
 const composerActionsStyle: CSSProperties = {
@@ -217,88 +220,41 @@ const chipStyle: CSSProperties = {
   padding: "8px 10px",
 };
 
-function extractText(value: unknown): string {
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (!value || typeof value !== "object") {
-    return "";
-  }
-
-  const record = value as {
-    text?: unknown;
-    content?: unknown;
-    parts?: unknown;
-    type?: unknown;
-  };
-
-  if (typeof record.text === "string") {
-    return record.text;
-  }
-
-  if (typeof record.content === "string") {
-    return record.content;
-  }
-
-  if (Array.isArray(record.content)) {
-    return record.content
-      .map((part) => extractText(part))
-      .filter(Boolean)
-      .join("\n");
-  }
-
-  if (Array.isArray(record.parts)) {
-    return record.parts
-      .map((part) => extractText(part))
-      .filter(Boolean)
-      .join("\n");
-  }
-
-  if (record.type === "text" && typeof record.text === "string") {
-    return record.text;
-  }
-
-  return "";
-}
-
-function getLastUserText(messages: readonly unknown[]): string {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index] as { role?: unknown; content?: unknown };
-    if (message?.role !== "user") {
-      continue;
-    }
-
-    const text = extractText(message.content);
-    if (text) {
-      return text;
-    }
-  }
-
-  return "";
-}
-
 export function buildMockAssistantReply(userText: string): string {
   const normalized = userText.trim() || "empty input";
   return `Mock assistant reply: ${normalized} | workspace shell stable | deterministic`;
 }
 
-const mockChatModel: ChatModelAdapter = {
-  async run({ messages }) {
-    return {
-      content: [
-        {
-          type: "text",
-          text: buildMockAssistantReply(getLastUserText(messages)),
-        },
-      ],
-    };
-  },
+type ChatRole = "assistant" | "user";
+
+type ShellMessage = {
+  role: ChatRole;
+  body: string;
 };
 
-function ShellComposer() {
-  const aui = useAui();
-  const messages = useAuiState((state) => state.thread.messages);
+function getMessageRoleLabel(role: ChatRole): string {
+  return role === "user" ? "You" : "Assistant";
+}
+
+function getMessageCardStyle(role: ChatRole): CSSProperties {
+  return {
+    ...messageCardStyle,
+    background:
+      role === "user"
+        ? "linear-gradient(180deg, rgba(37, 99, 235, 0.18), rgba(15, 23, 42, 0.9))"
+        : "rgba(10, 16, 30, 0.84)",
+    borderColor:
+      role === "user" ? "rgba(96, 165, 250, 0.28)" : "rgba(148, 163, 184, 0.12)",
+    justifySelf: role === "user" ? "end" : "start",
+    maxWidth: "min(92%, 760px)",
+  };
+}
+
+function ShellComposer({
+  onSend,
+}: {
+  onSend: (userText: string) => void;
+}) {
   const [text, setText] = useState("");
 
   const send = () => {
@@ -307,20 +263,7 @@ function ShellComposer() {
       return;
     }
 
-    const nextMessages: ThreadMessageLike[] = [
-      ...Array.from(messages) as ThreadMessageLike[],
-      {
-        role: "user",
-        content: [{ type: "text", text: userText }],
-      },
-      {
-        role: "assistant",
-        content: [{ type: "text", text: buildMockAssistantReply(userText) }],
-        status: { type: "complete", reason: "stop" },
-      },
-    ];
-
-    aui.thread().reset(nextMessages);
+    onSend(userText);
     setText("");
   };
 
@@ -350,8 +293,22 @@ function ShellComposer() {
   );
 }
 
-function LeftWorkspacePanel() {
-  const aui = useAui();
+const initialShellMessages: ShellMessage[] = [
+  {
+    role: "assistant",
+    body: "Eliy shell ready. The center thread is driven by deterministic mock messages.",
+  },
+  {
+    role: "assistant",
+    body: "Use the composer below to append another mock response while the Artifact / OTUnit workspace stays separate from the thread.",
+  },
+];
+
+function LeftWorkspacePanel({
+  onResetThread,
+}: {
+  onResetThread: () => void;
+}) {
   const workspaceItems = [
     "New Chat",
     "Search",
@@ -387,7 +344,7 @@ function LeftWorkspacePanel() {
                 style={item === "New Chat" ? { ...navButtonStyle, ...navButtonAccentStyle } : navButtonStyle}
                 onClick={() => {
                   if (item === "New Chat") {
-                    aui.thread().reset(initialMockThreadMessages);
+                    onResetThread();
                   }
                 }}
               >
@@ -402,45 +359,51 @@ function LeftWorkspacePanel() {
   );
 }
 
-function ChatThreadPanel() {
-  const messages = useAuiState((state) => state.thread.messages);
+function ChatThreadPanel({
+  messages,
+  onSend,
+}: {
+  messages: readonly ShellMessage[];
+  onSend: (userText: string) => void;
+}) {
+  const visibleMessages = messages.map((message, index) => ({
+    ...message,
+    key: `${message.role}-${message.body.slice(0, 24)}-${index}`,
+  }));
 
   return (
-    <section data-testid="chat-thread-shell" style={{ ...panelStyle, ...threadStyle }}>
+    <section
+      data-testid="chat-thread-shell"
+      style={{
+        ...panelStyle,
+        display: "flex",
+        flexDirection: "column",
+        minHeight: 0,
+      }}
+    >
       <div style={panelHeaderStyle}>
         <div>
           <p style={headingStyle}>Chat Thread</p>
-          <h2 style={titleStyle}>assistant-ui shell POC</h2>
+          <h2 style={titleStyle}>Deterministic shell preview</h2>
         </div>
         <span data-testid="message-count" style={chipStyle}>
-          {messages.length} messages
+          {visibleMessages.length} messages
         </span>
       </div>
       <div data-testid="chat-thread" style={threadViewportStyle}>
-        {messages.map((message, index) => {
-          const body =
-            extractText(
-              (message as { content?: unknown }).content ??
-                (message as { parts?: unknown }).parts ??
-                (message as { text?: unknown }).text,
-            ) || JSON.stringify(message);
-
-          return (
-            <article
-              key={(message as { id?: string }).id ?? `${index}-${String((message as { role?: unknown }).role ?? "message")}`}
-              data-testid="chat-message"
-              style={messageCardStyle}
-            >
-              <p style={headingStyle}>
-                {String((message as { role?: unknown }).role ?? "message")}
-              </p>
-              <p style={messageTextStyle}>{body}</p>
-            </article>
-          );
-        })}
+        {visibleMessages.map((message) => (
+          <article
+            key={message.key}
+            data-testid="chat-message"
+            style={getMessageCardStyle(message.role)}
+          >
+            <p style={headingStyle}>{getMessageRoleLabel(message.role)}</p>
+            <p style={messageTextStyle}>{message.body}</p>
+          </article>
+        ))}
       </div>
       <div style={composerStyle}>
-        <ShellComposer />
+        <ShellComposer onSend={onSend} />
       </div>
     </section>
   );
@@ -484,11 +447,31 @@ function ArtifactWorkspacePanel() {
 }
 
 function ShellViewport() {
+  const [messages, setMessages] = useState<ShellMessage[]>(initialShellMessages);
+
+  const resetThread = () => {
+    setMessages(initialShellMessages);
+  };
+
+  const appendMockTurn = (userText: string) => {
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      {
+        role: "user",
+        body: userText,
+      },
+      {
+        role: "assistant",
+        body: buildMockAssistantReply(userText),
+      },
+    ]);
+  };
+
   return (
     <main style={shellStyle}>
       <div style={gridStyle}>
-        <LeftWorkspacePanel />
-        <ChatThreadPanel />
+        <LeftWorkspacePanel onResetThread={resetThread} />
+        <ChatThreadPanel messages={messages} onSend={appendMockTurn} />
         <ArtifactWorkspacePanel />
       </div>
     </main>
@@ -496,13 +479,5 @@ function ShellViewport() {
 }
 
 export function AssistantUiChatbotShell() {
-  const runtime = useLocalRuntime(mockChatModel, {
-    initialMessages: initialMockThreadMessages,
-  });
-
-  return (
-    <AssistantRuntimeProvider runtime={runtime}>
-      <ShellViewport />
-    </AssistantRuntimeProvider>
-  );
+  return <ShellViewport />;
 }

@@ -36,6 +36,7 @@ describe("AssistantUiChatbotShell", () => {
 
     expect(screen.getByTestId("left-workspace")).toBeTruthy();
     expect(screen.getByTestId("chat-thread-shell")).toBeTruthy();
+    expect(screen.getByTestId("chat-thread")).toBeTruthy();
     expect(screen.getByTestId("composer-shell")).toBeTruthy();
     expect(screen.getByTestId("artifact-workspace")).toBeTruthy();
   });
@@ -63,13 +64,24 @@ describe("AssistantUiChatbotShell", () => {
 
     const messages = await screen.findAllByTestId("chat-message");
     expect(messages).toHaveLength(2);
+    expect(messages[0]?.textContent).toContain("Assistant");
     expect(messages[0]?.textContent).toContain(
-      "Eliy shell ready. The center thread is driven by assistant-ui with deterministic mock messages.",
+      "Eliy shell ready. The center thread is driven by deterministic mock messages.",
     );
     expect(messages[1]?.textContent).toContain(
-      "Use the composer below to append another mock turn. The right-side OTUnit workspace stays separate from the thread.",
+      "Use the composer below to append another mock response while the Artifact / OTUnit workspace stays separate from the thread.",
     );
     expect(screen.getByTestId("message-count").textContent).toContain("2 messages");
+
+    const threadText = screen.getByTestId("chat-thread").textContent ?? "";
+    expect(threadText).toContain("Eliy shell ready. The center thread is driven by deterministic mock messages.");
+    expect(threadText).toContain(
+      "Use the composer below to append another mock response while the Artifact / OTUnit workspace stays separate from the thread.",
+    );
+    expect(threadText).not.toContain('"id":');
+    expect(threadText).not.toContain("unstable_data");
+    expect(threadText).not.toContain("runConfig");
+    expect(threadText).not.toContain("metadata");
   });
 
   it("keeps the composer mock submit deterministic", async () => {
@@ -87,12 +99,27 @@ describe("AssistantUiChatbotShell", () => {
 
     await waitFor(() => {
       const messages = screen.getAllByTestId("chat-message");
+      expect(messages).toHaveLength(4);
+      expect(messages.some((message) => message.textContent?.includes("You"))).toBe(true);
       expect(messages[messages.length - 1]?.textContent).toContain(expectedReply);
     });
 
     await waitFor(() => {
       expect((screen.getByTestId("composer-input") as HTMLTextAreaElement).value).toBe("");
     });
+  });
+
+  it("keeps the center thread layout stable", () => {
+    renderShell();
+
+    const threadShell = screen.getByTestId("chat-thread-shell");
+    const thread = screen.getByTestId("chat-thread");
+
+    expect(threadShell.style.display).toBe("flex");
+    expect(threadShell.style.flexDirection).toBe("column");
+    expect(thread.style.overflowY).toBe("auto");
+    expect(thread.style.overflowX).toBe("hidden");
+    expect(thread.style.minWidth).toBe("0px");
   });
 
   it("keeps the artifact / OTUnit workspace separate from the thread", () => {
@@ -104,6 +131,9 @@ describe("AssistantUiChatbotShell", () => {
     expect(artifactWorkspace.closest('[data-testid="chat-thread-shell"]')).toBeNull();
     expect(threadShell.contains(artifactWorkspace)).toBe(false);
     expect(screen.getByTestId("otunit-workspace")).toBeTruthy();
+    expect(screen.getByText("OTUnit workspace")).toBeTruthy();
+    expect(screen.getByText("Artifact workspace")).toBeTruthy();
+    expect(screen.getByText("Workspace notes")).toBeTruthy();
   });
 
   it("builds deterministic mock replies", () => {
