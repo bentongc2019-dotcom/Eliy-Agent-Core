@@ -9,6 +9,7 @@
     "cli": "tsx src/cli/eliy.ts",
     "otunit": "tsx src/cli/eliy.ts otunit",
     "proof": "tsx src/cli/eliy.ts proof terminal",
+    "ui:preview": "vite --host 127.0.0.1 --port 5173",
     "smoke": "tsx src/cli/eliy.ts proof terminal",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -29,6 +30,7 @@
     "jsdom": "^29.1.1",
     "tsx": "^4.20.3",
     "typescript": "^5.8.3",
+    "vite": "7.3.6",
     "vitest": "^3.2.4"
   }
 }
