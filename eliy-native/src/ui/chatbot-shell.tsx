@@ -1,15 +1,45 @@
-import {
-  type ThreadMessageLike,
-} from "@assistant-ui/react";
-import { useState, type CSSProperties } from "react";
+import { type ThreadMessageLike } from "@assistant-ui/react";
+import { useReducer, useState, type CSSProperties } from "react";
 
-export const initialMockThreadMessages: ThreadMessageLike[] = [
+type ChatRole = "assistant" | "user";
+
+type ShellMessage = {
+  role: ChatRole;
+  body: string;
+};
+
+type Conversation = {
+  id: string;
+  title: string;
+  pinned: boolean;
+  project: string;
+  archived: boolean;
+  deleted: boolean;
+  messages: ShellMessage[];
+};
+
+type ShellState = {
+  conversations: Conversation[];
+  selectedConversationId: string | null;
+};
+
+type WorkspaceNavItem = {
+  id: string;
+  icon: string;
+  label: string;
+  active?: boolean;
+  onSelect?: () => void;
+};
+
+const MOCK_PROJECT_LABEL = "Mock 项目";
+
+const initialConversationTemplate: readonly ThreadMessageLike[] = [
   {
     role: "assistant",
     content: [
       {
         type: "text",
-        text: "Eliy 已准备好。中央对话区目前使用本地确定性 Mock 消息。",
+        text: "Eliy：这是 O'PDCA 体验客户访谈的本地 Mock 对话。",
       },
     ],
     status: { type: "complete", reason: "stop" },
@@ -19,12 +49,14 @@ export const initialMockThreadMessages: ThreadMessageLike[] = [
     content: [
       {
         type: "text",
-        text: "你可以在下方输入区继续追加一轮 Mock 回复，右侧独立工作区会继续保持分离。",
+        text: "你可以在这里查看下一步行动，并保持右侧工件区独立。",
       },
     ],
     status: { type: "complete", reason: "stop" },
   },
 ];
+
+export const initialMockThreadMessages: ThreadMessageLike[] = [...initialConversationTemplate];
 
 const shellStyle: CSSProperties = {
   minHeight: "100vh",
@@ -40,7 +72,7 @@ const shellStyle: CSSProperties = {
 
 const gridStyle: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "minmax(0, 280px) minmax(0, 1fr) minmax(0, 336px)",
+  gridTemplateColumns: "minmax(0, 300px) minmax(0, 1fr) minmax(0, 336px)",
   gap: "16px",
   alignItems: "stretch",
   minHeight: "calc(100vh - 48px)",
@@ -68,6 +100,7 @@ const panelHeaderStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "space-between",
+  gap: "12px",
   padding: "18px 18px 14px",
   borderBottom: "1px solid rgba(148, 163, 184, 0.12)",
 };
@@ -76,11 +109,42 @@ const panelBodyStyle: CSSProperties = {
   padding: "16px 18px 18px",
 };
 
-const workspaceSectionStyle: CSSProperties = {
+const sectionStackStyle: CSSProperties = {
+  display: "grid",
+  gap: "14px",
+  marginTop: "16px",
+};
+
+const sectionStyle: CSSProperties = {
+  display: "grid",
+  gap: "10px",
+  padding: "14px",
+  borderRadius: "18px",
+  border: "1px solid rgba(148, 163, 184, 0.12)",
+  background: "rgba(6, 11, 22, 0.5)",
+};
+
+const sectionHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "12px",
+};
+
+const sectionListStyle: CSSProperties = {
+  display: "grid",
+  gap: "10px",
+};
+
+const projectGroupStyle: CSSProperties = {
   display: "grid",
   gap: "8px",
-  paddingTop: "12px",
-  borderTop: "1px solid rgba(148, 163, 184, 0.12)",
+};
+
+const projectChipWrapStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "8px",
 };
 
 const headingStyle: CSSProperties = {
@@ -130,7 +194,7 @@ const navButtonStyle: CSSProperties = {
 };
 
 const navButtonAccentStyle: CSSProperties = {
-  borderColor: "rgba(124, 145, 255, 0.22)",
+  border: "1px solid rgba(124, 145, 255, 0.22)",
   background: "rgba(63, 94, 251, 0.12)",
 };
 
@@ -147,6 +211,62 @@ const navLabelStyle: CSSProperties = {
   flex: "1 1 auto",
 };
 
+const conversationCardStyle: CSSProperties = {
+  display: "grid",
+  gap: "10px",
+  border: "1px solid rgba(148, 163, 184, 0.12)",
+  borderRadius: "16px",
+  background: "rgba(10, 16, 30, 0.84)",
+  padding: "12px",
+};
+
+const conversationCardSelectedStyle: CSSProperties = {
+  border: "1px solid rgba(124, 145, 255, 0.36)",
+  background: "rgba(18, 27, 52, 0.92)",
+  boxShadow: "0 14px 30px rgba(37, 99, 235, 0.16)",
+};
+
+const conversationSelectStyle: CSSProperties = {
+  display: "grid",
+  gap: "8px",
+  width: "100%",
+  border: "1px solid rgba(148, 163, 184, 0.08)",
+  borderRadius: "14px",
+  background: "rgba(3, 7, 18, 0.38)",
+  color: "#edf2ff",
+  padding: "12px 12px 10px",
+  textAlign: "left",
+  cursor: "pointer",
+};
+
+const conversationTitleRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  flexWrap: "wrap",
+};
+
+const conversationTitleStyle: CSSProperties = {
+  margin: 0,
+  fontSize: "14px",
+  fontWeight: 600,
+  color: "#f8fbff",
+  lineHeight: 1.45,
+};
+
+const conversationMetaRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "8px",
+  flexWrap: "wrap",
+};
+
+const conversationActionRowStyle: CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "6px",
+};
+
 const threadViewportStyle: CSSProperties = {
   display: "grid",
   alignContent: "start",
@@ -157,6 +277,22 @@ const threadViewportStyle: CSSProperties = {
   minHeight: 0,
   minWidth: 0,
   flex: "1 1 auto",
+};
+
+const actionButtonStyle: CSSProperties = {
+  border: "1px solid rgba(148, 163, 184, 0.14)",
+  borderRadius: "999px",
+  background: "rgba(15, 23, 42, 0.78)",
+  color: "#cdd8ef",
+  fontSize: "12px",
+  padding: "8px 10px",
+  cursor: "pointer",
+};
+
+const selectedActionButtonStyle: CSSProperties = {
+  border: "1px solid rgba(99, 102, 241, 0.34)",
+  color: "#eef2ff",
+  background: "rgba(63, 94, 251, 0.18)",
 };
 
 const messageCardStyle: CSSProperties = {
@@ -265,25 +401,265 @@ const chipStyle: CSSProperties = {
   padding: "8px 10px",
 };
 
-export function buildMockAssistantReply(userText: string): string {
-  const normalized = userText.trim() || "空输入";
-  return `Eliy：收到你的本地 Mock 提示「${normalized}」。工作区保持独立，输出保持确定性。`;
+const projectChipStyle: CSSProperties = {
+  ...chipStyle,
+  background: "rgba(17, 24, 39, 0.92)",
+};
+
+const emptyStateStyle: CSSProperties = {
+  border: "1px dashed rgba(148, 163, 184, 0.2)",
+  borderRadius: "16px",
+  padding: "16px",
+  color: "#b7c3dd",
+  background: "rgba(3, 7, 18, 0.42)",
+};
+
+function createShellMessage(role: ChatRole, body: string): ShellMessage {
+  return { role, body };
 }
 
-type ChatRole = "assistant" | "user";
+function createConversation(
+  id: string,
+  title: string,
+  project: string,
+  pinned: boolean,
+  messages: ShellMessage[],
+): Conversation {
+  return {
+    id,
+    title,
+    pinned,
+    project,
+    archived: false,
+    deleted: false,
+    messages,
+  };
+}
 
-type ShellMessage = {
-  role: ChatRole;
-  body: string;
-};
+function createInitialConversations(): Conversation[] {
+  return [
+    createConversation(
+      "focus-opdca",
+      "O'PDCA 体验客户访谈",
+      "增长实验",
+      true,
+      [
+        createShellMessage("assistant", "Eliy：这是 O'PDCA 体验客户访谈的本地 Mock 对话。"),
+        createShellMessage("assistant", "你可以在这里查看下一步行动，并保持右侧工件区独立。"),
+      ],
+    ),
+    createConversation(
+      "ui-preview",
+      "ChatBot Shell 视觉验收",
+      "产品壳",
+      false,
+      [
+        createShellMessage("assistant", "Eliy：这是 ChatBot Shell 视觉验收的本地 Mock 对话。"),
+        createShellMessage("assistant", "目前所有操作都只影响前端 local state。"),
+      ],
+    ),
+    createConversation(
+      "weekly-review",
+      "每周复盘草稿",
+      "经营复盘",
+      false,
+      [
+        createShellMessage("assistant", "Eliy：这是每周复盘草稿的本地 Mock 对话。"),
+        createShellMessage("assistant", "已归入最近 / 历史，后续可通过 mock action 移动项目或归档。"),
+      ],
+    ),
+  ];
+}
 
-type WorkspaceNavItem = {
-  id: string;
-  icon: string;
-  label: string;
-  active?: boolean;
-  onSelect?: () => void;
-};
+function createInitialShellState(): ShellState {
+  const conversations = createInitialConversations();
+
+  return {
+    conversations,
+    selectedConversationId: conversations.find((conversation) => !conversation.deleted && !conversation.archived)?.id ?? null,
+  };
+}
+
+function isVisibleConversation(conversation: Conversation): boolean {
+  return !conversation.deleted && !conversation.archived;
+}
+
+function isActiveConversation(conversation: Conversation): boolean {
+  return !conversation.deleted;
+}
+
+function findConversationById(conversations: readonly Conversation[], id: string | null): Conversation | null {
+  if (!id) {
+    return null;
+  }
+
+  return conversations.find((conversation) => conversation.id === id) ?? null;
+}
+
+function findFallbackSelectedConversationId(conversations: readonly Conversation[], removedId: string): string | null {
+  const removedIndex = conversations.findIndex((conversation) => conversation.id === removedId);
+  if (removedIndex < 0) {
+    return conversations.find((conversation) => isVisibleConversation(conversation))?.id ?? null;
+  }
+
+  const nextVisible = conversations.slice(removedIndex + 1).find((conversation) => isVisibleConversation(conversation));
+  if (nextVisible) {
+    return nextVisible.id;
+  }
+
+  const previousVisible = [...conversations.slice(0, removedIndex)].reverse().find((conversation) => isVisibleConversation(conversation));
+  if (previousVisible) {
+    return previousVisible.id;
+  }
+
+  return conversations.find((conversation) => isVisibleConversation(conversation))?.id ?? null;
+}
+
+function appendMockReply(messages: ShellMessage[], userText: string): ShellMessage[] {
+  const trimmed = userText.trim();
+  if (!trimmed) {
+    return messages;
+  }
+
+  return [
+    ...messages,
+    createShellMessage("user", trimmed),
+    createShellMessage("assistant", buildMockAssistantReply(trimmed)),
+  ];
+}
+
+function renameConversationTitle(title: string): string {
+  return title.endsWith("（已重命名）") ? title : `${title}（已重命名）`;
+}
+
+type ShellAction =
+  | { type: "reset" }
+  | { type: "select"; id: string }
+  | { type: "togglePin"; id: string }
+  | { type: "rename"; id: string }
+  | { type: "moveToProject"; id: string }
+  | { type: "archive"; id: string }
+  | { type: "delete"; id: string }
+  | { type: "appendMockTurn"; userText: string };
+
+function shellReducer(state: ShellState, action: ShellAction): ShellState {
+  switch (action.type) {
+    case "reset":
+      return createInitialShellState();
+    case "select": {
+      const nextSelected = findConversationById(state.conversations, action.id);
+      if (!nextSelected || !isVisibleConversation(nextSelected)) {
+        return state;
+      }
+
+      return {
+        ...state,
+        selectedConversationId: action.id,
+      };
+    }
+    case "togglePin":
+      return {
+        ...state,
+        conversations: state.conversations.map((conversation) =>
+          conversation.id === action.id
+            ? {
+                ...conversation,
+                pinned: !conversation.pinned,
+              }
+            : conversation,
+        ),
+      };
+    case "rename":
+      return {
+        ...state,
+        conversations: state.conversations.map((conversation) =>
+          conversation.id === action.id
+            ? {
+                ...conversation,
+                title: renameConversationTitle(conversation.title),
+              }
+            : conversation,
+        ),
+      };
+    case "moveToProject":
+      return {
+        ...state,
+        conversations: state.conversations.map((conversation) =>
+          conversation.id === action.id
+            ? {
+                ...conversation,
+                project: MOCK_PROJECT_LABEL,
+              }
+            : conversation,
+        ),
+      };
+    case "archive": {
+      const nextConversations = state.conversations.map((conversation) =>
+        conversation.id === action.id
+          ? {
+              ...conversation,
+              archived: true,
+            }
+          : conversation,
+      );
+
+      const nextSelectedConversationId =
+        state.selectedConversationId === action.id
+          ? findFallbackSelectedConversationId(nextConversations, action.id)
+          : state.selectedConversationId;
+
+      return {
+        conversations: nextConversations,
+        selectedConversationId: nextSelectedConversationId,
+      };
+    }
+    case "delete": {
+      const nextConversations = state.conversations.map((conversation) =>
+        conversation.id === action.id
+          ? {
+              ...conversation,
+              deleted: true,
+            }
+          : conversation,
+      );
+
+      const nextSelectedConversationId =
+        state.selectedConversationId === action.id
+          ? findFallbackSelectedConversationId(nextConversations, action.id)
+          : state.selectedConversationId;
+
+      return {
+        conversations: nextConversations,
+        selectedConversationId: nextSelectedConversationId,
+      };
+    }
+    case "appendMockTurn": {
+      const currentConversation = findConversationById(state.conversations, state.selectedConversationId);
+      if (!currentConversation || !isVisibleConversation(currentConversation)) {
+        return state;
+      }
+
+      const trimmed = action.userText.trim();
+      if (!trimmed) {
+        return state;
+      }
+
+      return {
+        ...state,
+        conversations: state.conversations.map((conversation) =>
+          conversation.id === currentConversation.id
+            ? {
+                ...conversation,
+                messages: appendMockReply(conversation.messages, trimmed),
+              }
+            : conversation,
+        ),
+      };
+    }
+    default:
+      return state;
+  }
+}
 
 function getMessageRoleLabel(role: ChatRole): string {
   return role === "user" ? "你" : "Eliy";
@@ -304,15 +680,17 @@ function getMessageCardStyle(role: ChatRole): CSSProperties {
 }
 
 function ShellComposer({
+  disabled,
   onSend,
 }: {
+  disabled?: boolean;
   onSend: (userText: string) => void;
 }) {
   const [text, setText] = useState("");
 
   const send = () => {
     const userText = text.trim();
-    if (!userText) {
+    if (!userText || disabled) {
       return;
     }
 
@@ -325,7 +703,7 @@ function ShellComposer({
       <textarea
         aria-label="本地 Mock 输入"
         data-testid="composer-input"
-        placeholder="输入一段本地 Mock 提示"
+        placeholder={disabled ? "当前没有可见会话" : "输入一段本地 Mock 提示"}
         style={composerFieldStyle}
         value={text}
         onChange={(event) => setText(event.target.value)}
@@ -348,7 +726,7 @@ function ShellComposer({
           type="button"
           data-testid="composer-send"
           style={primaryButtonStyle}
-          disabled={text.trim().length === 0}
+          disabled={disabled || text.trim().length === 0}
           onClick={send}
         >
           发送 Mock
@@ -358,21 +736,153 @@ function ShellComposer({
   );
 }
 
-const initialShellMessages: ShellMessage[] = [
-  {
-    role: "assistant",
-    body: "Eliy 已准备好。中央对话区目前使用本地确定性 Mock 消息。",
-  },
-  {
-    role: "assistant",
-    body: "你可以在下方输入区继续追加一轮 Mock 回复，右侧独立工作区会继续保持分离。",
-  },
-];
+function ConversationItem({
+  conversation,
+  isSelected,
+  archived,
+  onArchive,
+  onDelete,
+  onMoveToProject,
+  onRename,
+  onSelect,
+  onTogglePin,
+}: {
+  conversation: Conversation;
+  isSelected: boolean;
+  archived?: boolean;
+  onArchive?: (conversationId: string) => void;
+  onDelete: (conversationId: string) => void;
+  onMoveToProject?: (conversationId: string) => void;
+  onRename: (conversationId: string) => void;
+  onSelect?: (conversationId: string) => void;
+  onTogglePin?: (conversationId: string) => void;
+}) {
+  return (
+    <article
+      data-testid={`conversation-item-${conversation.id}`}
+      data-selected={isSelected ? "true" : undefined}
+      style={isSelected ? { ...conversationCardStyle, ...conversationCardSelectedStyle } : conversationCardStyle}
+    >
+      {onSelect ? (
+        <button
+          type="button"
+          data-testid={`conversation-select-${conversation.id}`}
+          aria-current={isSelected ? "page" : undefined}
+          style={conversationSelectStyle}
+          onClick={() => onSelect(conversation.id)}
+        >
+          <div style={conversationTitleRowStyle}>
+            <h3 style={conversationTitleStyle}>{conversation.title}</h3>
+            {conversation.pinned ? <span style={chipStyle}>已置顶</span> : null}
+            {conversation.archived ? <span style={chipStyle}>已归档</span> : null}
+          </div>
+          <div style={conversationMetaRowStyle}>
+            <span style={mutedTextStyle}>项目：{conversation.project}</span>
+          </div>
+        </button>
+      ) : (
+        <div style={conversationSelectStyle}>
+          <div style={conversationTitleRowStyle}>
+            <h3 style={conversationTitleStyle}>{conversation.title}</h3>
+            {conversation.pinned ? <span style={chipStyle}>已置顶</span> : null}
+            {conversation.archived ? <span style={chipStyle}>已归档</span> : null}
+          </div>
+          <div style={conversationMetaRowStyle}>
+            <span style={mutedTextStyle}>项目：{conversation.project}</span>
+          </div>
+        </div>
+      )}
+
+      <div style={conversationActionRowStyle}>
+        {onTogglePin ? (
+          <button
+            type="button"
+            data-testid={`conversation-action-pin-${conversation.id}`}
+            style={isSelected ? { ...actionButtonStyle, ...selectedActionButtonStyle } : actionButtonStyle}
+            onClick={() => onTogglePin(conversation.id)}
+          >
+            {conversation.pinned ? "取消置顶" : "置顶"}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          data-testid={`conversation-action-rename-${conversation.id}`}
+          style={isSelected ? { ...actionButtonStyle, ...selectedActionButtonStyle } : actionButtonStyle}
+          onClick={() => onRename(conversation.id)}
+        >
+          重命名
+        </button>
+        {onMoveToProject ? (
+          <button
+            type="button"
+            data-testid={`conversation-action-move-${conversation.id}`}
+            style={isSelected ? { ...actionButtonStyle, ...selectedActionButtonStyle } : actionButtonStyle}
+            onClick={() => onMoveToProject(conversation.id)}
+          >
+            移动项目
+          </button>
+        ) : null}
+        {onArchive ? (
+          <button
+            type="button"
+            data-testid={`conversation-action-archive-${conversation.id}`}
+            style={isSelected ? { ...actionButtonStyle, ...selectedActionButtonStyle } : actionButtonStyle}
+            onClick={() => onArchive(conversation.id)}
+          >
+            归档
+          </button>
+        ) : null}
+        <button
+          type="button"
+          data-testid={`conversation-action-delete-${conversation.id}`}
+          style={isSelected ? { ...actionButtonStyle, ...selectedActionButtonStyle } : actionButtonStyle}
+          onClick={() => onDelete(conversation.id)}
+        >
+          删除
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function aggregateProjectSummaries(conversations: readonly Conversation[]): Array<{ label: string; count: number }> {
+  const summaries = new Map<string, number>();
+
+  for (const conversation of conversations) {
+    if (!isVisibleConversation(conversation)) {
+      continue;
+    }
+
+    summaries.set(conversation.project, (summaries.get(conversation.project) ?? 0) + 1);
+  }
+
+  return [...summaries.entries()].map(([label, count]) => ({ label, count }));
+}
+
+function projectSummaryKey(label: string): string {
+  return label.replace(/\s+/g, "-").replace(/[^\p{Letter}\p{Number}-]/gu, "").toLowerCase() || "project";
+}
 
 function LeftWorkspacePanel({
+  conversations,
   onResetThread,
+  onSelectConversation,
+  selectedConversationId,
+  onTogglePin,
+  onRenameConversation,
+  onMoveToProject,
+  onArchiveConversation,
+  onDeleteConversation,
 }: {
+  conversations: readonly Conversation[];
   onResetThread: () => void;
+  onSelectConversation: (conversationId: string) => void;
+  selectedConversationId: string | null;
+  onTogglePin: (conversationId: string) => void;
+  onRenameConversation: (conversationId: string) => void;
+  onMoveToProject: (conversationId: string) => void;
+  onArchiveConversation: (conversationId: string) => void;
+  onDeleteConversation: (conversationId: string) => void;
 }) {
   const workspaceItems: WorkspaceNavItem[] = [
     { id: "new-chat", icon: "＋", label: "新聊天", active: true, onSelect: onResetThread },
@@ -387,6 +897,11 @@ function LeftWorkspacePanel({
     { id: "user-settings", icon: "⚙", label: "用户 / 设置" },
   ];
 
+  const pinnedConversations = conversations.filter((conversation) => conversation.pinned && isVisibleConversation(conversation));
+  const recentConversations = conversations.filter((conversation) => !conversation.pinned && isVisibleConversation(conversation));
+  const archivedConversations = conversations.filter((conversation) => conversation.archived && !conversation.deleted);
+  const projectSummaries = aggregateProjectSummaries(conversations);
+
   return (
     <aside data-testid="left-workspace" style={panelStyle}>
       <div style={panelHeaderStyle}>
@@ -400,6 +915,7 @@ function LeftWorkspacePanel({
         <p style={mutedTextStyle}>
           轻量导航仅作为本地壳层占位，和对话内容、OTUnit 工作区保持分离。
         </p>
+
         <ul style={navListStyle} aria-label="工作区导航">
           {workspaceItems.map((item) => (
             <li key={item.id}>
@@ -419,22 +935,121 @@ function LeftWorkspacePanel({
             </li>
           ))}
         </ul>
+
+        <div style={sectionStackStyle}>
+          <section data-testid="conversation-section-pinned" style={sectionStyle}>
+            <div style={sectionHeaderStyle}>
+              <p style={headingStyle}>已置顶</p>
+              <span style={chipStyle}>{pinnedConversations.length} 条</span>
+            </div>
+            {pinnedConversations.length > 0 ? (
+              <div style={sectionListStyle}>
+                {pinnedConversations.map((conversation) => (
+                  <ConversationItem
+                    key={conversation.id}
+                    conversation={conversation}
+                    isSelected={conversation.id === selectedConversationId}
+                    onArchive={onArchiveConversation}
+                    onDelete={onDeleteConversation}
+                    onMoveToProject={onMoveToProject}
+                    onRename={onRenameConversation}
+                    onSelect={onSelectConversation}
+                    onTogglePin={onTogglePin}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p style={emptyStateStyle}>暂无置顶会话</p>
+            )}
+          </section>
+
+          <section data-testid="conversation-section-projects" style={sectionStyle}>
+            <div style={sectionHeaderStyle}>
+              <p style={headingStyle}>项目</p>
+              <span style={chipStyle}>{projectSummaries.length} 个</span>
+            </div>
+            {projectSummaries.length > 0 ? (
+              <div style={projectGroupStyle}>
+                <div style={projectChipWrapStyle}>
+                  {projectSummaries.map((summary) => (
+                    <span
+                      key={summary.label}
+                      data-testid={`project-summary-${projectSummaryKey(summary.label)}`}
+                      style={projectChipStyle}
+                    >
+                      {summary.label} · {summary.count}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p style={emptyStateStyle}>暂无项目分组</p>
+            )}
+          </section>
+
+          <section data-testid="conversation-section-recent" style={sectionStyle}>
+            <div style={sectionHeaderStyle}>
+              <p style={headingStyle}>最近 / 历史</p>
+              <span style={chipStyle}>{recentConversations.length} 条</span>
+            </div>
+            {recentConversations.length > 0 ? (
+              <div style={sectionListStyle}>
+                {recentConversations.map((conversation) => (
+                  <ConversationItem
+                    key={conversation.id}
+                    conversation={conversation}
+                    isSelected={conversation.id === selectedConversationId}
+                    onArchive={onArchiveConversation}
+                    onDelete={onDeleteConversation}
+                    onMoveToProject={onMoveToProject}
+                    onRename={onRenameConversation}
+                    onSelect={onSelectConversation}
+                    onTogglePin={onTogglePin}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p style={emptyStateStyle}>暂无最近会话</p>
+            )}
+          </section>
+
+          {archivedConversations.length > 0 ? (
+            <section data-testid="conversation-section-archived" style={sectionStyle}>
+              <div style={sectionHeaderStyle}>
+                <p style={headingStyle}>已归档</p>
+                <span style={chipStyle}>{archivedConversations.length} 条</span>
+              </div>
+              <div style={sectionListStyle}>
+                {archivedConversations.map((conversation) => (
+                  <ConversationItem
+                    key={conversation.id}
+                    archived
+                    conversation={conversation}
+                    isSelected={false}
+                    onDelete={onDeleteConversation}
+                    onRename={onRenameConversation}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
+        </div>
       </div>
     </aside>
   );
 }
 
 function ChatThreadPanel({
-  messages,
   onSend,
+  selectedConversation,
 }: {
-  messages: readonly ShellMessage[];
   onSend: (userText: string) => void;
+  selectedConversation: Conversation | null;
 }) {
-  const visibleMessages = messages.map((message, index) => ({
+  const visibleMessages = selectedConversation?.messages.map((message, index) => ({
     ...message,
     key: `${message.role}-${message.body.slice(0, 24)}-${index}`,
-  }));
+  })) ?? [];
 
   return (
     <section
@@ -449,26 +1064,50 @@ function ChatThreadPanel({
       <div style={panelHeaderStyle}>
         <div>
           <p style={headingStyle}>对话</p>
-          <h2 style={titleStyle}>Eliy Native 对话预览</h2>
+          {selectedConversation ? (
+            <>
+              <h2 data-testid="selected-conversation-title" style={titleStyle}>
+                {selectedConversation.title}
+              </h2>
+              <p data-testid="selected-conversation-project" style={mutedTextStyle}>
+                项目：{selectedConversation.project}
+              </p>
+            </>
+          ) : (
+            <>
+              <h2 data-testid="selected-conversation-title" style={titleStyle}>
+                暂无可见会话
+              </h2>
+              <p style={mutedTextStyle}>请从左侧选择一个本地 Mock 会话。</p>
+            </>
+          )}
         </div>
         <span data-testid="message-count" style={chipStyle}>
           {visibleMessages.length} 条消息
         </span>
       </div>
+
       <div data-testid="chat-thread" style={threadViewportStyle}>
-        {visibleMessages.map((message) => (
-          <article
-            key={message.key}
-            data-testid="chat-message"
-            style={getMessageCardStyle(message.role)}
-          >
-            <p style={headingStyle}>{getMessageRoleLabel(message.role)}</p>
-            <p style={messageTextStyle}>{message.body}</p>
-          </article>
-        ))}
+        {selectedConversation ? (
+          visibleMessages.map((message) => (
+            <article
+              key={message.key}
+              data-testid="chat-message"
+              style={getMessageCardStyle(message.role)}
+            >
+              <p style={headingStyle}>{getMessageRoleLabel(message.role)}</p>
+              <p style={messageTextStyle}>{message.body}</p>
+            </article>
+          ))
+        ) : (
+          <div style={emptyStateStyle}>
+            当前没有可见会话。请在左侧保留至少一条本地 Mock 会话。
+          </div>
+        )}
       </div>
+
       <div style={composerStyle}>
-        <ShellComposer onSend={onSend} />
+        <ShellComposer disabled={!selectedConversation} onSend={onSend} />
       </div>
     </section>
   );
@@ -504,7 +1143,7 @@ function ArtifactWorkspacePanel() {
           <div
             key={section.title}
             data-testid={index === 0 ? "otunit-workspace" : undefined}
-            style={index === 0 ? { ...workspaceSectionStyle, borderTop: "none", paddingTop: 0 } : workspaceSectionStyle}
+            style={index === 0 ? { ...sectionStyle, borderTop: "none", paddingTop: "14px" } : sectionStyle}
           >
             <p style={headingStyle}>{section.title}</p>
             <p style={mutedTextStyle}>{section.body}</p>
@@ -516,35 +1155,62 @@ function ArtifactWorkspacePanel() {
 }
 
 function ShellViewport() {
-  const [messages, setMessages] = useState<ShellMessage[]>(initialShellMessages);
+  const [state, dispatch] = useReducer(shellReducer, undefined, createInitialShellState);
 
-  const resetThread = () => {
-    setMessages(initialShellMessages);
+  const selectConversation = (conversationId: string) => {
+    dispatch({ type: "select", id: conversationId });
+  };
+
+  const togglePin = (conversationId: string) => {
+    dispatch({ type: "togglePin", id: conversationId });
+  };
+
+  const renameConversation = (conversationId: string) => {
+    dispatch({ type: "rename", id: conversationId });
+  };
+
+  const moveConversationToProject = (conversationId: string) => {
+    dispatch({ type: "moveToProject", id: conversationId });
+  };
+
+  const archiveConversation = (conversationId: string) => {
+    dispatch({ type: "archive", id: conversationId });
+  };
+
+  const deleteConversation = (conversationId: string) => {
+    dispatch({ type: "delete", id: conversationId });
   };
 
   const appendMockTurn = (userText: string) => {
-    setMessages((currentMessages) => [
-      ...currentMessages,
-      {
-        role: "user",
-        body: userText,
-      },
-      {
-        role: "assistant",
-        body: buildMockAssistantReply(userText),
-      },
-    ]);
+    dispatch({ type: "appendMockTurn", userText });
   };
+
+  const selectedConversation = findConversationById(state.conversations, state.selectedConversationId);
 
   return (
     <main style={shellStyle}>
       <div style={gridStyle}>
-        <LeftWorkspacePanel onResetThread={resetThread} />
-        <ChatThreadPanel messages={messages} onSend={appendMockTurn} />
+        <LeftWorkspacePanel
+          conversations={state.conversations}
+          onArchiveConversation={archiveConversation}
+          onDeleteConversation={deleteConversation}
+          onMoveToProject={moveConversationToProject}
+          onRenameConversation={renameConversation}
+          onResetThread={() => dispatch({ type: "reset" })}
+          onSelectConversation={selectConversation}
+          onTogglePin={togglePin}
+          selectedConversationId={state.selectedConversationId}
+        />
+        <ChatThreadPanel onSend={appendMockTurn} selectedConversation={selectedConversation} />
         <ArtifactWorkspacePanel />
       </div>
     </main>
   );
+}
+
+export function buildMockAssistantReply(userText: string): string {
+  const normalized = userText.trim() || "空输入";
+  return `Eliy：收到你的本地 Mock 提示「${normalized}」。工作区保持独立，输出保持确定性。`;
 }
 
 export function AssistantUiChatbotShell() {
