@@ -9,7 +9,7 @@ export const initialMockThreadMessages: ThreadMessageLike[] = [
     content: [
       {
         type: "text",
-        text: "Eliy shell ready. The center thread is driven by deterministic mock messages.",
+        text: "Eliy 已准备好。中央对话区目前使用本地确定性 Mock 消息。",
       },
     ],
     status: { type: "complete", reason: "stop" },
@@ -19,7 +19,7 @@ export const initialMockThreadMessages: ThreadMessageLike[] = [
     content: [
       {
         type: "text",
-        text: "Use the composer below to append another mock response while the Artifact / OTUnit workspace stays separate from the thread.",
+        text: "你可以在下方输入区继续追加一轮 Mock 回复，右侧独立工作区会继续保持分离。",
       },
     ],
     status: { type: "complete", reason: "stop" },
@@ -57,6 +57,13 @@ const panelStyle: CSSProperties = {
   minWidth: 0,
 };
 
+const workspacePanelStyle: CSSProperties = {
+  ...panelStyle,
+  borderColor: "rgba(148, 163, 184, 0.12)",
+  background: "rgba(8, 15, 28, 0.66)",
+  boxShadow: "0 14px 36px rgba(2, 6, 23, 0.24)",
+};
+
 const panelHeaderStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
@@ -69,11 +76,11 @@ const panelBodyStyle: CSSProperties = {
   padding: "16px 18px 18px",
 };
 
-const sectionCardStyle: CSSProperties = {
-  border: "1px solid rgba(148, 163, 184, 0.14)",
-  borderRadius: "18px",
-  background: "rgba(15, 23, 42, 0.72)",
-  padding: "14px",
+const workspaceSectionStyle: CSSProperties = {
+  display: "grid",
+  gap: "8px",
+  paddingTop: "12px",
+  borderTop: "1px solid rgba(148, 163, 184, 0.12)",
 };
 
 const headingStyle: CSSProperties = {
@@ -100,7 +107,7 @@ const mutedTextStyle: CSSProperties = {
 
 const navListStyle: CSSProperties = {
   display: "grid",
-  gap: "8px",
+  gap: "4px",
   margin: "14px 0 0",
   padding: 0,
   listStyle: "none",
@@ -110,21 +117,34 @@ const navButtonStyle: CSSProperties = {
   width: "100%",
   display: "flex",
   alignItems: "center",
-  justifyContent: "space-between",
-  gap: "12px",
-  border: "1px solid rgba(148, 163, 184, 0.14)",
-  borderRadius: "14px",
-  background: "rgba(15, 23, 42, 0.62)",
+  justifyContent: "flex-start",
+  gap: "10px",
+  border: "1px solid transparent",
+  borderRadius: "12px",
+  background: "transparent",
   color: "#edf2ff",
-  padding: "12px 14px",
+  padding: "10px 12px",
   fontSize: "14px",
   textAlign: "left",
   cursor: "pointer",
 };
 
 const navButtonAccentStyle: CSSProperties = {
-  borderColor: "rgba(124, 145, 255, 0.42)",
-  background: "rgba(63, 94, 251, 0.14)",
+  borderColor: "rgba(124, 145, 255, 0.22)",
+  background: "rgba(63, 94, 251, 0.12)",
+};
+
+const navIconStyle: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  width: "1.2em",
+  color: "#c9d5f5",
+  flex: "0 0 auto",
+};
+
+const navLabelStyle: CSSProperties = {
+  flex: "1 1 auto",
 };
 
 const threadViewportStyle: CSSProperties = {
@@ -167,7 +187,7 @@ const composerStyle: CSSProperties = {
 
 const composerSurfaceStyle: CSSProperties = {
   display: "grid",
-  gap: "12px",
+  gap: "10px",
   width: "100%",
   border: "1px solid rgba(148, 163, 184, 0.14)",
   borderRadius: "18px",
@@ -177,7 +197,7 @@ const composerSurfaceStyle: CSSProperties = {
 
 const composerFieldStyle: CSSProperties = {
   width: "100%",
-  minHeight: "112px",
+  minHeight: "108px",
   border: "1px solid rgba(148, 163, 184, 0.14)",
   borderRadius: "14px",
   background: "rgba(3, 7, 18, 0.88)",
@@ -193,8 +213,17 @@ const composerFieldStyle: CSSProperties = {
 const composerActionsStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
+  flexWrap: "wrap",
   justifyContent: "space-between",
   gap: "12px",
+};
+
+const composerMetaStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "10px",
+  flexWrap: "wrap",
+  minWidth: 0,
 };
 
 const primaryButtonStyle: CSSProperties = {
@@ -206,6 +235,22 @@ const primaryButtonStyle: CSSProperties = {
   fontSize: "14px",
   fontWeight: 600,
   cursor: "pointer",
+};
+
+const composerPlusStyle: CSSProperties = {
+  width: "34px",
+  height: "34px",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  borderRadius: "999px",
+  border: "1px solid rgba(148, 163, 184, 0.16)",
+  background: "rgba(15, 23, 42, 0.72)",
+  color: "#ced8ef",
+  fontSize: "18px",
+  lineHeight: 1,
+  cursor: "not-allowed",
+  opacity: 0.72,
 };
 
 const chipStyle: CSSProperties = {
@@ -221,8 +266,8 @@ const chipStyle: CSSProperties = {
 };
 
 export function buildMockAssistantReply(userText: string): string {
-  const normalized = userText.trim() || "empty input";
-  return `Mock assistant reply: ${normalized} | workspace shell stable | deterministic`;
+  const normalized = userText.trim() || "空输入";
+  return `Eliy：收到你的本地 Mock 提示「${normalized}」。工作区保持独立，输出保持确定性。`;
 }
 
 type ChatRole = "assistant" | "user";
@@ -232,8 +277,16 @@ type ShellMessage = {
   body: string;
 };
 
+type WorkspaceNavItem = {
+  id: string;
+  icon: string;
+  label: string;
+  active?: boolean;
+  onSelect?: () => void;
+};
+
 function getMessageRoleLabel(role: ChatRole): string {
-  return role === "user" ? "You" : "Assistant";
+  return role === "user" ? "你" : "Eliy";
 }
 
 function getMessageCardStyle(role: ChatRole): CSSProperties {
@@ -270,15 +323,27 @@ function ShellComposer({
   return (
     <div data-testid="composer-shell" style={composerSurfaceStyle}>
       <textarea
-        aria-label="Chat composer"
+        aria-label="本地 Mock 输入"
         data-testid="composer-input"
-        placeholder="Type a mock prompt"
+        placeholder="输入一段本地 Mock 提示"
         style={composerFieldStyle}
         value={text}
         onChange={(event) => setText(event.target.value)}
       />
       <div style={composerActionsStyle}>
-        <span style={chipStyle}>Deterministic mock submit</span>
+        <div style={composerMetaStyle}>
+          <button
+            type="button"
+            data-testid="composer-plus"
+            aria-label="附件入口占位，尚未启用"
+            title="附件占位，尚未启用"
+            style={composerPlusStyle}
+            disabled
+          >
+            +
+          </button>
+          <span style={chipStyle}>本地 Mock 模式</span>
+        </div>
         <button
           type="button"
           data-testid="composer-send"
@@ -286,7 +351,7 @@ function ShellComposer({
           disabled={text.trim().length === 0}
           onClick={send}
         >
-          Send mock
+          发送 Mock
         </button>
       </div>
     </div>
@@ -296,11 +361,11 @@ function ShellComposer({
 const initialShellMessages: ShellMessage[] = [
   {
     role: "assistant",
-    body: "Eliy shell ready. The center thread is driven by deterministic mock messages.",
+    body: "Eliy 已准备好。中央对话区目前使用本地确定性 Mock 消息。",
   },
   {
     role: "assistant",
-    body: "Use the composer below to append another mock response while the Artifact / OTUnit workspace stays separate from the thread.",
+    body: "你可以在下方输入区继续追加一轮 Mock 回复，右侧独立工作区会继续保持分离。",
   },
 ];
 
@@ -309,47 +374,47 @@ function LeftWorkspacePanel({
 }: {
   onResetThread: () => void;
 }) {
-  const workspaceItems = [
-    "New Chat",
-    "Search",
-    "Knowledge",
-    "Tasks",
-    "Skills / Apps",
-    "Pinned",
-    "Projects",
-    "Recent / History",
-    "User / Settings",
+  const workspaceItems: WorkspaceNavItem[] = [
+    { id: "new-chat", icon: "＋", label: "新聊天", active: true, onSelect: onResetThread },
+    { id: "search", icon: "⌕", label: "搜索" },
+    { id: "knowledge-base", icon: "◇", label: "知识库" },
+    { id: "scheduled", icon: "✓", label: "已安排" },
+    { id: "apps", icon: "▦", label: "应用" },
+    { id: "more", icon: "…", label: "更多" },
+    { id: "pinned", icon: "★", label: "已置顶" },
+    { id: "projects", icon: "▣", label: "项目" },
+    { id: "recent-history", icon: "◷", label: "最近 / 历史" },
+    { id: "user-settings", icon: "⚙", label: "用户 / 设置" },
   ];
 
   return (
     <aside data-testid="left-workspace" style={panelStyle}>
       <div style={panelHeaderStyle}>
         <div>
-          <p style={headingStyle}>Workspace</p>
+          <p style={headingStyle}>工作区</p>
           <h1 style={titleStyle}>Eliy Native</h1>
         </div>
         <span style={chipStyle}>Mock</span>
       </div>
       <div style={panelBodyStyle}>
         <p style={mutedTextStyle}>
-          Navigation is a placeholder shell only. It stays separate from chat
-          messages and the OTUnit workspace.
+          轻量导航仅作为本地壳层占位，和对话内容、OTUnit 工作区保持分离。
         </p>
-        <ul style={navListStyle} aria-label="workspace navigation">
+        <ul style={navListStyle} aria-label="工作区导航">
           {workspaceItems.map((item) => (
-            <li key={item}>
+            <li key={item.id}>
               <button
                 type="button"
-                data-testid={`workspace-item-${item.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
-                style={item === "New Chat" ? { ...navButtonStyle, ...navButtonAccentStyle } : navButtonStyle}
-                onClick={() => {
-                  if (item === "New Chat") {
-                    onResetThread();
-                  }
-                }}
+                data-testid={`workspace-item-${item.id}`}
+                data-active={item.active ? "true" : undefined}
+                aria-current={item.active ? "page" : undefined}
+                style={item.active ? { ...navButtonStyle, ...navButtonAccentStyle } : navButtonStyle}
+                onClick={item.onSelect}
               >
-                <span>{item}</span>
-                <span aria-hidden="true">›</span>
+                <span aria-hidden="true" data-testid={`workspace-icon-${item.id}`} style={navIconStyle}>
+                  {item.icon}
+                </span>
+                <span style={navLabelStyle}>{item.label}</span>
               </button>
             </li>
           ))}
@@ -383,11 +448,11 @@ function ChatThreadPanel({
     >
       <div style={panelHeaderStyle}>
         <div>
-          <p style={headingStyle}>Chat Thread</p>
-          <h2 style={titleStyle}>Deterministic shell preview</h2>
+          <p style={headingStyle}>对话</p>
+          <h2 style={titleStyle}>Eliy Native 对话预览</h2>
         </div>
         <span data-testid="message-count" style={chipStyle}>
-          {visibleMessages.length} messages
+          {visibleMessages.length} 条消息
         </span>
       </div>
       <div data-testid="chat-thread" style={threadViewportStyle}>
@@ -410,37 +475,41 @@ function ChatThreadPanel({
 }
 
 function ArtifactWorkspacePanel() {
+  const sections = [
+    {
+      title: "OTUnit 工作区",
+      body: "用于结构化 OTUnit 复核、状态和下一步元信息的占位区域。",
+    },
+    {
+      title: "工件工作区",
+      body: "用于承载必须保持在普通消息气泡之外的工件占位区域。",
+    },
+    {
+      title: "工作区备注",
+      body: "这个壳层通过布局把对话内容和工件表面隔离开，而不是混入聊天内容。",
+    },
+  ];
+
   return (
-    <aside data-testid="artifact-workspace" style={panelStyle}>
+    <aside data-testid="artifact-workspace" style={workspacePanelStyle}>
       <div style={panelHeaderStyle}>
         <div>
-          <p style={headingStyle}>Artifact / OTUnit</p>
-          <h2 style={titleStyle}>Independent workspace</h2>
+          <p style={headingStyle}>工件 / OTUnit</p>
+          <h2 style={titleStyle}>独立工作区</h2>
         </div>
-        <span style={chipStyle}>Separate</span>
+        <span style={chipStyle}>分离</span>
       </div>
       <div style={{ ...panelBodyStyle, display: "grid", gap: "14px" }}>
-        <div data-testid="otunit-workspace" style={sectionCardStyle}>
-          <p style={headingStyle}>OTUnit workspace</p>
-          <p style={mutedTextStyle}>
-            Placeholder area for structured OTUnit review, status, and next-step
-            metadata.
-          </p>
-        </div>
-        <div style={sectionCardStyle}>
-          <p style={headingStyle}>Artifact workspace</p>
-          <p style={mutedTextStyle}>
-            Placeholder area for artifacts that must stay outside normal
-            message bubbles.
-          </p>
-        </div>
-        <div style={sectionCardStyle}>
-          <p style={headingStyle}>Workspace notes</p>
-          <p style={mutedTextStyle}>
-            This shell keeps thread content and artifact surfaces isolated by
-            layout, not by chat content.
-          </p>
-        </div>
+        {sections.map((section, index) => (
+          <div
+            key={section.title}
+            data-testid={index === 0 ? "otunit-workspace" : undefined}
+            style={index === 0 ? { ...workspaceSectionStyle, borderTop: "none", paddingTop: 0 } : workspaceSectionStyle}
+          >
+            <p style={headingStyle}>{section.title}</p>
+            <p style={mutedTextStyle}>{section.body}</p>
+          </div>
+        ))}
       </div>
     </aside>
   );
