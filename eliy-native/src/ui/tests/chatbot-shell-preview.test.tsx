@@ -48,7 +48,7 @@ describe("assistant-ui preview harness", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("chat-thread-shell")).toBeTruthy();
-      expect(screen.getByTestId("message-count").textContent).toContain("2 messages");
+      expect(screen.getByTestId("message-count").textContent).toContain("2 条消息");
     });
   });
 });
