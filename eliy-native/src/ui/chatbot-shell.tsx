@@ -1,5 +1,5 @@
 import { type ThreadMessageLike } from "@assistant-ui/react";
-import { useReducer, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { useEffect, useReducer, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 
 type ChatRole = "assistant" | "user";
 
@@ -22,6 +22,7 @@ type ShellState = {
   conversations: Conversation[];
   selectedConversationId: string | null;
   lastActionFeedback: string;
+  composerFeedback: string;
 };
 
 type WorkspaceNavItem = {
@@ -356,6 +357,16 @@ const composerSurfaceStyle: CSSProperties = {
   padding: "14px",
 };
 
+const composerFeedbackStyle: CSSProperties = {
+  border: "1px solid rgba(96, 165, 250, 0.2)",
+  borderRadius: "14px",
+  background: "rgba(15, 23, 42, 0.74)",
+  color: "#dbeafe",
+  fontSize: "13px",
+  lineHeight: 1.5,
+  padding: "10px 12px",
+};
+
 const composerFieldStyle: CSSProperties = {
   width: "100%",
   minHeight: "108px",
@@ -504,6 +515,7 @@ function createInitialShellState(): ShellState {
     conversations,
     selectedConversationId: selectedConversation?.id ?? null,
     lastActionFeedback: selectedConversation ? `已选择：${selectedConversation.title}` : "暂无可见会话",
+    composerFeedback: "",
   };
 }
 
@@ -684,6 +696,7 @@ function shellReducer(state: ShellState, action: ShellAction): ShellState {
       const nextSelectedConversation = findConversationById(nextConversations, nextSelectedConversationId);
 
       return {
+        ...state,
         conversations: nextConversations,
         selectedConversationId: nextSelectedConversationId,
         lastActionFeedback: createActionFeedback("已归档", targetConversation.title, nextSelectedConversation?.title ?? null),
@@ -711,6 +724,7 @@ function shellReducer(state: ShellState, action: ShellAction): ShellState {
       const nextSelectedConversation = findConversationById(nextConversations, nextSelectedConversationId);
 
       return {
+        ...state,
         conversations: nextConversations,
         selectedConversationId: nextSelectedConversationId,
         lastActionFeedback: createActionFeedback("已删除", targetConversation.title, nextSelectedConversation?.title ?? null),
@@ -738,6 +752,7 @@ function shellReducer(state: ShellState, action: ShellAction): ShellState {
             : conversation,
         ),
         lastActionFeedback: createMockSendFeedback(trimmed),
+        composerFeedback: createMockSendFeedback(trimmed),
       };
     }
     default:
@@ -765,9 +780,11 @@ function getMessageCardStyle(role: ChatRole): CSSProperties {
 
 function ShellComposer({
   disabled,
+  feedback,
   onSend,
 }: {
   disabled?: boolean;
+  feedback: string;
   onSend: (userText: string) => void;
 }) {
   const [text, setText] = useState("");
@@ -816,6 +833,11 @@ function ShellComposer({
           发送 Mock
         </button>
       </div>
+      {feedback ? (
+        <div data-testid="composer-send-feedback" aria-live="polite" style={composerFeedbackStyle}>
+          {feedback}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1170,16 +1192,31 @@ function LeftWorkspacePanel({
 }
 
 function ChatThreadPanel({
+  composerFeedback,
   onSend,
   selectedConversation,
 }: {
+  composerFeedback: string;
   onSend: (userText: string) => void;
   selectedConversation: Conversation | null;
 }) {
+  const latestMessageAnchorRef = useRef<HTMLDivElement | null>(null);
   const visibleMessages = selectedConversation?.messages.map((message, index) => ({
     ...message,
     key: `${message.role}-${message.body.slice(0, 24)}-${index}`,
   })) ?? [];
+
+  useEffect(() => {
+    if (!selectedConversation) {
+      return;
+    }
+
+    latestMessageAnchorRef.current?.scrollIntoView?.({
+      behavior: "auto",
+      block: "end",
+      inline: "nearest",
+    });
+  }, [selectedConversation?.id, visibleMessages.length]);
 
   return (
     <section
@@ -1234,10 +1271,18 @@ function ChatThreadPanel({
             当前没有可见会话。请在左侧保留至少一条本地 Mock 会话。
           </div>
         )}
+        {selectedConversation ? (
+          <div
+            ref={latestMessageAnchorRef}
+            data-testid="chat-thread-latest-anchor"
+            aria-hidden="true"
+            style={{ height: "1px", width: "100%" }}
+          />
+        ) : null}
       </div>
 
       <div style={composerStyle}>
-        <ShellComposer disabled={!selectedConversation} onSend={onSend} />
+        <ShellComposer disabled={!selectedConversation} feedback={composerFeedback} onSend={onSend} />
       </div>
     </section>
   );
@@ -1332,7 +1377,11 @@ function ShellViewport() {
           selectedConversationId={state.selectedConversationId}
           lastActionFeedback={state.lastActionFeedback}
         />
-        <ChatThreadPanel onSend={appendMockTurn} selectedConversation={selectedConversation} />
+        <ChatThreadPanel
+          composerFeedback={state.composerFeedback}
+          onSend={appendMockTurn}
+          selectedConversation={selectedConversation}
+        />
         <ArtifactWorkspacePanel />
       </div>
     </main>

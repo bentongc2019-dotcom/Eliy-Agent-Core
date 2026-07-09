@@ -4,6 +4,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { AssistantUiChatbotShell, buildMockAssistantReply } from "../index.js";
 
+const scrollIntoViewMock = vi.fn();
+
 class MockResizeObserver {
   observe() {}
   unobserve() {}
@@ -16,10 +18,15 @@ beforeAll(() => {
     configurable: true,
     value() {},
   });
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+    configurable: true,
+    value: scrollIntoViewMock,
+  });
 });
 
 afterEach(() => {
   cleanup();
+  scrollIntoViewMock.mockClear();
 });
 
 afterAll(() => {
@@ -163,6 +170,7 @@ describe("AssistantUiChatbotShell", () => {
     renderShell();
 
     fireEvent.click(screen.getByTestId("conversation-select-ui-preview"));
+    scrollIntoViewMock.mockClear();
 
     const input = screen.getByPlaceholderText("输入一段本地 Mock 提示") as HTMLTextAreaElement;
     fireEvent.change(input, {
@@ -181,16 +189,54 @@ describe("AssistantUiChatbotShell", () => {
       expect(screen.getByTestId("chat-thread").textContent).not.toContain("runConfig");
       expect(screen.getByTestId("chat-thread").textContent).not.toContain("metadata");
       expect(messages[messages.length - 1]?.textContent).toContain(expectedReply);
+      expect(screen.getByTestId("chat-thread-latest-anchor")).toBeTruthy();
+      expect(screen.getByTestId("composer-send-feedback").textContent).toContain(
+        "已发送 Mock：需要一个更轻的 IA 视觉对齐版本",
+      );
+      expect(scrollIntoViewMock).toHaveBeenCalled();
     });
 
     await waitFor(() => {
       expect((screen.getByTestId("composer-input") as HTMLTextAreaElement).value).toBe("");
+      expect(screen.getByTestId("composer-send").getAttribute("disabled")).not.toBeNull();
     });
 
     expect(screen.getByTestId("message-count").textContent).toContain("4 条消息");
     expect(screen.getByTestId("last-action-feedback").textContent).toContain(
       "已发送 Mock：需要一个更轻的 IA 视觉对齐版本",
     );
+  });
+
+  it("keeps mock sends scoped to the selected conversation", async () => {
+    renderShell();
+
+    fireEvent.click(screen.getByTestId("conversation-select-ui-preview"));
+
+    const input = screen.getByTestId("composer-input") as HTMLTextAreaElement;
+    fireEvent.change(input, {
+      target: { value: "Dogfood #4 mock send test" },
+    });
+    scrollIntoViewMock.mockClear();
+    fireEvent.click(screen.getByTestId("composer-send"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("chat-thread").textContent).toContain("Dogfood #4 mock send test");
+      expect(screen.getByTestId("message-count").textContent).toContain("4 条消息");
+    });
+
+    fireEvent.click(screen.getByTestId("conversation-select-focus-opdca"));
+
+    expect(screen.getByTestId("chat-thread").textContent).not.toContain("Dogfood #4 mock send test");
+    expect(screen.getByTestId("message-count").textContent).toContain("2 条消息");
+
+    fireEvent.click(screen.getByTestId("conversation-select-ui-preview"));
+
+    expect(screen.getByTestId("chat-thread").textContent).toContain("Dogfood #4 mock send test");
+    expect(screen.getByTestId("chat-thread").textContent).toContain(
+      buildMockAssistantReply("Dogfood #4 mock send test"),
+    );
+    expect(screen.getByTestId("composer-send-feedback").textContent).toContain("已发送 Mock：Dogfood #4 mock send test");
+    expect(scrollIntoViewMock).toHaveBeenCalled();
   });
 
   it("keeps the right workspace independent from the chat thread", () => {
