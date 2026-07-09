@@ -33,7 +33,7 @@ type WorkspaceNavItem = {
   onSelect?: () => void;
 };
 
-const MOCK_PROJECT_LABEL = "Mock 项目";
+const MOVED_PROJECT_LABEL = "重点项目";
 
 const initialConversationTemplate: readonly ThreadMessageLike[] = [
   {
@@ -41,7 +41,7 @@ const initialConversationTemplate: readonly ThreadMessageLike[] = [
     content: [
       {
         type: "text",
-        text: "Eliy：这是 O'PDCA 体验客户访谈的本地 Mock 对话。",
+        text: "Eliy：这是 O'PDCA 体验客户访谈的起始对话。",
       },
     ],
     status: { type: "complete", reason: "stop" },
@@ -51,7 +51,7 @@ const initialConversationTemplate: readonly ThreadMessageLike[] = [
     content: [
       {
         type: "text",
-        text: "你可以在这里查看下一步行动，并保持右侧工件区独立。",
+        text: "你可以在这里查看下一步行动，并保持右侧工作区独立。",
       },
     ],
     status: { type: "complete", reason: "stop" },
@@ -480,8 +480,8 @@ function createInitialConversations(): Conversation[] {
       "增长实验",
       true,
       [
-        createShellMessage("assistant", "Eliy：这是 O'PDCA 体验客户访谈的本地 Mock 对话。"),
-        createShellMessage("assistant", "你可以在这里查看下一步行动，并保持右侧工件区独立。"),
+        createShellMessage("assistant", "Eliy：这是 O'PDCA 体验客户访谈的起始对话。"),
+        createShellMessage("assistant", "你可以在这里查看下一步行动，并保持右侧工作区独立。"),
       ],
     ),
     createConversation(
@@ -490,8 +490,8 @@ function createInitialConversations(): Conversation[] {
       "产品壳",
       false,
       [
-        createShellMessage("assistant", "Eliy：这是 ChatBot Shell 视觉验收的本地 Mock 对话。"),
-        createShellMessage("assistant", "目前所有操作都只影响前端 local state。"),
+        createShellMessage("assistant", "Eliy：这是 ChatBot Shell 视觉验收的起始对话。"),
+        createShellMessage("assistant", "所有操作都会立即反映在当前页面。"),
       ],
     ),
     createConversation(
@@ -500,8 +500,8 @@ function createInitialConversations(): Conversation[] {
       "经营复盘",
       false,
       [
-        createShellMessage("assistant", "Eliy：这是每周复盘草稿的本地 Mock 对话。"),
-        createShellMessage("assistant", "已归入最近 / 历史，后续可通过 mock action 移动项目或归档。"),
+        createShellMessage("assistant", "Eliy：这是每周复盘草稿的起始对话。"),
+        createShellMessage("assistant", "你可以把它移动到项目，或继续整理后再归档。"),
       ],
     ),
   ];
@@ -588,7 +588,7 @@ function createActionFeedback(actionLabel: string, conversationTitle: string, se
 }
 
 function createMockSendFeedback(userText: string): string {
-  return `已发送 Mock：${userText}`;
+  return `发送成功，Eliy 已回复：${userText}`;
 }
 
 type ShellAction =
@@ -599,6 +599,8 @@ type ShellAction =
   | { type: "moveToProject"; id: string }
   | { type: "archive"; id: string }
   | { type: "delete"; id: string }
+  | { type: "search" }
+  | { type: "openSettings" }
   | { type: "appendMockTurn"; userText: string };
 
 function shellReducer(state: ShellState, action: ShellAction): ShellState {
@@ -617,6 +619,16 @@ function shellReducer(state: ShellState, action: ShellAction): ShellState {
         lastActionFeedback: createSelectionFeedback(nextSelected.title),
       };
     }
+    case "search":
+      return {
+        ...state,
+        lastActionFeedback: "搜索功能暂未开放",
+      };
+    case "openSettings":
+      return {
+        ...state,
+        lastActionFeedback: "设置功能暂未开放",
+      };
     case "togglePin":
       return (() => {
         const targetConversation = findConversationById(state.conversations, action.id);
@@ -665,13 +677,13 @@ function shellReducer(state: ShellState, action: ShellAction): ShellState {
 
         const nextConversation = {
           ...targetConversation,
-          project: MOCK_PROJECT_LABEL,
+          project: MOVED_PROJECT_LABEL,
         };
 
         return {
           ...state,
           conversations: state.conversations.map((conversation) => (conversation.id === action.id ? nextConversation : conversation)),
-          lastActionFeedback: `已移动到 Mock 项目：${nextConversation.title}`,
+          lastActionFeedback: `已移动到项目：${nextConversation.project}`,
         };
       })();
     case "archive": {
@@ -802,9 +814,9 @@ function ShellComposer({
   return (
     <div data-testid="composer-shell" style={composerSurfaceStyle}>
       <textarea
-        aria-label="本地 Mock 输入"
+        aria-label="输入想和 Eliy 讨论的问题"
         data-testid="composer-input"
-        placeholder={disabled ? "当前没有可见会话" : "输入一段本地 Mock 提示"}
+        placeholder={disabled ? "当前没有可见会话" : "输入想和 Eliy 讨论的问题"}
         style={composerFieldStyle}
         value={text}
         onChange={(event) => setText(event.target.value)}
@@ -814,14 +826,13 @@ function ShellComposer({
           <button
             type="button"
             data-testid="composer-plus"
-            aria-label="附件入口占位，尚未启用"
-            title="附件占位，尚未启用"
+            aria-label="附件功能尚未开放"
+            title="附件功能尚未开放"
             style={composerPlusStyle}
             disabled
           >
             +
           </button>
-          <span style={chipStyle}>本地 Mock 模式</span>
         </div>
         <button
           type="button"
@@ -830,7 +841,7 @@ function ShellComposer({
           disabled={disabled || text.trim().length === 0}
           onClick={send}
         >
-          发送 Mock
+          发送
         </button>
       </div>
       {feedback ? (
@@ -923,69 +934,71 @@ function ConversationItem({
         </div>
       )}
 
-      <div style={conversationActionRowStyle}>
-        {onTogglePin ? (
+      {isSelected ? (
+        <div style={conversationActionRowStyle}>
+          {onTogglePin ? (
+            <button
+              type="button"
+              data-testid={`conversation-action-pin-${conversation.id}`}
+              style={{ ...actionButtonStyle, ...selectedActionButtonStyle }}
+              onClick={(event) => {
+                event.stopPropagation();
+                onTogglePin(conversation.id);
+              }}
+            >
+              {conversation.pinned ? "取消置顶" : "置顶"}
+            </button>
+          ) : null}
           <button
             type="button"
-            data-testid={`conversation-action-pin-${conversation.id}`}
-            style={isSelected ? { ...actionButtonStyle, ...selectedActionButtonStyle } : actionButtonStyle}
+            data-testid={`conversation-action-rename-${conversation.id}`}
+            style={{ ...actionButtonStyle, ...selectedActionButtonStyle }}
             onClick={(event) => {
               event.stopPropagation();
-              onTogglePin(conversation.id);
+              onRename(conversation.id);
             }}
           >
-            {conversation.pinned ? "取消置顶" : "置顶"}
+            改名
           </button>
-        ) : null}
-        <button
-          type="button"
-          data-testid={`conversation-action-rename-${conversation.id}`}
-          style={isSelected ? { ...actionButtonStyle, ...selectedActionButtonStyle } : actionButtonStyle}
-          onClick={(event) => {
-            event.stopPropagation();
-            onRename(conversation.id);
-          }}
-        >
-          重命名
-        </button>
-        {onMoveToProject ? (
+          {onMoveToProject ? (
+            <button
+              type="button"
+              data-testid={`conversation-action-move-${conversation.id}`}
+              style={{ ...actionButtonStyle, ...selectedActionButtonStyle }}
+              onClick={(event) => {
+                event.stopPropagation();
+                onMoveToProject(conversation.id);
+              }}
+            >
+              移动
+            </button>
+          ) : null}
+          {onArchive ? (
+            <button
+              type="button"
+              data-testid={`conversation-action-archive-${conversation.id}`}
+              style={{ ...actionButtonStyle, ...selectedActionButtonStyle }}
+              onClick={(event) => {
+                event.stopPropagation();
+                onArchive(conversation.id);
+              }}
+            >
+              归档
+            </button>
+          ) : null}
           <button
             type="button"
-            data-testid={`conversation-action-move-${conversation.id}`}
-            style={isSelected ? { ...actionButtonStyle, ...selectedActionButtonStyle } : actionButtonStyle}
+            data-testid={`conversation-action-delete-${conversation.id}`}
+            style={{ ...actionButtonStyle, ...selectedActionButtonStyle }}
             onClick={(event) => {
               event.stopPropagation();
-              onMoveToProject(conversation.id);
+              onDelete(conversation.id);
             }}
           >
-            移动项目
+            删除
           </button>
-        ) : null}
-        {onArchive ? (
-          <button
-            type="button"
-            data-testid={`conversation-action-archive-${conversation.id}`}
-            style={isSelected ? { ...actionButtonStyle, ...selectedActionButtonStyle } : actionButtonStyle}
-            onClick={(event) => {
-              event.stopPropagation();
-              onArchive(conversation.id);
-            }}
-          >
-            归档
-          </button>
-        ) : null}
-        <button
-          type="button"
-          data-testid={`conversation-action-delete-${conversation.id}`}
-          style={isSelected ? { ...actionButtonStyle, ...selectedActionButtonStyle } : actionButtonStyle}
-          onClick={(event) => {
-            event.stopPropagation();
-            onDelete(conversation.id);
-          }}
-        >
-          删除
-        </button>
-      </div>
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -1011,6 +1024,8 @@ function projectSummaryKey(label: string): string {
 function LeftWorkspacePanel({
   conversations,
   onResetThread,
+  onSearch,
+  onOpenSettings,
   onSelectConversation,
   selectedConversationId,
   lastActionFeedback,
@@ -1022,6 +1037,8 @@ function LeftWorkspacePanel({
 }: {
   conversations: readonly Conversation[];
   onResetThread: () => void;
+  onSearch: () => void;
+  onOpenSettings: () => void;
   onSelectConversation: (conversationId: string) => void;
   selectedConversationId: string | null;
   lastActionFeedback: string;
@@ -1031,160 +1048,144 @@ function LeftWorkspacePanel({
   onArchiveConversation: (conversationId: string) => void;
   onDeleteConversation: (conversationId: string) => void;
 }) {
-  const workspaceItems: WorkspaceNavItem[] = [
-    { id: "new-chat", icon: "＋", label: "新聊天", active: true, onSelect: onResetThread },
-    { id: "search", icon: "⌕", label: "搜索" },
-    { id: "knowledge-base", icon: "◇", label: "知识库" },
-    { id: "scheduled", icon: "✓", label: "已安排" },
-    { id: "apps", icon: "▦", label: "应用" },
-    { id: "more", icon: "…", label: "更多" },
-    { id: "pinned", icon: "★", label: "已置顶" },
-    { id: "projects", icon: "▣", label: "项目" },
-    { id: "recent-history", icon: "◷", label: "最近 / 历史" },
-    { id: "user-settings", icon: "⚙", label: "用户 / 设置" },
-  ];
-
   const pinnedConversations = conversations.filter((conversation) => conversation.pinned && isVisibleConversation(conversation));
   const recentConversations = conversations.filter((conversation) => !conversation.pinned && isVisibleConversation(conversation));
-  const archivedConversations = conversations.filter((conversation) => conversation.archived && !conversation.deleted);
   const projectSummaries = aggregateProjectSummaries(conversations);
 
   return (
     <aside data-testid="left-workspace" style={panelStyle}>
       <div style={panelHeaderStyle}>
         <div>
-          <p style={headingStyle}>工作区</p>
-          <h1 style={titleStyle}>Eliy Native</h1>
+          <p style={headingStyle}>Eliy</p>
+          <h1 style={titleStyle}>老板的 AI 经营助手</h1>
+          <p style={mutedTextStyle}>看清当前能做什么、点了会发生什么、下一步还能做什么。</p>
         </div>
-        <span style={chipStyle}>Mock</span>
       </div>
       <div style={panelBodyStyle}>
-        <p style={mutedTextStyle}>
-          轻量导航仅作为本地壳层占位，和对话内容、OTUnit 工作区保持分离。
-        </p>
-
         <div data-testid="last-action-feedback" aria-live="polite" style={feedbackBannerStyle}>
           <p style={{ ...headingStyle, margin: 0 }}>最近反馈</p>
           <p style={{ ...mutedTextStyle, margin: 0, color: "#e5eefc" }}>{lastActionFeedback}</p>
         </div>
 
-        <ul style={navListStyle} aria-label="工作区导航">
-          {workspaceItems.map((item) => (
-            <li key={item.id}>
-              <button
-                type="button"
-                data-testid={`workspace-item-${item.id}`}
-                data-active={item.active ? "true" : undefined}
-                aria-current={item.active ? "page" : undefined}
-                style={item.active ? { ...navButtonStyle, ...navButtonAccentStyle } : navButtonStyle}
-                onClick={item.onSelect}
-              >
-                <span aria-hidden="true" data-testid={`workspace-icon-${item.id}`} style={navIconStyle}>
-                  {item.icon}
-                </span>
-                <span style={navLabelStyle}>{item.label}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <div style={{ display: "grid", gap: "12px", marginTop: "16px" }}>
+          <div style={{ display: "grid", gap: "4px" }} aria-label="主导航">
+            <button
+              type="button"
+              data-testid="workspace-item-new-chat"
+              data-active="true"
+              aria-current="page"
+              style={{ ...navButtonStyle, ...navButtonAccentStyle }}
+              onClick={onResetThread}
+            >
+              <span aria-hidden="true" data-testid="workspace-icon-new-chat" style={navIconStyle}>
+                ＋
+              </span>
+              <span style={navLabelStyle}>新对话</span>
+            </button>
+            <button
+              type="button"
+              data-testid="workspace-item-search"
+              style={navButtonStyle}
+              onClick={onSearch}
+            >
+              <span aria-hidden="true" data-testid="workspace-icon-search" style={navIconStyle}>
+                ⌕
+              </span>
+              <span style={navLabelStyle}>搜索</span>
+            </button>
+          </div>
 
-        <div style={sectionStackStyle}>
-          <section data-testid="conversation-section-pinned" style={sectionStyle}>
-            <div style={sectionHeaderStyle}>
-              <p style={headingStyle}>已置顶</p>
-              <span style={chipStyle}>{pinnedConversations.length} 条</span>
-            </div>
-            {pinnedConversations.length > 0 ? (
-              <div style={sectionListStyle}>
-                {pinnedConversations.map((conversation) => (
-                  <ConversationItem
-                    key={conversation.id}
-                    conversation={conversation}
-                    isSelected={conversation.id === selectedConversationId}
-                    onArchive={onArchiveConversation}
-                    onDelete={onDeleteConversation}
-                    onMoveToProject={onMoveToProject}
-                    onRename={onRenameConversation}
-                    onSelect={onSelectConversation}
-                    onTogglePin={onTogglePin}
-                  />
-                ))}
+          <div style={sectionStackStyle}>
+            <section data-testid="conversation-section-projects" style={sectionStyle}>
+              <div style={sectionHeaderStyle}>
+                <p style={headingStyle}>项目</p>
+                <span style={chipStyle}>{projectSummaries.length} 个</span>
               </div>
-            ) : (
-              <p style={emptyStateStyle}>暂无置顶会话</p>
-            )}
-          </section>
+              {projectSummaries.length > 0 ? (
+                <div style={projectGroupStyle}>
+                  <div style={projectChipWrapStyle}>
+                    {projectSummaries.map((summary) => (
+                      <span
+                        key={summary.label}
+                        data-testid={`project-summary-${projectSummaryKey(summary.label)}`}
+                        style={projectChipStyle}
+                      >
+                        {summary.label} · {summary.count}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p style={emptyStateStyle}>暂无项目分组</p>
+              )}
+            </section>
 
-          <section data-testid="conversation-section-projects" style={sectionStyle}>
-            <div style={sectionHeaderStyle}>
-              <p style={headingStyle}>项目</p>
-              <span style={chipStyle}>{projectSummaries.length} 个</span>
-            </div>
-            {projectSummaries.length > 0 ? (
-              <div style={projectGroupStyle}>
-                <div style={projectChipWrapStyle}>
-                  {projectSummaries.map((summary) => (
-                    <span
-                      key={summary.label}
-                      data-testid={`project-summary-${projectSummaryKey(summary.label)}`}
-                      style={projectChipStyle}
-                    >
-                      {summary.label} · {summary.count}
-                    </span>
+            <section data-testid="conversation-section-pinned" style={sectionStyle}>
+              <div style={sectionHeaderStyle}>
+                <p style={headingStyle}>已置顶</p>
+                <span style={chipStyle}>{pinnedConversations.length} 条</span>
+              </div>
+              {pinnedConversations.length > 0 ? (
+                <div style={sectionListStyle}>
+                  {pinnedConversations.map((conversation) => (
+                    <ConversationItem
+                      key={conversation.id}
+                      conversation={conversation}
+                      isSelected={conversation.id === selectedConversationId}
+                      onArchive={onArchiveConversation}
+                      onDelete={onDeleteConversation}
+                      onMoveToProject={onMoveToProject}
+                      onRename={onRenameConversation}
+                      onSelect={onSelectConversation}
+                      onTogglePin={onTogglePin}
+                    />
                   ))}
                 </div>
-              </div>
-            ) : (
-              <p style={emptyStateStyle}>暂无项目分组</p>
-            )}
-          </section>
-
-          <section data-testid="conversation-section-recent" style={sectionStyle}>
-            <div style={sectionHeaderStyle}>
-              <p style={headingStyle}>最近 / 历史</p>
-              <span style={chipStyle}>{recentConversations.length} 条</span>
-            </div>
-            {recentConversations.length > 0 ? (
-              <div style={sectionListStyle}>
-                {recentConversations.map((conversation) => (
-                  <ConversationItem
-                    key={conversation.id}
-                    conversation={conversation}
-                    isSelected={conversation.id === selectedConversationId}
-                    onArchive={onArchiveConversation}
-                    onDelete={onDeleteConversation}
-                    onMoveToProject={onMoveToProject}
-                    onRename={onRenameConversation}
-                    onSelect={onSelectConversation}
-                    onTogglePin={onTogglePin}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p style={emptyStateStyle}>暂无最近会话</p>
-            )}
-          </section>
-
-          {archivedConversations.length > 0 ? (
-            <section data-testid="conversation-section-archived" style={sectionStyle}>
-              <div style={sectionHeaderStyle}>
-                <p style={headingStyle}>已归档</p>
-                <span style={chipStyle}>{archivedConversations.length} 条</span>
-              </div>
-              <div style={sectionListStyle}>
-                {archivedConversations.map((conversation) => (
-                  <ConversationItem
-                    key={conversation.id}
-                    archived
-                    conversation={conversation}
-                    isSelected={false}
-                    onDelete={onDeleteConversation}
-                    onRename={onRenameConversation}
-                  />
-                ))}
-              </div>
+              ) : (
+                <p style={emptyStateStyle}>暂无置顶会话</p>
+              )}
             </section>
-          ) : null}
+
+            <section data-testid="conversation-section-recent" style={sectionStyle}>
+              <div style={sectionHeaderStyle}>
+                <p style={headingStyle}>最近对话</p>
+                <span style={chipStyle}>{recentConversations.length} 条</span>
+              </div>
+              {recentConversations.length > 0 ? (
+                <div style={sectionListStyle}>
+                  {recentConversations.map((conversation) => (
+                    <ConversationItem
+                      key={conversation.id}
+                      conversation={conversation}
+                      isSelected={conversation.id === selectedConversationId}
+                      onArchive={onArchiveConversation}
+                      onDelete={onDeleteConversation}
+                      onMoveToProject={onMoveToProject}
+                      onRename={onRenameConversation}
+                      onSelect={onSelectConversation}
+                      onTogglePin={onTogglePin}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p style={emptyStateStyle}>暂无最近对话</p>
+              )}
+            </section>
+          </div>
+
+          <div style={{ display: "grid", gap: "4px", marginTop: "12px", borderTop: "1px solid rgba(148, 163, 184, 0.12)", paddingTop: "12px" }}>
+            <button
+              type="button"
+              data-testid="workspace-item-settings"
+              style={navButtonStyle}
+              onClick={onOpenSettings}
+            >
+              <span aria-hidden="true" data-testid="workspace-icon-settings" style={navIconStyle}>
+                ⚙
+              </span>
+              <span style={navLabelStyle}>设置</span>
+            </button>
+          </div>
         </div>
       </div>
     </aside>
@@ -1245,7 +1246,7 @@ function ChatThreadPanel({
               <h2 data-testid="selected-conversation-title" style={titleStyle}>
                 暂无可见会话
               </h2>
-              <p style={mutedTextStyle}>请从左侧选择一个本地 Mock 会话。</p>
+              <p style={mutedTextStyle}>请从左侧选择一个会话。</p>
             </>
           )}
         </div>
@@ -1268,7 +1269,7 @@ function ChatThreadPanel({
           ))
         ) : (
           <div style={emptyStateStyle}>
-            当前没有可见会话。请在左侧保留至少一条本地 Mock 会话。
+            当前没有可见会话。请在左侧保留至少一条会话。
           </div>
         )}
         {selectedConversation ? (
@@ -1291,16 +1292,16 @@ function ChatThreadPanel({
 function ArtifactWorkspacePanel() {
   const sections = [
     {
-      title: "OTUnit 工作区",
-      body: "用于结构化 OTUnit 复核、状态和下一步元信息的占位区域。",
+      title: "行动整理",
+      body: "用于整理下一步行动、复盘重点和待确认事项。",
     },
     {
-      title: "工件工作区",
-      body: "用于承载必须保持在普通消息气泡之外的工件占位区域。",
+      title: "资料区",
+      body: "用于承载后续需要单独查看的资料内容。",
     },
     {
-      title: "工作区备注",
-      body: "这个壳层通过布局把对话内容和工件表面隔离开，而不是混入聊天内容。",
+      title: "备注",
+      body: "这里和聊天内容分开显示，方便后续复盘。",
     },
   ];
 
@@ -1308,10 +1309,10 @@ function ArtifactWorkspacePanel() {
     <aside data-testid="artifact-workspace" style={workspacePanelStyle}>
       <div style={panelHeaderStyle}>
         <div>
-          <p style={headingStyle}>工件 / OTUnit</p>
-          <h2 style={titleStyle}>独立工作区</h2>
+          <p style={headingStyle}>工作区</p>
+          <h2 style={titleStyle}>独立显示</h2>
         </div>
-        <span style={chipStyle}>分离</span>
+        <span style={chipStyle}>独立显示</span>
       </div>
       <div style={{ ...panelBodyStyle, display: "grid", gap: "14px" }}>
         {sections.map((section, index) => (
@@ -1356,6 +1357,14 @@ function ShellViewport() {
     dispatch({ type: "delete", id: conversationId });
   };
 
+  const search = () => {
+    dispatch({ type: "search" });
+  };
+
+  const openSettings = () => {
+    dispatch({ type: "openSettings" });
+  };
+
   const appendMockTurn = (userText: string) => {
     dispatch({ type: "appendMockTurn", userText });
   };
@@ -1372,6 +1381,8 @@ function ShellViewport() {
           onMoveToProject={moveConversationToProject}
           onRenameConversation={renameConversation}
           onResetThread={() => dispatch({ type: "reset" })}
+          onSearch={search}
+          onOpenSettings={openSettings}
           onSelectConversation={selectConversation}
           onTogglePin={togglePin}
           selectedConversationId={state.selectedConversationId}
@@ -1390,7 +1401,7 @@ function ShellViewport() {
 
 export function buildMockAssistantReply(userText: string): string {
   const normalized = userText.trim() || "空输入";
-  return `Eliy：收到你的本地 Mock 提示「${normalized}」。工作区保持独立，输出保持确定性。`;
+  return `Eliy：收到你的问题「${normalized}」。我已为你整理下一步。`;
 }
 
 export function AssistantUiChatbotShell() {
