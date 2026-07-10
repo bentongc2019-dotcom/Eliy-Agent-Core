@@ -47,6 +47,9 @@ function expectNoTechnicalTerms() {
   expect(visibleText).not.toContain("deterministic");
   expect(visibleText).not.toContain("composer");
   expect(visibleText).not.toContain("thread");
+  expect(visibleText).not.toContain("local state");
+  expect(visibleText).not.toContain("harness");
+  expect(visibleText).not.toContain("eliy native");
 }
 
 describe("AssistantUiChatbotShell", () => {
@@ -101,7 +104,7 @@ describe("AssistantUiChatbotShell", () => {
     expect(shellRoot.getAttribute("data-shell-ia")).toBe("chat-first");
     expect(shellRoot.getAttribute("data-desktop-density")).toBe("compact");
     expect(shellGrid.getAttribute("data-workspace-open")).toBe("false");
-    expect(shellGrid.style.gap).toBe("12px");
+    expect(shellGrid.style.gap).toBe("0px");
     expect(chatPrimaryStage).toBeTruthy();
     expect(screen.getByTestId("chat-thread-shell")).toBeTruthy();
     expect(screen.queryByTestId("artifact-workspace")).toBeNull();
@@ -141,6 +144,11 @@ describe("AssistantUiChatbotShell", () => {
     const recent = screen.getByTestId("conversation-section-recent");
     const settings = screen.getByTestId("workspace-item-settings");
 
+    expect(screen.getByTestId("left-workspace").getAttribute("data-surface")).toBe("flat");
+    expect(projects.getAttribute("data-surface")).toBe("list");
+    expect(pinned.getAttribute("data-surface")).toBe("list");
+    expect(recent.getAttribute("data-surface")).toBe("list");
+
     expect(newChat.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(search.compareDocumentPosition(projects) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(projects.compareDocumentPosition(pinned) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -164,14 +172,18 @@ describe("AssistantUiChatbotShell", () => {
 
     fireEvent.click(screen.getByTestId("conversation-item-ui-preview"));
 
+    expect(screen.getByTestId("conversation-item-ui-preview").getAttribute("data-item-surface")).toBe("flat");
     expect(screen.getByTestId("conversation-item-ui-preview").getAttribute("data-selected")).toBe("true");
     expect(screen.getByTestId("conversation-item-focus-opdca").getAttribute("data-selected")).toBeNull();
+    expect(screen.queryByText("当前选中")).toBeNull();
     expect(screen.queryByTestId("conversation-action-pin-ui-preview")).toBeNull();
     expect(screen.getByTestId("conversation-action-menu-ui-preview")).toBeTruthy();
+    expect(screen.getByTestId("conversation-action-menu-ui-preview").textContent).toContain("…");
     expect(screen.queryByTestId("conversation-action-panel-ui-preview")).toBeNull();
 
     fireEvent.click(screen.getByTestId("conversation-action-menu-ui-preview"));
 
+    expect(screen.getByTestId("conversation-action-panel-ui-preview").getAttribute("data-surface")).toBe("menu");
     expect(screen.getByTestId("conversation-action-panel-ui-preview")).toBeTruthy();
     expect(screen.getByTestId("conversation-action-pin-ui-preview")).toBeTruthy();
     expect(screen.getByTestId("conversation-action-rename-ui-preview")).toBeTruthy();
@@ -254,6 +266,7 @@ describe("AssistantUiChatbotShell", () => {
     const input = screen.getByPlaceholderText("输入想和 Eliy 讨论的问题") as HTMLTextAreaElement;
     expect(screen.getByTestId("composer-send").textContent).toBe("发送");
     expect(screen.getByTestId("composer-send").getAttribute("disabled")).not.toBeNull();
+    expect(screen.getByTestId("composer-shell").getAttribute("data-surface")).toBe("minimal");
 
     fireEvent.change(input, {
       target: { value: "需要一个更轻的体验版本" },
@@ -264,11 +277,18 @@ describe("AssistantUiChatbotShell", () => {
       const messages = screen.getAllByTestId("chat-message");
       expect(messages).toHaveLength(4);
       expect(screen.getByTestId("chat-thread").textContent).toContain("需要一个更轻的体验版本");
+      expect(messages[0]?.getAttribute("data-message-role")).toBe("assistant");
+      expect(messages[0]?.getAttribute("data-alignment")).toBe("left");
+      expect(messages[2]?.getAttribute("data-message-role")).toBe("user");
+      expect(messages[2]?.getAttribute("data-alignment")).toBe("right");
+      expect(messages[3]?.getAttribute("data-message-role")).toBe("assistant");
+      expect(messages[3]?.getAttribute("data-alignment")).toBe("left");
       expect(messages[messages.length - 1]?.textContent).toContain(
         buildMockAssistantReply("需要一个更轻的体验版本"),
       );
       expect(screen.getByTestId("chat-thread-latest-anchor")).toBeTruthy();
       expect(screen.getByTestId("composer-send-feedback").textContent).toContain("发送成功，Eliy 已回复");
+      expect(screen.getByTestId("composer-send-feedback").getAttribute("data-surface")).toBe("inline");
       expect(scrollIntoViewMock).toHaveBeenCalled();
     });
 
@@ -327,13 +347,14 @@ describe("AssistantUiChatbotShell", () => {
 
     const artifactWorkspace = screen.getByTestId("artifact-workspace");
 
+    expect(artifactWorkspace.getAttribute("data-surface")).toBe("simple");
     expect(artifactWorkspace.closest('[data-testid="chat-thread-shell"]')).toBeNull();
     expect(threadShell.contains(artifactWorkspace)).toBe(false);
     expect(artifactWorkspace.textContent).toContain("工作区");
-    expect(artifactWorkspace.textContent).toContain("独立显示");
-    expect(artifactWorkspace.textContent).toContain("行动整理");
-    expect(artifactWorkspace.textContent).toContain("资料区");
-    expect(artifactWorkspace.textContent).toContain("备注");
+    expect(artifactWorkspace.textContent).toContain("这里会显示 Eliy 为你整理出的行动、资料和 O 单。");
+    expect(artifactWorkspace.textContent).not.toContain("行动整理");
+    expect(artifactWorkspace.textContent).not.toContain("资料区");
+    expect(artifactWorkspace.textContent).not.toContain("备注");
     expect(screen.getByTestId("otunit-workspace")).toBeTruthy();
     expect(screen.getByTestId("chat-thread").textContent ?? "").not.toContain("行动整理");
     expect(screen.getByTestId("chat-thread").textContent ?? "").not.toContain("资料区");
