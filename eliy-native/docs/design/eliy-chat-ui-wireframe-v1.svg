@@ -1,0 +1,536 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3016" height="3848" viewBox="0 0 3016 3848" fill="none">
+  <defs>
+    <style>
+      .bg { fill: #ffffff; }
+      .page { fill: #ffffff; }
+      .sidebar { fill: #f7f8fb; }
+      .chat { fill: #ffffff; }
+      .panel-side { fill: #fafbfe; }
+      .line { stroke: #e5e7ef; stroke-width: 1; }
+      .line-2 { stroke: #d9ddea; stroke-width: 1; }
+      .line-brand { stroke: #7c3aed; stroke-width: 2; }
+      .brand { fill: #7c3aed; }
+      .brand-title { fill: #7c3aed; font: 700 26px Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif; }
+      .brand-soft { fill: #ede9fe; }
+      .text-strong { fill: #13151c; font: 600 18px Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif; }
+      .text-body { fill: #13151c; font: 500 15px Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif; }
+      .text-normal { fill: #1c202b; font: 400 15px Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif; }
+      .text-secondary { fill: #686e7f; font: 400 13px Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif; }
+      .text-note { fill: #8a90a3; font: 400 12px Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif; }
+      .text-caption { fill: #555b6e; font: 500 13px Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif; }
+      .text-small { fill: #6f7586; font: 400 12px Inter, "SF Pro Text", "PingFang SC", "Microsoft YaHei", sans-serif; }
+      .menu-shadow { filter: drop-shadow(0px 14px 24px rgba(34, 16, 74, 0.12)); }
+      .bubble-user { fill: #f2ecff; }
+      .pill { fill: #f4f5f9; }
+      .pill-active { fill: #ede9fe; }
+      .pill-border { stroke: #e6e8f0; stroke-width: 1; }
+      .selection { fill: #f1ebff; }
+      .surface { fill: #ffffff; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="3016" height="3848"/>
+
+  <text class="text-note" x="40" y="24">01 · 默认聊天</text>
+  <text class="text-note" x="1536" y="24">02 · 侧边栏分区</text>
+  <text class="text-note" x="40" y="980">03 · 会话溢出菜单</text>
+  <text class="text-note" x="1536" y="980">04 · 消息动作</text>
+  <text class="text-note" x="40" y="1936">05 · 固定输入区</text>
+  <text class="text-note" x="1536" y="1936">06 · 工作区打开</text>
+  <text class="text-note" x="40" y="2892">07 · 项目会话方案 A</text>
+  <text class="text-note" x="1536" y="2892">08 · 项目会话方案 B</text>
+
+  <g id="default-chat" transform="translate(40 40)">
+    <rect class="page" x="0" y="0" width="1440" height="900" rx="20"/>
+    <rect class="sidebar" x="0" y="0" width="272" height="900" rx="20"/>
+    <rect class="chat" x="272" y="0" width="1168" height="900" rx="20"/>
+    <line class="line" x1="272" y1="0" x2="272" y2="900"/>
+    <line class="line" x1="272" y1="56" x2="1440" y2="56"/>
+    <line class="line" x1="272" y1="774" x2="1440" y2="774"/>
+
+    <text class="brand-title" x="24" y="38">Eliy</text>
+    <text class="text-secondary" x="24" y="58">老板的 AI 经营助手</text>
+
+    <rect x="24" y="88" width="224" height="38" rx="10" class="brand"/>
+    <text class="text-body" x="56" y="113" fill="#fff">＋ 新对话</text>
+    <rect x="24" y="136" width="224" height="34" rx="10" class="surface pill-border"/>
+    <text class="text-secondary" x="44" y="158">搜索</text>
+
+    <text class="text-caption" x="24" y="210">项目</text>
+    <rect x="20" y="222" width="232" height="48" rx="10" class="selection"/>
+    <rect x="28" y="230" width="10" height="32" rx="5" class="brand"/>
+    <text class="text-body" x="50" y="250">增长实验</text>
+    <text class="text-secondary" x="50" y="265">3 个对话 · 2 项进行中</text>
+
+    <text class="text-caption" x="24" y="312">已置顶</text>
+    <rect x="20" y="324" width="232" height="48" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="344">O’PDCA 体验客户访谈</text>
+    <text class="text-secondary" x="32" y="360">经营复盘营设计</text>
+    <rect x="20" y="376" width="232" height="48" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="396">复盘营价值设计</text>
+    <text class="text-secondary" x="32" y="412">增长实验</text>
+
+    <text class="text-caption" x="24" y="470">对话</text>
+    <rect x="20" y="482" width="232" height="52" rx="10" class="selection"/>
+    <rect x="28" y="491" width="10" height="34" rx="5" class="brand"/>
+    <text class="text-body" x="50" y="512">经营复盘方案</text>
+    <text class="text-secondary" x="50" y="528">增长实验</text>
+    <text class="text-note" x="214" y="514">…</text>
+    <rect x="20" y="538" width="232" height="48" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="558">渠道增长复盘</text>
+    <text class="text-secondary" x="32" y="574">增长实验</text>
+    <rect x="20" y="590" width="232" height="48" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="610">产品发售计划</text>
+    <text class="text-secondary" x="32" y="626">产品亮点</text>
+
+    <text class="text-body" x="24" y="862">设置</text>
+
+    <text class="text-strong" x="296" y="34">经营复盘方案</text>
+    <text class="text-secondary" x="296" y="56">增长实验</text>
+    <rect x="1090" y="14" width="96" height="28" rx="14" class="surface pill-border"/>
+    <text class="text-caption" x="1112" y="33">工作区</text>
+
+    <text class="text-body" x="328" y="124">今天先看一下增长实验的经营复盘方案。</text>
+    <text class="text-secondary" x="328" y="146">Eliy</text>
+
+    <rect x="690" y="184" width="440" height="72" rx="18" class="bubble-user"/>
+    <text class="text-body" x="710" y="212">我先选老师时间和精力不足作为当前候选瓶颈。</text>
+    <text class="text-secondary" x="710" y="234">用户</text>
+
+    <text class="text-body" x="328" y="300">可以。先形成一张最小行动卡，再决定要不要展开到项目。</text>
+
+    <rect x="690" y="368" width="392" height="66" rx="18" class="bubble-user"/>
+    <text class="text-body" x="710" y="397">可以，继续。</text>
+
+    <rect x="300" y="784" width="1068" height="56" rx="20" class="surface pill-border"/>
+    <circle cx="336" cy="813" r="14" fill="#f4f5f9"/>
+    <text class="text-body" x="329" y="819">＋</text>
+    <text class="text-secondary" x="364" y="818">输入想和 Eliy 讨论的问题……</text>
+    <circle cx="1332" cy="813" r="18" class="brand"/>
+    <path d="M1324 814h16l-8-10z" fill="#ffffff"/>
+    <text class="text-note" x="300" y="874">Eliy 可能会出错，请核实重要经营信息。</text>
+  </g>
+
+  <g id="sidebar-sections" transform="translate(1536 40)">
+    <rect class="page" x="0" y="0" width="1440" height="900" rx="20"/>
+    <rect class="sidebar" x="0" y="0" width="272" height="900" rx="20"/>
+    <rect class="chat" x="272" y="0" width="1168" height="900" rx="20"/>
+    <line class="line" x1="272" y1="0" x2="272" y2="900"/>
+    <line class="line" x1="272" y1="56" x2="1440" y2="56"/>
+    <line class="line" x1="272" y1="774" x2="1440" y2="774"/>
+
+    <text class="brand-title" x="24" y="38">Eliy</text>
+    <text class="text-secondary" x="24" y="58">老板的 AI 经营助手</text>
+    <rect x="24" y="88" width="224" height="38" rx="10" class="brand"/>
+    <text class="text-body" x="56" y="113" fill="#fff">＋ 新对话</text>
+    <rect x="24" y="136" width="224" height="34" rx="10" class="surface pill-border"/>
+    <text class="text-secondary" x="44" y="158">搜索</text>
+
+    <text class="text-caption" x="24" y="210">项目</text>
+    <text class="text-note" x="232" y="210">⌄</text>
+    <rect x="20" y="220" width="232" height="44" rx="10" class="selection"/>
+    <text class="text-body" x="32" y="247">增长实验</text>
+    <text class="text-secondary" x="32" y="261">3 个对话</text>
+    <rect x="20" y="268" width="232" height="44" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="295">产品亮点</text>
+    <text class="text-secondary" x="32" y="309">2 个对话</text>
+    <rect x="20" y="316" width="232" height="44" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="343">经营复盘</text>
+    <text class="text-secondary" x="32" y="357">4 个对话</text>
+
+    <text class="text-caption" x="24" y="410">已置顶</text>
+    <text class="text-note" x="232" y="410">⌄</text>
+    <rect x="20" y="420" width="232" height="48" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="441">O’PDCA 体验客户访谈</text>
+    <text class="text-secondary" x="32" y="457">经营复盘营设计</text>
+    <rect x="20" y="472" width="232" height="48" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="493">复盘营价值设计</text>
+    <text class="text-secondary" x="32" y="509">增长实验</text>
+
+    <text class="text-caption" x="24" y="566">对话</text>
+    <text class="text-note" x="232" y="566">⌄</text>
+    <rect x="20" y="576" width="232" height="48" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="597">渠道增长复盘</text>
+    <text class="text-secondary" x="32" y="613">增长实验</text>
+    <rect x="20" y="628" width="232" height="48" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="649">产品发售计划</text>
+    <text class="text-secondary" x="32" y="665">产品亮点</text>
+    <rect x="20" y="680" width="232" height="48" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="701">经营复盘营设计</text>
+    <text class="text-secondary" x="32" y="717">经营复盘</text>
+    <text class="text-body" x="24" y="862">设置</text>
+
+    <text class="text-strong" x="296" y="34">经营复盘方案</text>
+    <text class="text-secondary" x="296" y="56">增长实验</text>
+    <text class="text-body" x="328" y="144">我们先把当前几个经营项目分开整理，方便后续持续复盘。</text>
+    <text class="text-secondary" x="328" y="166">Eliy</text>
+    <rect x="690" y="206" width="428" height="72" rx="18" class="bubble-user"/>
+    <text class="text-body" x="710" y="234">先从增长实验和经营复盘开始。</text>
+    <text class="text-secondary" x="710" y="256">用户</text>
+    <rect x="1090" y="14" width="96" height="28" rx="14" class="surface pill-border"/>
+    <text class="text-caption" x="1112" y="33">工作区</text>
+    <rect x="300" y="784" width="1068" height="56" rx="20" class="surface pill-border"/>
+    <circle cx="336" cy="813" r="14" fill="#f4f5f9"/>
+    <text class="text-body" x="329" y="819">＋</text>
+    <text class="text-secondary" x="364" y="818">输入想和 Eliy 讨论的问题……</text>
+    <circle cx="1332" cy="813" r="18" class="brand"/>
+    <path d="M1324 814h16l-8-10z" fill="#ffffff"/>
+    <text class="text-note" x="300" y="874">Eliy 可能会出错，请核实重要经营信息。</text>
+  </g>
+
+  <g id="conversation-overflow" transform="translate(40 996)">
+    <rect class="page" x="0" y="0" width="1440" height="900" rx="20"/>
+    <rect class="sidebar" x="0" y="0" width="272" height="900" rx="20"/>
+    <rect class="chat" x="272" y="0" width="1168" height="900" rx="20"/>
+    <line class="line" x1="272" y1="0" x2="272" y2="900"/>
+    <line class="line" x1="272" y1="56" x2="1440" y2="56"/>
+    <line class="line" x1="272" y1="774" x2="1440" y2="774"/>
+
+    <text class="brand-title" x="24" y="38">Eliy</text>
+    <text class="text-secondary" x="24" y="58">老板的 AI 经营助手</text>
+    <rect x="24" y="88" width="224" height="38" rx="10" class="brand"/>
+    <text class="text-body" x="56" y="113" fill="#fff">＋ 新对话</text>
+    <rect x="24" y="136" width="224" height="34" rx="10" class="surface pill-border"/>
+    <text class="text-secondary" x="44" y="158">搜索</text>
+
+    <text class="text-caption" x="24" y="210">项目</text>
+    <rect x="20" y="222" width="232" height="48" rx="10" class="selection"/>
+    <rect x="28" y="230" width="10" height="32" rx="5" class="brand"/>
+    <text class="text-body" x="50" y="250">增长实验</text>
+    <text class="text-secondary" x="50" y="265">3 个对话 · 2 项进行中</text>
+    <text class="text-caption" x="24" y="312">已置顶</text>
+    <rect x="20" y="324" width="232" height="48" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="344">O’PDCA 体验客户访谈</text>
+    <text class="text-secondary" x="32" y="360">经营复盘营设计</text>
+    <text class="text-caption" x="24" y="470">对话</text>
+    <rect x="20" y="482" width="232" height="52" rx="10" class="selection"/>
+    <rect x="28" y="491" width="10" height="34" rx="5" class="brand"/>
+    <text class="text-body" x="50" y="512">经营复盘方案</text>
+    <text class="text-secondary" x="50" y="528">增长实验</text>
+    <text class="text-note" x="214" y="514">…</text>
+    <text class="text-body" x="24" y="862">设置</text>
+
+    <text class="text-strong" x="296" y="34">经营复盘方案</text>
+    <text class="text-secondary" x="296" y="56">增长实验</text>
+    <rect x="1090" y="14" width="96" height="28" rx="14" class="surface pill-border"/>
+    <text class="text-caption" x="1112" y="33">工作区</text>
+
+    <text class="text-body" x="328" y="144">这次复盘里，哪一项对结果影响最大？</text>
+    <text class="text-secondary" x="328" y="166">Eliy</text>
+    <rect x="690" y="206" width="420" height="72" rx="18" class="bubble-user"/>
+    <text class="text-body" x="710" y="234">先从获客渠道的转化率开始。</text>
+    <text class="text-secondary" x="710" y="256">用户</text>
+
+    <g class="menu-shadow">
+      <rect x="232" y="494" width="166" height="208" rx="12" class="surface"/>
+      <rect x="232" y="494" width="166" height="208" rx="12" fill="none" class="line"/>
+      <text class="text-body" x="246" y="522">置顶</text>
+      <text class="text-body" x="246" y="550">改名</text>
+      <text class="text-body" x="246" y="578">移至项目</text>
+      <text class="text-body" x="246" y="606">归档</text>
+      <line class="line" x1="242" y1="626" x2="388" y2="626"/>
+      <text class="text-body" x="246" y="660">删除</text>
+    </g>
+
+    <rect x="300" y="784" width="1068" height="56" rx="20" class="surface pill-border"/>
+    <circle cx="336" cy="813" r="14" fill="#f4f5f9"/>
+    <text class="text-body" x="329" y="819">＋</text>
+    <text class="text-secondary" x="364" y="818">输入想和 Eliy 讨论的问题……</text>
+    <circle cx="1332" cy="813" r="18" class="brand"/>
+    <path d="M1324 814h16l-8-10z" fill="#ffffff"/>
+    <text class="text-note" x="300" y="874">Eliy 可能会出错，请核实重要经营信息。</text>
+  </g>
+
+  <g id="message-actions" transform="translate(1536 996)">
+    <rect class="page" x="0" y="0" width="1440" height="900" rx="20"/>
+    <rect class="sidebar" x="0" y="0" width="272" height="900" rx="20"/>
+    <rect class="chat" x="272" y="0" width="1168" height="900" rx="20"/>
+    <line class="line" x1="272" y1="0" x2="272" y2="900"/>
+    <line class="line" x1="272" y1="56" x2="1440" y2="56"/>
+    <line class="line" x1="272" y1="774" x2="1440" y2="774"/>
+
+    <text class="brand-title" x="24" y="38">Eliy</text>
+    <text class="text-secondary" x="24" y="58">老板的 AI 经营助手</text>
+    <rect x="24" y="88" width="224" height="38" rx="10" class="brand"/>
+    <text class="text-body" x="56" y="113" fill="#fff">＋ 新对话</text>
+    <rect x="24" y="136" width="224" height="34" rx="10" class="surface pill-border"/>
+    <text class="text-secondary" x="44" y="158">搜索</text>
+    <text class="text-caption" x="24" y="210">项目</text>
+    <rect x="20" y="222" width="232" height="48" rx="10" class="selection"/>
+    <rect x="28" y="230" width="10" height="32" rx="5" class="brand"/>
+    <text class="text-body" x="50" y="250">增长实验</text>
+    <text class="text-secondary" x="50" y="265">3 个对话 · 2 项进行中</text>
+    <text class="text-caption" x="24" y="312">已置顶</text>
+    <rect x="20" y="324" width="232" height="48" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="344">O’PDCA 体验客户访谈</text>
+    <text class="text-secondary" x="32" y="360">经营复盘营设计</text>
+    <rect x="20" y="376" width="232" height="48" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="396">复盘营价值设计</text>
+    <text class="text-secondary" x="32" y="412">增长实验</text>
+    <text class="text-caption" x="24" y="470">对话</text>
+    <rect x="20" y="482" width="232" height="52" rx="10" class="selection"/>
+    <rect x="28" y="491" width="10" height="34" rx="5" class="brand"/>
+    <text class="text-body" x="50" y="512">经营复盘方案</text>
+    <text class="text-secondary" x="50" y="528">增长实验</text>
+    <text class="text-body" x="24" y="862">设置</text>
+
+    <text class="text-strong" x="296" y="34">经营复盘方案</text>
+    <text class="text-secondary" x="296" y="56">增长实验</text>
+    <rect x="1090" y="14" width="96" height="28" rx="14" class="surface pill-border"/>
+    <text class="text-caption" x="1112" y="33">工作区</text>
+    <text class="text-body" x="328" y="144">我们可以把客户反馈分成价格、成果和执行难度三类。</text>
+    <text class="text-secondary" x="328" y="166">Eliy</text>
+    <g transform="translate(348 198)">
+      <rect x="0" y="0" width="218" height="32" rx="16" class="surface pill-border"/>
+      <text class="text-caption" x="18" y="21">复制</text>
+      <text class="text-caption" x="66" y="21">喜欢</text>
+      <text class="text-caption" x="120" y="21">不喜欢</text>
+      <text class="text-caption" x="176" y="21">…</text>
+    </g>
+
+    <rect x="690" y="224" width="390" height="72" rx="18" class="bubble-user"/>
+    <text class="text-body" x="710" y="252">先整理对成果不明确的反馈。</text>
+    <text class="text-secondary" x="710" y="274">用户</text>
+    <g transform="translate(850 306)">
+      <rect x="0" y="0" width="122" height="32" rx="16" class="surface pill-border"/>
+      <text class="text-caption" x="18" y="21">复制</text>
+      <text class="text-caption" x="78" y="21">…</text>
+    </g>
+
+    <text class="text-body" x="330" y="382">先整理对成果不明确的反馈。</text>
+
+    <rect x="300" y="784" width="1068" height="56" rx="20" class="surface pill-border"/>
+    <circle cx="336" cy="813" r="14" fill="#f4f5f9"/>
+    <text class="text-body" x="329" y="819">＋</text>
+    <text class="text-secondary" x="364" y="818">输入想和 Eliy 讨论的问题……</text>
+    <circle cx="1332" cy="813" r="18" class="brand"/>
+    <path d="M1324 814h16l-8-10z" fill="#ffffff"/>
+    <text class="text-note" x="300" y="874">Eliy 可能会出错，请核实重要经营信息。</text>
+  </g>
+
+  <g id="fixed-composer" transform="translate(40 1952)">
+    <rect class="page" x="0" y="0" width="1440" height="900" rx="20"/>
+    <rect class="sidebar" x="0" y="0" width="272" height="900" rx="20"/>
+    <rect class="chat" x="272" y="0" width="1168" height="900" rx="20"/>
+    <line class="line" x1="272" y1="0" x2="272" y2="900"/>
+    <line class="line" x1="272" y1="56" x2="1440" y2="56"/>
+    <line class="line" x1="272" y1="774" x2="1440" y2="774"/>
+
+    <text class="brand-title" x="24" y="38">Eliy</text>
+    <text class="text-secondary" x="24" y="58">老板的 AI 经营助手</text>
+    <rect x="24" y="88" width="224" height="38" rx="10" class="brand"/>
+    <text class="text-body" x="56" y="113" fill="#fff">＋ 新对话</text>
+    <rect x="24" y="136" width="224" height="34" rx="10" class="surface pill-border"/>
+    <text class="text-secondary" x="44" y="158">搜索</text>
+    <text class="text-caption" x="24" y="210">项目</text>
+    <rect x="20" y="222" width="232" height="48" rx="10" class="selection"/>
+    <rect x="28" y="230" width="10" height="32" rx="5" class="brand"/>
+    <text class="text-body" x="50" y="250">增长实验</text>
+    <text class="text-secondary" x="50" y="265">3 个对话 · 2 项进行中</text>
+    <text class="text-caption" x="24" y="312">已置顶</text>
+    <rect x="20" y="324" width="232" height="48" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="344">O’PDCA 体验客户访谈</text>
+    <text class="text-secondary" x="32" y="360">经营复盘营设计</text>
+    <text class="text-caption" x="24" y="410">对话</text>
+    <rect x="20" y="422" width="232" height="48" rx="10" class="selection"/>
+    <rect x="28" y="430" width="10" height="32" rx="5" class="brand"/>
+    <text class="text-body" x="50" y="442">经营复盘方案</text>
+    <text class="text-secondary" x="50" y="458">增长实验</text>
+    <text class="text-body" x="24" y="862">设置</text>
+
+    <text class="text-strong" x="296" y="34">经营复盘方案</text>
+    <text class="text-secondary" x="296" y="56">增长实验</text>
+    <rect x="1090" y="14" width="96" height="28" rx="14" class="surface pill-border"/>
+    <text class="text-caption" x="1112" y="33">工作区</text>
+
+    <text class="text-body" x="328" y="116">你可以继续补充目前最难推进的部分。</text>
+    <rect x="700" y="166" width="470" height="60" rx="18" class="bubble-user"/>
+    <text class="text-body" x="720" y="194">团队每周都很忙，但关键事项没有明显进展。</text>
+    <text class="text-body" x="328" y="272">先把现在最紧的两项收敛一下。</text>
+    <rect x="700" y="322" width="390" height="60" rx="18" class="bubble-user"/>
+    <text class="text-body" x="720" y="350">我等下把材料补上。</text>
+    <text class="text-body" x="328" y="428">附件里我先只收图片和文件。</text>
+
+    <g class="menu-shadow">
+      <rect x="304" y="486" width="178" height="92" rx="12" class="surface"/>
+      <rect x="304" y="486" width="178" height="92" rx="12" fill="none" class="line"/>
+      <text class="text-body" x="324" y="520">上传图片</text>
+      <text class="text-body" x="324" y="550">上传文件</text>
+    </g>
+
+    <rect x="300" y="610" width="1068" height="180" rx="20" class="surface pill-border"/>
+    <circle cx="336" cy="648" r="14" fill="#f4f5f9"/>
+    <text class="text-body" x="329" y="654">＋</text>
+    <rect x="364" y="628" width="860" height="92" rx="18" class="surface" fill="#fff"/>
+    <rect x="364" y="628" width="860" height="92" rx="18" fill="none" class="line"/>
+    <text class="text-secondary" x="384" y="656">输入想和 Eliy 讨论的问题……</text>
+    <text class="text-small" x="384" y="688">先把本周最重要的两件事补上。</text>
+    <circle cx="1332" cy="648" r="18" class="brand"/>
+    <path d="M1324 649h16l-8-10z" fill="#ffffff"/>
+    <text class="text-note" x="364" y="748">Eliy 可能会出错，请核实重要经营信息。</text>
+  </g>
+
+  <g id="workspace-open" transform="translate(1536 1952)">
+    <rect class="page" x="0" y="0" width="1440" height="900" rx="20"/>
+    <rect class="sidebar" x="0" y="0" width="272" height="900" rx="20"/>
+    <rect class="chat" x="272" y="0" width="748" height="900" rx="20"/>
+    <rect class="panel-side" x="1020" y="0" width="420" height="900" rx="20"/>
+    <line class="line" x1="272" y1="0" x2="272" y2="900"/>
+    <line class="line" x1="1020" y1="0" x2="1020" y2="900"/>
+    <line class="line" x1="272" y1="56" x2="1020" y2="56"/>
+    <line class="line" x1="1020" y1="56" x2="1440" y2="56"/>
+    <line class="line" x1="272" y1="774" x2="1020" y2="774"/>
+
+    <text class="brand-title" x="24" y="38">Eliy</text>
+    <text class="text-secondary" x="24" y="58">老板的 AI 经营助手</text>
+    <rect x="24" y="88" width="224" height="38" rx="10" class="brand"/>
+    <text class="text-body" x="56" y="113" fill="#fff">＋ 新对话</text>
+    <rect x="24" y="136" width="224" height="34" rx="10" class="surface pill-border"/>
+    <text class="text-secondary" x="44" y="158">搜索</text>
+    <text class="text-caption" x="24" y="210">项目</text>
+    <rect x="20" y="222" width="232" height="48" rx="10" class="selection"/>
+    <rect x="28" y="230" width="10" height="32" rx="5" class="brand"/>
+    <text class="text-body" x="50" y="250">增长实验</text>
+    <text class="text-secondary" x="50" y="265">3 个对话 · 2 项进行中</text>
+    <text class="text-caption" x="24" y="312">已置顶</text>
+    <rect x="20" y="324" width="232" height="48" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="344">O’PDCA 体验客户访谈</text>
+    <text class="text-secondary" x="32" y="360">经营复盘营设计</text>
+    <text class="text-caption" x="24" y="410">对话</text>
+    <rect x="20" y="422" width="232" height="52" rx="10" class="selection"/>
+    <rect x="28" y="431" width="10" height="34" rx="5" class="brand"/>
+    <text class="text-body" x="50" y="444">经营复盘方案</text>
+    <text class="text-secondary" x="50" y="460">增长实验</text>
+    <text class="text-body" x="24" y="862">设置</text>
+
+    <text class="text-strong" x="296" y="34">经营复盘方案</text>
+    <text class="text-secondary" x="296" y="56">增长实验</text>
+    <rect x="838" y="14" width="72" height="28" rx="14" class="surface pill-border"/>
+    <text class="text-caption" x="852" y="33">收起</text>
+
+    <text class="text-body" x="300" y="134">右侧工作区打开后，仍不会影响当前对话。</text>
+    <text class="text-secondary" x="320" y="156">Eliy</text>
+    <rect x="320" y="202" width="400" height="72" rx="18" class="bubble-user"/>
+    <text class="text-body" x="340" y="230">我希望行动与资料和聊天内容分开查看。</text>
+    <text class="text-secondary" x="340" y="252">用户</text>
+
+    <text class="text-strong" x="1050" y="36">工作区</text>
+    <line class="line" x1="1040" y1="56" x2="1400" y2="56"/>
+    <text class="text-body" x="1050" y="112">这里会显示 Eliy 为你整理出的行动、资料和 O 单。</text>
+
+    <rect x="300" y="784" width="688" height="56" rx="20" class="surface pill-border"/>
+    <circle cx="336" cy="813" r="14" fill="#f4f5f9"/>
+    <text class="text-body" x="329" y="819">＋</text>
+    <text class="text-secondary" x="364" y="818">输入想和 Eliy 讨论的问题……</text>
+    <circle cx="950" cy="813" r="18" class="brand"/>
+    <path d="M942 814h16l-8-10z" fill="#ffffff"/>
+    <text class="text-note" x="300" y="874">Eliy 可能会出错，请核实重要经营信息。</text>
+  </g>
+
+  <g id="project-conversation-variant-a" transform="translate(40 2908)">
+    <rect class="page" x="0" y="0" width="1440" height="900" rx="20"/>
+    <rect class="sidebar" x="0" y="0" width="272" height="900" rx="20"/>
+    <rect class="chat" x="272" y="0" width="1168" height="900" rx="20"/>
+    <line class="line" x1="272" y1="0" x2="272" y2="900"/>
+    <line class="line" x1="272" y1="56" x2="1440" y2="56"/>
+    <line class="line" x1="272" y1="774" x2="1440" y2="774"/>
+
+    <text class="brand-title" x="24" y="38">Eliy</text>
+    <text class="text-secondary" x="24" y="58">老板的 AI 经营助手</text>
+    <rect x="24" y="88" width="224" height="38" rx="10" class="brand"/>
+    <text class="text-body" x="56" y="113" fill="#fff">＋ 新对话</text>
+    <rect x="24" y="136" width="224" height="34" rx="10" class="surface pill-border"/>
+    <text class="text-secondary" x="44" y="158">搜索</text>
+    <text class="text-caption" x="24" y="210">项目</text>
+    <rect x="20" y="222" width="232" height="48" rx="10" class="selection"/>
+    <rect x="28" y="230" width="10" height="32" rx="5" class="brand"/>
+    <text class="text-body" x="50" y="250">增长实验</text>
+    <text class="text-secondary" x="50" y="265">3 个对话 · 2 项进行中</text>
+    <text class="text-caption" x="24" y="312">已置顶</text>
+    <rect x="20" y="324" width="232" height="48" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="344">O’PDCA 体验客户访谈</text>
+    <text class="text-secondary" x="32" y="360">经营复盘营设计</text>
+    <text class="text-caption" x="24" y="410">对话</text>
+    <rect x="20" y="422" width="232" height="48" rx="10" class="selection"/>
+    <rect x="28" y="431" width="10" height="30" rx="5" class="brand"/>
+    <text class="text-body" x="50" y="444">渠道增长复盘</text>
+    <text class="text-secondary" x="50" y="460">增长实验</text>
+    <rect x="20" y="474" width="232" height="48" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="495">产品发售计划</text>
+    <text class="text-secondary" x="32" y="511">增长实验</text>
+    <text class="text-body" x="24" y="862">设置</text>
+
+    <text class="text-strong" x="296" y="34">增长实验 / 渠道增长复盘</text>
+    <text class="text-secondary" x="296" y="56">增长实验</text>
+    <rect x="1090" y="14" width="96" height="28" rx="14" class="surface pill-border"/>
+    <text class="text-caption" x="1112" y="33">工作区</text>
+    <text class="text-body" x="330" y="122">我们先集中整理增长实验项目里的关键对话。</text>
+    <text class="text-secondary" x="330" y="144">Eliy</text>
+    <rect x="706" y="186" width="430" height="72" rx="18" class="bubble-user"/>
+    <text class="text-body" x="726" y="214">先看渠道增长复盘和下一步行动。</text>
+    <text class="text-secondary" x="726" y="236">用户</text>
+    <rect x="300" y="784" width="1068" height="56" rx="20" class="surface pill-border"/>
+    <circle cx="336" cy="813" r="14" fill="#f4f5f9"/>
+    <text class="text-body" x="329" y="819">＋</text>
+    <text class="text-secondary" x="364" y="818">输入想和 Eliy 讨论的问题……</text>
+    <circle cx="1332" cy="813" r="18" class="brand"/>
+    <path d="M1324 814h16l-8-10z" fill="#ffffff"/>
+    <text class="text-note" x="300" y="874">Eliy 可能会出错，请核实重要经营信息。</text>
+  </g>
+
+  <g id="project-conversation-variant-b" transform="translate(1536 2908)">
+    <rect class="page" x="0" y="0" width="1440" height="900" rx="20"/>
+    <rect class="sidebar" x="0" y="0" width="272" height="900" rx="20"/>
+    <rect class="chat" x="272" y="0" width="1168" height="900" rx="20"/>
+    <line class="line" x1="272" y1="0" x2="272" y2="900"/>
+    <line class="line" x1="272" y1="56" x2="1440" y2="56"/>
+    <line class="line" x1="272" y1="774" x2="1440" y2="774"/>
+
+    <text class="brand-title" x="24" y="38">Eliy</text>
+    <text class="text-secondary" x="24" y="58">老板的 AI 经营助手</text>
+    <rect x="24" y="88" width="224" height="38" rx="10" class="brand"/>
+    <text class="text-body" x="56" y="113" fill="#fff">＋ 新对话</text>
+    <rect x="24" y="136" width="224" height="34" rx="10" class="surface pill-border"/>
+    <text class="text-secondary" x="44" y="158">搜索</text>
+    <text class="text-caption" x="24" y="210">项目</text>
+    <rect x="20" y="222" width="232" height="48" rx="10" class="selection"/>
+    <rect x="28" y="230" width="10" height="32" rx="5" class="brand"/>
+    <text class="text-body" x="50" y="250">增长实验</text>
+    <text class="text-secondary" x="50" y="265">3 个对话 · 2 项进行中</text>
+    <text class="text-caption" x="24" y="312">已置顶</text>
+    <rect x="20" y="324" width="232" height="48" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="344">O’PDCA 体验客户访谈</text>
+    <text class="text-secondary" x="32" y="360">经营复盘营设计</text>
+    <text class="text-caption" x="24" y="410">对话</text>
+    <rect x="20" y="422" width="232" height="48" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="443">渠道增长复盘</text>
+    <text class="text-secondary" x="32" y="459">增长实验</text>
+    <rect x="20" y="474" width="232" height="48" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="495">产品发售计划</text>
+    <text class="text-secondary" x="32" y="511">产品亮点</text>
+    <rect x="20" y="526" width="232" height="48" rx="10" class="surface"/>
+    <text class="text-body" x="32" y="547">经营复盘营设计</text>
+    <text class="text-secondary" x="32" y="563">经营复盘</text>
+    <text class="text-body" x="24" y="862">设置</text>
+
+    <text class="text-strong" x="296" y="34">渠道增长复盘</text>
+    <text class="text-secondary" x="296" y="56">增长实验</text>
+    <rect x="1090" y="14" width="96" height="28" rx="14" class="surface pill-border"/>
+    <text class="text-caption" x="1112" y="33">工作区</text>
+    <text class="text-body" x="330" y="122">你也可以从全部对话中快速切换到其他经营主题。</text>
+    <text class="text-secondary" x="330" y="144">Eliy</text>
+    <rect x="706" y="186" width="430" height="72" rx="18" class="bubble-user"/>
+    <text class="text-body" x="726" y="214">这样比较方便回顾不同项目的进展。</text>
+    <text class="text-secondary" x="726" y="236">用户</text>
+    <rect x="300" y="784" width="1068" height="56" rx="20" class="surface pill-border"/>
+    <circle cx="336" cy="813" r="14" fill="#f4f5f9"/>
+    <text class="text-body" x="329" y="819">＋</text>
+    <text class="text-secondary" x="364" y="818">输入想和 Eliy 讨论的问题……</text>
+    <circle cx="1332" cy="813" r="18" class="brand"/>
+    <path d="M1324 814h16l-8-10z" fill="#ffffff"/>
+    <text class="text-note" x="300" y="874">Eliy 可能会出错，请核实重要经营信息。</text>
+  </g>
+
+  <text class="text-note" x="40" y="2884">Founder Decision Candidate A</text>
+  <text class="text-note" x="1536" y="2884">Founder Decision Candidate B</text>
+</svg>
