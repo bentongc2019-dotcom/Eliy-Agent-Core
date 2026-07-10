@@ -25,14 +25,6 @@ type ShellState = {
   composerFeedback: string;
 };
 
-type WorkspaceNavItem = {
-  id: string;
-  icon: string;
-  label: string;
-  active?: boolean;
-  onSelect?: () => void;
-};
-
 const MOVED_PROJECT_LABEL = "重点项目";
 
 const initialConversationTemplate: readonly ThreadMessageLike[] = [
@@ -62,12 +54,11 @@ export const initialMockThreadMessages: ThreadMessageLike[] = [...initialConvers
 
 const shellStyle: CSSProperties = {
   minHeight: "100vh",
-  padding: "16px",
+  padding: "14px",
   boxSizing: "border-box",
   overflowX: "hidden",
   color: "#e8eefc",
-  background:
-    "radial-gradient(circle at top left, rgba(98, 126, 255, 0.22), transparent 34%), linear-gradient(180deg, #09111f 0%, #0f1726 100%)",
+  background: "linear-gradient(180deg, #08111f 0%, #0d1627 100%)",
   fontFamily:
     '"IBM Plex Sans", "SF Pro Display", "Segoe UI", "Helvetica Neue", Arial, sans-serif',
 };
@@ -75,27 +66,26 @@ const shellStyle: CSSProperties = {
 const gridStyle: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "minmax(0, 272px) minmax(0, 1fr) minmax(0, 296px)",
-  gap: "12px",
+  gap: "0",
   alignItems: "stretch",
-  minHeight: "calc(100vh - 32px)",
+  minHeight: "calc(100vh - 28px)",
   minWidth: 0,
 };
 
 const panelStyle: CSSProperties = {
-  border: "1px solid rgba(148, 163, 184, 0.18)",
-  borderRadius: "24px",
-  background: "rgba(8, 15, 28, 0.82)",
-  boxShadow: "0 20px 60px rgba(2, 6, 23, 0.38)",
-  backdropFilter: "blur(18px)",
+  borderRight: "1px solid rgba(148, 163, 184, 0.08)",
+  background: "rgba(7, 12, 22, 0.56)",
+  boxShadow: "none",
+  backdropFilter: "blur(12px)",
   overflow: "hidden",
   minWidth: 0,
 };
 
 const workspacePanelStyle: CSSProperties = {
   ...panelStyle,
-  borderColor: "rgba(148, 163, 184, 0.12)",
-  background: "rgba(8, 15, 28, 0.66)",
-  boxShadow: "0 14px 36px rgba(2, 6, 23, 0.24)",
+  borderRight: "0",
+  borderLeft: "1px solid rgba(148, 163, 184, 0.08)",
+  background: "rgba(7, 12, 22, 0.42)",
 };
 
 const panelHeaderStyle: CSSProperties = {
@@ -117,7 +107,7 @@ const chatHeaderStyle: CSSProperties = {
   justifyContent: "space-between",
   gap: "12px",
   padding: "14px 14px 10px",
-  borderBottom: "1px solid rgba(148, 163, 184, 0.12)",
+  borderBottom: "1px solid rgba(148, 163, 184, 0.08)",
 };
 
 const chatHeaderTextStyle: CSSProperties = {
@@ -128,15 +118,15 @@ const chatHeaderTextStyle: CSSProperties = {
 
 const chatHeaderFeedbackStyle: CSSProperties = {
   margin: 0,
-  color: "#b7c3dd",
+  color: "#aeb8cf",
   lineHeight: 1.35,
   fontSize: "12px",
 };
 
 const workspaceToggleStyle: CSSProperties = {
-  border: "1px solid rgba(96, 165, 250, 0.24)",
+  border: "1px solid rgba(148, 163, 184, 0.14)",
   borderRadius: "999px",
-  background: "rgba(15, 23, 42, 0.76)",
+  background: "rgba(15, 23, 42, 0.62)",
   color: "#eef4ff",
   padding: "8px 12px",
   fontSize: "12px",
@@ -146,17 +136,16 @@ const workspaceToggleStyle: CSSProperties = {
 
 const sectionStackStyle: CSSProperties = {
   display: "grid",
-  gap: "10px",
-  marginTop: "12px",
+  gap: "8px",
+  marginTop: "10px",
 };
 
 const sectionStyle: CSSProperties = {
   display: "grid",
   gap: "8px",
-  padding: "10px",
-  borderRadius: "16px",
-  border: "1px solid rgba(148, 163, 184, 0.12)",
-  background: "rgba(6, 11, 22, 0.5)",
+  paddingTop: "10px",
+  borderTop: "1px solid rgba(148, 163, 184, 0.08)",
+  background: "transparent",
 };
 
 const sectionHeaderStyle: CSSProperties = {
@@ -168,7 +157,7 @@ const sectionHeaderStyle: CSSProperties = {
 
 const sectionListStyle: CSSProperties = {
   display: "grid",
-  gap: "10px",
+  gap: "8px",
 };
 
 const projectGroupStyle: CSSProperties = {
@@ -180,17 +169,6 @@ const projectChipWrapStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
   gap: "8px",
-};
-
-const feedbackBannerStyle: CSSProperties = {
-  display: "grid",
-  gap: "4px",
-  padding: "10px 12px",
-  borderRadius: "14px",
-  border: "1px solid rgba(96, 165, 250, 0.24)",
-  background: "linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(10, 16, 30, 0.92))",
-  color: "#eef4ff",
-  boxShadow: "inset 0 0 0 1px rgba(96, 165, 250, 0.08)",
 };
 
 const headingStyle: CSSProperties = {
@@ -215,14 +193,6 @@ const mutedTextStyle: CSSProperties = {
   fontSize: "12px",
 };
 
-const navListStyle: CSSProperties = {
-  display: "grid",
-  gap: "4px",
-  margin: "14px 0 0",
-  padding: 0,
-  listStyle: "none",
-};
-
 const navButtonStyle: CSSProperties = {
   width: "100%",
   display: "flex",
@@ -240,8 +210,8 @@ const navButtonStyle: CSSProperties = {
 };
 
 const navButtonAccentStyle: CSSProperties = {
-  border: "1px solid rgba(124, 145, 255, 0.22)",
-  background: "rgba(63, 94, 251, 0.12)",
+  border: "1px solid rgba(148, 163, 184, 0.18)",
+  background: "rgba(15, 23, 42, 0.34)",
 };
 
 const navIconStyle: CSSProperties = {
@@ -260,27 +230,26 @@ const navLabelStyle: CSSProperties = {
 const conversationCardStyle: CSSProperties = {
   display: "grid",
   gap: "8px",
-  border: "1px solid rgba(148, 163, 184, 0.12)",
-  borderRadius: "14px",
-  background: "rgba(10, 16, 30, 0.84)",
-  padding: "10px",
+  border: "0",
+  borderRadius: "12px",
+  background: "transparent",
+  padding: "2px 0",
 };
 
 const conversationCardSelectedStyle: CSSProperties = {
-  border: "1px solid rgba(124, 145, 255, 0.36)",
-  background: "rgba(18, 27, 52, 0.92)",
-  boxShadow: "0 14px 30px rgba(37, 99, 235, 0.16)",
+  boxShadow: "inset 2px 0 0 rgba(96, 165, 250, 0.7)",
+  background: "rgba(15, 23, 42, 0.34)",
 };
 
 const conversationSelectStyle: CSSProperties = {
   display: "grid",
   gap: "6px",
   width: "100%",
-  border: "1px solid rgba(148, 163, 184, 0.08)",
+  border: "0",
   borderRadius: "12px",
-  background: "rgba(3, 7, 18, 0.38)",
+  background: "transparent",
   color: "#edf2ff",
-  padding: "10px 10px 8px",
+  padding: "8px 10px 8px",
   textAlign: "left",
   cursor: "pointer",
 };
@@ -307,28 +276,20 @@ const conversationMetaRowStyle: CSSProperties = {
   flexWrap: "wrap",
 };
 
-const conversationActionRowStyle: CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "4px",
-  position: "relative",
-  zIndex: 1,
-};
-
 const conversationOverflowRowStyle: CSSProperties = {
   display: "flex",
   alignItems: "center",
-  justifyContent: "space-between",
+  justifyContent: "flex-end",
   gap: "8px",
 };
 
 const conversationOverflowButtonStyle: CSSProperties = {
-  border: "1px solid rgba(148, 163, 184, 0.16)",
+  border: "1px solid rgba(148, 163, 184, 0.12)",
   borderRadius: "999px",
-  background: "rgba(15, 23, 42, 0.72)",
+  background: "rgba(15, 23, 42, 0.54)",
   color: "#eef4ff",
   fontSize: "14px",
-  padding: "6px 10px",
+  padding: "4px 10px 5px",
   cursor: "pointer",
 };
 
@@ -337,8 +298,8 @@ const conversationActionPanelStyle: CSSProperties = {
   gap: "4px",
   padding: "8px",
   borderRadius: "12px",
-  border: "1px solid rgba(96, 165, 250, 0.18)",
-  background: "rgba(15, 23, 42, 0.76)",
+  border: "1px solid rgba(148, 163, 184, 0.12)",
+  background: "rgba(15, 23, 42, 0.56)",
 };
 
 const threadViewportStyle: CSSProperties = {
@@ -354,39 +315,26 @@ const threadViewportStyle: CSSProperties = {
 };
 
 const actionButtonStyle: CSSProperties = {
-  border: "1px solid rgba(148, 163, 184, 0.14)",
-  borderRadius: "999px",
-  background: "rgba(15, 23, 42, 0.78)",
-  color: "#cdd8ef",
-  fontSize: "11px",
-  padding: "6px 9px",
+  border: "0",
+  borderRadius: "10px",
+  background: "rgba(15, 23, 42, 0.42)",
+  color: "#edf2ff",
+  fontSize: "12px",
+  padding: "8px 10px",
   cursor: "pointer",
 };
 
 const selectedActionButtonStyle: CSSProperties = {
-  border: "1px solid rgba(99, 102, 241, 0.34)",
-  color: "#eef2ff",
-  background: "rgba(63, 94, 251, 0.18)",
-};
-
-const selectedConversationBadgeStyle: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  borderRadius: "999px",
-  border: "1px solid rgba(96, 165, 250, 0.32)",
-  background: "rgba(37, 99, 235, 0.18)",
-  color: "#dbeafe",
-  fontSize: "11px",
-  padding: "3px 7px",
+  background: "rgba(96, 165, 250, 0.12)",
 };
 
 const messageCardStyle: CSSProperties = {
-  border: "1px solid rgba(148, 163, 184, 0.12)",
-  borderRadius: "14px",
-  background: "rgba(10, 16, 30, 0.84)",
+  border: "1px solid rgba(148, 163, 184, 0.08)",
+  borderRadius: "16px",
+  background: "rgba(15, 23, 42, 0.56)",
   padding: "12px 14px",
   minWidth: 0,
-  maxWidth: "100%",
+  maxWidth: "min(82%, 680px)",
   overflow: "hidden",
 };
 
@@ -400,9 +348,9 @@ const messageTextStyle: CSSProperties = {
 };
 
 const composerStyle: CSSProperties = {
-  borderTop: "1px solid rgba(148, 163, 184, 0.12)",
+  borderTop: "1px solid rgba(148, 163, 184, 0.08)",
   padding: "12px 14px 14px",
-  background: "rgba(6, 11, 22, 0.62)",
+  background: "rgba(6, 11, 22, 0.34)",
   flex: "0 0 auto",
 };
 
@@ -410,28 +358,28 @@ const composerSurfaceStyle: CSSProperties = {
   display: "grid",
   gap: "8px",
   width: "100%",
-  border: "1px solid rgba(148, 163, 184, 0.14)",
-  borderRadius: "16px",
-  background: "rgba(15, 23, 42, 0.8)",
+  border: "1px solid rgba(148, 163, 184, 0.1)",
+  borderRadius: "18px",
+  background: "rgba(15, 23, 42, 0.42)",
   padding: "10px 12px",
 };
 
 const composerFeedbackStyle: CSSProperties = {
-  border: "1px solid rgba(96, 165, 250, 0.2)",
-  borderRadius: "12px",
-  background: "rgba(15, 23, 42, 0.74)",
-  color: "#dbeafe",
+  border: "0",
+  borderRadius: "0",
+  background: "transparent",
+  color: "#aeb8cf",
   fontSize: "12px",
   lineHeight: 1.4,
-  padding: "8px 10px",
+  padding: "0",
 };
 
 const composerFieldStyle: CSSProperties = {
   width: "100%",
   minHeight: "88px",
-  border: "1px solid rgba(148, 163, 184, 0.14)",
-  borderRadius: "12px",
-  background: "rgba(3, 7, 18, 0.88)",
+  border: "1px solid rgba(148, 163, 184, 0.1)",
+  borderRadius: "14px",
+  background: "rgba(3, 7, 18, 0.56)",
   color: "#f8fbff",
   padding: "10px 12px",
   boxSizing: "border-box",
@@ -458,8 +406,8 @@ const composerMetaStyle: CSSProperties = {
 };
 
 const primaryButtonStyle: CSSProperties = {
-  border: "1px solid rgba(99, 102, 241, 0.4)",
-  background: "linear-gradient(180deg, rgba(99, 102, 241, 0.92), rgba(79, 70, 229, 0.92))",
+  border: "1px solid rgba(148, 163, 184, 0.16)",
+  background: "rgba(96, 165, 250, 0.18)",
   color: "#ffffff",
   borderRadius: "999px",
   padding: "8px 14px",
@@ -489,24 +437,24 @@ const chipStyle: CSSProperties = {
   alignItems: "center",
   gap: "8px",
   borderRadius: "999px",
-  border: "1px solid rgba(148, 163, 184, 0.14)",
-  background: "rgba(15, 23, 42, 0.78)",
-  color: "#cdd8ef",
+  border: "1px solid rgba(148, 163, 184, 0.1)",
+  background: "rgba(15, 23, 42, 0.42)",
+  color: "#b9c4da",
   fontSize: "11px",
   padding: "6px 9px",
 };
 
 const projectChipStyle: CSSProperties = {
   ...chipStyle,
-  background: "rgba(17, 24, 39, 0.92)",
+  background: "rgba(17, 24, 39, 0.7)",
 };
 
 const emptyStateStyle: CSSProperties = {
-  border: "1px dashed rgba(148, 163, 184, 0.2)",
-  borderRadius: "14px",
+  border: "1px dashed rgba(148, 163, 184, 0.12)",
+  borderRadius: "12px",
   padding: "12px",
   color: "#b7c3dd",
-  background: "rgba(3, 7, 18, 0.42)",
+  background: "rgba(3, 7, 18, 0.2)",
 };
 
 function createShellMessage(role: ChatRole, body: string): ShellMessage {
@@ -831,21 +779,17 @@ function shellReducer(state: ShellState, action: ShellAction): ShellState {
   }
 }
 
-function getMessageRoleLabel(role: ChatRole): string {
-  return role === "user" ? "你" : "Eliy";
-}
-
 function getMessageCardStyle(role: ChatRole): CSSProperties {
   return {
     ...messageCardStyle,
     background:
       role === "user"
-        ? "linear-gradient(180deg, rgba(37, 99, 235, 0.18), rgba(15, 23, 42, 0.9))"
-        : "rgba(10, 16, 30, 0.84)",
-    borderColor:
-      role === "user" ? "rgba(96, 165, 250, 0.28)" : "rgba(148, 163, 184, 0.12)",
+        ? "linear-gradient(180deg, rgba(96, 165, 250, 0.18), rgba(15, 23, 42, 0.72))"
+        : "rgba(15, 23, 42, 0.46)",
+    borderColor: role === "user" ? "rgba(96, 165, 250, 0.22)" : "rgba(148, 163, 184, 0.08)",
     justifySelf: role === "user" ? "end" : "start",
-    maxWidth: "min(92%, 760px)",
+    alignSelf: role === "user" ? "end" : "start",
+    textAlign: role === "user" ? "left" : "left",
   };
 }
 
@@ -871,7 +815,7 @@ function ShellComposer({
   };
 
   return (
-    <div data-testid="composer-shell" style={composerSurfaceStyle}>
+    <div data-testid="composer-shell" data-surface="minimal" style={composerSurfaceStyle}>
       <textarea
         aria-label="输入想和 Eliy 讨论的问题"
         data-testid="composer-input"
@@ -904,7 +848,12 @@ function ShellComposer({
         </button>
       </div>
       {feedback ? (
-        <div data-testid="composer-send-feedback" aria-live="polite" style={composerFeedbackStyle}>
+        <div
+          data-testid="composer-send-feedback"
+          data-surface="inline"
+          aria-live="polite"
+          style={composerFeedbackStyle}
+        >
           {feedback}
         </div>
       ) : null}
@@ -966,6 +915,7 @@ function ConversationItem({
   return (
     <article
       data-testid={`conversation-item-${conversation.id}`}
+      data-item-surface="flat"
       data-selected={isSelected ? "true" : undefined}
       onClick={handleSelect}
       onKeyDown={handleKeyDown}
@@ -982,7 +932,6 @@ function ConversationItem({
             <h3 style={conversationTitleStyle}>{conversation.title}</h3>
             {conversation.pinned ? <span style={chipStyle}>已置顶</span> : null}
             {conversation.archived ? <span style={chipStyle}>已归档</span> : null}
-            {isSelected ? <span style={selectedConversationBadgeStyle}>当前选中</span> : null}
           </div>
           <div style={conversationMetaRowStyle}>
             <span style={mutedTextStyle}>项目：{conversation.project}</span>
@@ -1004,7 +953,6 @@ function ConversationItem({
       {isSelected ? (
         <>
           <div style={conversationOverflowRowStyle}>
-            <span style={{ ...mutedTextStyle, margin: 0 }}>更多操作</span>
             <button
               type="button"
               data-testid={`conversation-action-menu-${conversation.id}`}
@@ -1021,13 +969,17 @@ function ConversationItem({
           </div>
 
           {actionMenuOpen ? (
-            <div data-testid={`conversation-action-panel-${conversation.id}`} style={conversationActionPanelStyle}>
-              <div style={conversationActionRowStyle}>
+            <div
+              data-testid={`conversation-action-panel-${conversation.id}`}
+              data-surface="menu"
+              style={conversationActionPanelStyle}
+            >
+              <div style={{ display: "grid", gap: "4px" }}>
                 {onTogglePin ? (
                   <button
                     type="button"
                     data-testid={`conversation-action-pin-${conversation.id}`}
-                    style={{ ...actionButtonStyle, ...selectedActionButtonStyle }}
+                    style={{ ...actionButtonStyle, ...selectedActionButtonStyle, textAlign: "left" }}
                     onClick={(event) => {
                       event.stopPropagation();
                       onTogglePin(conversation.id);
@@ -1039,7 +991,7 @@ function ConversationItem({
                 <button
                   type="button"
                   data-testid={`conversation-action-rename-${conversation.id}`}
-                  style={{ ...actionButtonStyle, ...selectedActionButtonStyle }}
+                  style={{ ...actionButtonStyle, ...selectedActionButtonStyle, textAlign: "left" }}
                   onClick={(event) => {
                     event.stopPropagation();
                     onRename(conversation.id);
@@ -1051,7 +1003,7 @@ function ConversationItem({
                   <button
                     type="button"
                     data-testid={`conversation-action-move-${conversation.id}`}
-                    style={{ ...actionButtonStyle, ...selectedActionButtonStyle }}
+                    style={{ ...actionButtonStyle, ...selectedActionButtonStyle, textAlign: "left" }}
                     onClick={(event) => {
                       event.stopPropagation();
                       onMoveToProject(conversation.id);
@@ -1064,7 +1016,7 @@ function ConversationItem({
                   <button
                     type="button"
                     data-testid={`conversation-action-archive-${conversation.id}`}
-                    style={{ ...actionButtonStyle, ...selectedActionButtonStyle }}
+                    style={{ ...actionButtonStyle, ...selectedActionButtonStyle, textAlign: "left" }}
                     onClick={(event) => {
                       event.stopPropagation();
                       onArchive(conversation.id);
@@ -1076,7 +1028,7 @@ function ConversationItem({
                 <button
                   type="button"
                   data-testid={`conversation-action-delete-${conversation.id}`}
-                  style={{ ...actionButtonStyle, ...selectedActionButtonStyle }}
+                  style={{ ...actionButtonStyle, ...selectedActionButtonStyle, textAlign: "left" }}
                   onClick={(event) => {
                     event.stopPropagation();
                     onDelete(conversation.id);
@@ -1145,7 +1097,7 @@ function LeftWorkspacePanel({
   const projectSummaries = aggregateProjectSummaries(conversations);
 
   return (
-    <aside data-testid="left-workspace" style={panelStyle}>
+    <aside data-testid="left-workspace" data-surface="flat" style={panelStyle}>
       <div style={panelHeaderStyle}>
         <div>
           <p style={headingStyle}>Eliy</p>
@@ -1182,7 +1134,7 @@ function LeftWorkspacePanel({
           </div>
 
           <div style={sectionStackStyle}>
-            <section data-testid="conversation-section-projects" style={sectionStyle}>
+            <section data-testid="conversation-section-projects" data-surface="list" style={sectionStyle}>
               <div style={sectionHeaderStyle}>
                 <p style={headingStyle}>项目</p>
                 <span style={chipStyle}>{projectSummaries.length} 个</span>
@@ -1206,7 +1158,7 @@ function LeftWorkspacePanel({
               )}
             </section>
 
-            <section data-testid="conversation-section-pinned" style={sectionStyle}>
+            <section data-testid="conversation-section-pinned" data-surface="list" style={sectionStyle}>
               <div style={sectionHeaderStyle}>
                 <p style={headingStyle}>已置顶</p>
                 <span style={chipStyle}>{pinnedConversations.length} 条</span>
@@ -1234,7 +1186,7 @@ function LeftWorkspacePanel({
               )}
             </section>
 
-            <section data-testid="conversation-section-recent" style={sectionStyle}>
+            <section data-testid="conversation-section-recent" data-surface="list" style={sectionStyle}>
               <div style={sectionHeaderStyle}>
                 <p style={headingStyle}>最近对话</p>
                 <span style={chipStyle}>{recentConversations.length} 条</span>
@@ -1263,7 +1215,7 @@ function LeftWorkspacePanel({
             </section>
           </div>
 
-          <div style={{ display: "grid", gap: "4px", marginTop: "10px", borderTop: "1px solid rgba(148, 163, 184, 0.12)", paddingTop: "10px" }}>
+          <div style={{ display: "grid", gap: "4px", marginTop: "10px", borderTop: "1px solid rgba(148, 163, 184, 0.08)", paddingTop: "10px" }}>
             <button
               type="button"
               data-testid="workspace-item-settings"
@@ -1373,9 +1325,10 @@ function ChatThreadPanel({
               <article
                 key={message.key}
                 data-testid="chat-message"
+                data-message-role={message.role}
+                data-alignment={message.role === "user" ? "right" : "left"}
                 style={getMessageCardStyle(message.role)}
               >
-                <p style={headingStyle}>{getMessageRoleLabel(message.role)}</p>
                 <p style={messageTextStyle}>{message.body}</p>
               </article>
             ))
@@ -1403,41 +1356,23 @@ function ChatThreadPanel({
 }
 
 function ArtifactWorkspacePanel() {
-  const sections = [
-    {
-      title: "行动整理",
-      body: "整理下一步行动与待确认事项。",
-    },
-    {
-      title: "资料区",
-      body: "承载后续要单独查看的资料。",
-    },
-    {
-      title: "备注",
-      body: "与聊天分开显示，便于复盘。",
-    },
-  ];
-
   return (
-    <aside data-testid="artifact-workspace" style={workspacePanelStyle}>
+    <aside data-testid="artifact-workspace" data-surface="simple" style={workspacePanelStyle}>
       <div style={panelHeaderStyle}>
         <div>
           <p style={headingStyle}>工作区</p>
-          <h2 style={titleStyle}>独立显示</h2>
         </div>
-        <span style={chipStyle}>独立显示</span>
       </div>
-      <div style={{ ...panelBodyStyle, display: "grid", gap: "12px" }}>
-        {sections.map((section, index) => (
-          <div
-            key={section.title}
-            data-testid={index === 0 ? "otunit-workspace" : undefined}
-            style={index === 0 ? { ...sectionStyle, borderTop: "none", paddingTop: "10px" } : sectionStyle}
-          >
-            <p style={headingStyle}>{section.title}</p>
-            <p style={mutedTextStyle}>{section.body}</p>
-          </div>
-        ))}
+      <div
+        data-testid="otunit-workspace"
+        style={{
+          ...panelBodyStyle,
+          display: "grid",
+          gap: "8px",
+        }}
+      >
+        <p style={titleStyle}>这里会显示 Eliy 为你整理出的行动、资料和 O 单。</p>
+        <p style={mutedTextStyle}>当前只保留轻量说明，不展开真实内容。</p>
       </div>
     </aside>
   );
