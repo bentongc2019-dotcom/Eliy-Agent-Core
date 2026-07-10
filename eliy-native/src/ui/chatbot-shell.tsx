@@ -111,6 +111,39 @@ const panelBodyStyle: CSSProperties = {
   padding: "12px 14px 14px",
 };
 
+const chatHeaderStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "flex-start",
+  justifyContent: "space-between",
+  gap: "12px",
+  padding: "14px 14px 10px",
+  borderBottom: "1px solid rgba(148, 163, 184, 0.12)",
+};
+
+const chatHeaderTextStyle: CSSProperties = {
+  display: "grid",
+  gap: "4px",
+  minWidth: 0,
+};
+
+const chatHeaderFeedbackStyle: CSSProperties = {
+  margin: 0,
+  color: "#b7c3dd",
+  lineHeight: 1.35,
+  fontSize: "12px",
+};
+
+const workspaceToggleStyle: CSSProperties = {
+  border: "1px solid rgba(96, 165, 250, 0.24)",
+  borderRadius: "999px",
+  background: "rgba(15, 23, 42, 0.76)",
+  color: "#eef4ff",
+  padding: "8px 12px",
+  fontSize: "12px",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+};
+
 const sectionStackStyle: CSSProperties = {
   display: "grid",
   gap: "10px",
@@ -280,6 +313,32 @@ const conversationActionRowStyle: CSSProperties = {
   gap: "4px",
   position: "relative",
   zIndex: 1,
+};
+
+const conversationOverflowRowStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "8px",
+};
+
+const conversationOverflowButtonStyle: CSSProperties = {
+  border: "1px solid rgba(148, 163, 184, 0.16)",
+  borderRadius: "999px",
+  background: "rgba(15, 23, 42, 0.72)",
+  color: "#eef4ff",
+  fontSize: "14px",
+  padding: "6px 10px",
+  cursor: "pointer",
+};
+
+const conversationActionPanelStyle: CSSProperties = {
+  display: "grid",
+  gap: "4px",
+  padding: "8px",
+  borderRadius: "12px",
+  border: "1px solid rgba(96, 165, 250, 0.18)",
+  background: "rgba(15, 23, 42, 0.76)",
 };
 
 const threadViewportStyle: CSSProperties = {
@@ -856,22 +915,26 @@ function ShellComposer({
 function ConversationItem({
   conversation,
   isSelected,
+  actionMenuOpen,
   archived,
   onArchive,
   onDelete,
   onMoveToProject,
   onRename,
   onSelect,
+  onToggleActionMenu,
   onTogglePin,
 }: {
   conversation: Conversation;
   isSelected: boolean;
+  actionMenuOpen: boolean;
   archived?: boolean;
   onArchive?: (conversationId: string) => void;
   onDelete: (conversationId: string) => void;
   onMoveToProject?: (conversationId: string) => void;
   onRename: (conversationId: string) => void;
   onSelect?: (conversationId: string) => void;
+  onToggleActionMenu?: (conversationId: string) => void;
   onTogglePin?: (conversationId: string) => void;
 }) {
   const handleSelect = () => {
@@ -894,6 +957,10 @@ function ConversationItem({
   const cardStyle = {
     ...(isSelected ? { ...conversationCardStyle, ...conversationCardSelectedStyle } : conversationCardStyle),
     cursor: onSelect ? "pointer" : "default",
+  };
+
+  const handleToggleActionMenu = () => {
+    onToggleActionMenu?.(conversation.id);
   };
 
   return (
@@ -935,69 +1002,92 @@ function ConversationItem({
       )}
 
       {isSelected ? (
-        <div style={conversationActionRowStyle}>
-          {onTogglePin ? (
+        <>
+          <div style={conversationOverflowRowStyle}>
+            <span style={{ ...mutedTextStyle, margin: 0 }}>更多操作</span>
             <button
               type="button"
-              data-testid={`conversation-action-pin-${conversation.id}`}
-              style={{ ...actionButtonStyle, ...selectedActionButtonStyle }}
+              data-testid={`conversation-action-menu-${conversation.id}`}
+              aria-label="更多操作"
+              title="更多操作"
+              style={conversationOverflowButtonStyle}
               onClick={(event) => {
                 event.stopPropagation();
-                onTogglePin(conversation.id);
+                handleToggleActionMenu();
               }}
             >
-              {conversation.pinned ? "取消置顶" : "置顶"}
+              …
             </button>
+          </div>
+
+          {actionMenuOpen ? (
+            <div data-testid={`conversation-action-panel-${conversation.id}`} style={conversationActionPanelStyle}>
+              <div style={conversationActionRowStyle}>
+                {onTogglePin ? (
+                  <button
+                    type="button"
+                    data-testid={`conversation-action-pin-${conversation.id}`}
+                    style={{ ...actionButtonStyle, ...selectedActionButtonStyle }}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onTogglePin(conversation.id);
+                    }}
+                  >
+                    {conversation.pinned ? "取消置顶" : "置顶"}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  data-testid={`conversation-action-rename-${conversation.id}`}
+                  style={{ ...actionButtonStyle, ...selectedActionButtonStyle }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onRename(conversation.id);
+                  }}
+                >
+                  改名
+                </button>
+                {onMoveToProject ? (
+                  <button
+                    type="button"
+                    data-testid={`conversation-action-move-${conversation.id}`}
+                    style={{ ...actionButtonStyle, ...selectedActionButtonStyle }}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onMoveToProject(conversation.id);
+                    }}
+                  >
+                    移动
+                  </button>
+                ) : null}
+                {onArchive ? (
+                  <button
+                    type="button"
+                    data-testid={`conversation-action-archive-${conversation.id}`}
+                    style={{ ...actionButtonStyle, ...selectedActionButtonStyle }}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onArchive(conversation.id);
+                    }}
+                  >
+                    归档
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  data-testid={`conversation-action-delete-${conversation.id}`}
+                  style={{ ...actionButtonStyle, ...selectedActionButtonStyle }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDelete(conversation.id);
+                  }}
+                >
+                  删除
+                </button>
+              </div>
+            </div>
           ) : null}
-          <button
-            type="button"
-            data-testid={`conversation-action-rename-${conversation.id}`}
-            style={{ ...actionButtonStyle, ...selectedActionButtonStyle }}
-            onClick={(event) => {
-              event.stopPropagation();
-              onRename(conversation.id);
-            }}
-          >
-            改名
-          </button>
-          {onMoveToProject ? (
-            <button
-              type="button"
-              data-testid={`conversation-action-move-${conversation.id}`}
-              style={{ ...actionButtonStyle, ...selectedActionButtonStyle }}
-              onClick={(event) => {
-                event.stopPropagation();
-                onMoveToProject(conversation.id);
-              }}
-            >
-              移动
-            </button>
-          ) : null}
-          {onArchive ? (
-            <button
-              type="button"
-              data-testid={`conversation-action-archive-${conversation.id}`}
-              style={{ ...actionButtonStyle, ...selectedActionButtonStyle }}
-              onClick={(event) => {
-                event.stopPropagation();
-                onArchive(conversation.id);
-              }}
-            >
-              归档
-            </button>
-          ) : null}
-          <button
-            type="button"
-            data-testid={`conversation-action-delete-${conversation.id}`}
-            style={{ ...actionButtonStyle, ...selectedActionButtonStyle }}
-            onClick={(event) => {
-              event.stopPropagation();
-              onDelete(conversation.id);
-            }}
-          >
-            删除
-          </button>
-        </div>
+        </>
       ) : null}
     </article>
   );
@@ -1028,12 +1118,13 @@ function LeftWorkspacePanel({
   onOpenSettings,
   onSelectConversation,
   selectedConversationId,
-  lastActionFeedback,
+  actionMenuConversationId,
   onTogglePin,
   onRenameConversation,
   onMoveToProject,
   onArchiveConversation,
   onDeleteConversation,
+  onToggleConversationActionMenu,
 }: {
   conversations: readonly Conversation[];
   onResetThread: () => void;
@@ -1041,12 +1132,13 @@ function LeftWorkspacePanel({
   onOpenSettings: () => void;
   onSelectConversation: (conversationId: string) => void;
   selectedConversationId: string | null;
-  lastActionFeedback: string;
+  actionMenuConversationId: string | null;
   onTogglePin: (conversationId: string) => void;
   onRenameConversation: (conversationId: string) => void;
   onMoveToProject: (conversationId: string) => void;
   onArchiveConversation: (conversationId: string) => void;
   onDeleteConversation: (conversationId: string) => void;
+  onToggleConversationActionMenu: (conversationId: string) => void;
 }) {
   const pinnedConversations = conversations.filter((conversation) => conversation.pinned && isVisibleConversation(conversation));
   const recentConversations = conversations.filter((conversation) => !conversation.pinned && isVisibleConversation(conversation));
@@ -1058,16 +1150,10 @@ function LeftWorkspacePanel({
         <div>
           <p style={headingStyle}>Eliy</p>
           <h1 style={titleStyle}>老板的 AI 经营助手</h1>
-          <p style={mutedTextStyle}>看清当前状态与可执行动作。</p>
         </div>
       </div>
       <div style={panelBodyStyle}>
-        <div data-testid="last-action-feedback" aria-live="polite" style={feedbackBannerStyle}>
-          <p style={{ ...headingStyle, margin: 0 }}>最近反馈</p>
-          <p style={{ ...mutedTextStyle, margin: 0, color: "#e5eefc" }}>{lastActionFeedback}</p>
-        </div>
-
-        <div style={{ display: "grid", gap: "10px", marginTop: "12px" }}>
+        <div style={{ display: "grid", gap: "10px" }}>
           <div style={{ display: "grid", gap: "4px" }} aria-label="主导航">
             <button
               type="button"
@@ -1132,11 +1218,13 @@ function LeftWorkspacePanel({
                       key={conversation.id}
                       conversation={conversation}
                       isSelected={conversation.id === selectedConversationId}
+                      actionMenuOpen={conversation.id === actionMenuConversationId}
                       onArchive={onArchiveConversation}
                       onDelete={onDeleteConversation}
                       onMoveToProject={onMoveToProject}
                       onRename={onRenameConversation}
                       onSelect={onSelectConversation}
+                      onToggleActionMenu={onToggleConversationActionMenu}
                       onTogglePin={onTogglePin}
                     />
                   ))}
@@ -1158,11 +1246,13 @@ function LeftWorkspacePanel({
                       key={conversation.id}
                       conversation={conversation}
                       isSelected={conversation.id === selectedConversationId}
+                      actionMenuOpen={conversation.id === actionMenuConversationId}
                       onArchive={onArchiveConversation}
                       onDelete={onDeleteConversation}
                       onMoveToProject={onMoveToProject}
                       onRename={onRenameConversation}
                       onSelect={onSelectConversation}
+                      onToggleActionMenu={onToggleConversationActionMenu}
                       onTogglePin={onTogglePin}
                     />
                   ))}
@@ -1193,12 +1283,18 @@ function LeftWorkspacePanel({
 }
 
 function ChatThreadPanel({
+  actionFeedback,
   composerFeedback,
   onSend,
+  onToggleWorkspace,
+  workspaceOpen,
   selectedConversation,
 }: {
+  actionFeedback: string;
   composerFeedback: string;
   onSend: (userText: string) => void;
+  onToggleWorkspace: () => void;
+  workspaceOpen: boolean;
   selectedConversation: Conversation | null;
 }) {
   const latestMessageAnchorRef = useRef<HTMLDivElement | null>(null);
@@ -1220,72 +1316,89 @@ function ChatThreadPanel({
   }, [selectedConversation?.id, visibleMessages.length]);
 
   return (
-    <section
-      data-testid="chat-thread-shell"
-      style={{
-        ...panelStyle,
-        display: "flex",
-        flexDirection: "column",
-        minHeight: 0,
-      }}
-    >
-      <div style={panelHeaderStyle}>
-        <div>
-          <p style={headingStyle}>对话</p>
-          {selectedConversation ? (
-            <>
-              <h2 data-testid="selected-conversation-title" style={titleStyle}>
-                {selectedConversation.title}
-              </h2>
-              <p data-testid="selected-conversation-project" style={mutedTextStyle}>
-                项目：{selectedConversation.project}
-              </p>
-            </>
-          ) : (
-            <>
-              <h2 data-testid="selected-conversation-title" style={titleStyle}>
-                暂无可见会话
-              </h2>
-              <p style={mutedTextStyle}>请从左侧选择一个会话。</p>
-            </>
-          )}
-        </div>
-        <span data-testid="message-count" style={chipStyle}>
-          {visibleMessages.length} 条消息
-        </span>
-      </div>
-
-      <div data-testid="chat-thread" style={threadViewportStyle}>
-        {selectedConversation ? (
-          visibleMessages.map((message) => (
-            <article
-              key={message.key}
-              data-testid="chat-message"
-              style={getMessageCardStyle(message.role)}
-            >
-              <p style={headingStyle}>{getMessageRoleLabel(message.role)}</p>
-              <p style={messageTextStyle}>{message.body}</p>
-            </article>
-          ))
-        ) : (
-          <div style={emptyStateStyle}>
-            当前没有可见会话。请在左侧保留至少一条会话。
+    <div data-testid="chat-primary-stage" style={{ display: "flex", minHeight: 0, minWidth: 0 }}>
+      <section
+        data-testid="chat-thread-shell"
+        style={{
+          ...panelStyle,
+          display: "flex",
+          flexDirection: "column",
+          minHeight: 0,
+          minWidth: 0,
+          flex: "1 1 auto",
+        }}
+      >
+        <div style={chatHeaderStyle}>
+          <div style={chatHeaderTextStyle}>
+            <p style={headingStyle}>对话</p>
+            {selectedConversation ? (
+              <>
+                <h2 data-testid="selected-conversation-title" style={titleStyle}>
+                  {selectedConversation.title}
+                </h2>
+                <p data-testid="selected-conversation-project" style={mutedTextStyle}>
+                  项目：{selectedConversation.project}
+                </p>
+              </>
+            ) : (
+              <>
+                <h2 data-testid="selected-conversation-title" style={titleStyle}>
+                  暂无可见会话
+                </h2>
+                <p style={mutedTextStyle}>请从左侧选择一个会话。</p>
+              </>
+            )}
+            <p data-testid="chat-action-feedback" aria-live="polite" style={chatHeaderFeedbackStyle}>
+              {actionFeedback}
+            </p>
           </div>
-        )}
-        {selectedConversation ? (
-          <div
-            ref={latestMessageAnchorRef}
-            data-testid="chat-thread-latest-anchor"
-            aria-hidden="true"
-            style={{ height: "1px", width: "100%" }}
-          />
-        ) : null}
-      </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+            <span data-testid="message-count" style={chipStyle}>
+              {visibleMessages.length} 条消息
+            </span>
+            <button
+              type="button"
+              data-testid="workspace-toggle"
+              style={workspaceToggleStyle}
+              onClick={onToggleWorkspace}
+            >
+              {workspaceOpen ? "收起工作区" : "工作区"}
+            </button>
+          </div>
+        </div>
 
-      <div style={composerStyle}>
-        <ShellComposer disabled={!selectedConversation} feedback={composerFeedback} onSend={onSend} />
-      </div>
-    </section>
+        <div data-testid="chat-thread" style={threadViewportStyle}>
+          {selectedConversation ? (
+            visibleMessages.map((message) => (
+              <article
+                key={message.key}
+                data-testid="chat-message"
+                style={getMessageCardStyle(message.role)}
+              >
+                <p style={headingStyle}>{getMessageRoleLabel(message.role)}</p>
+                <p style={messageTextStyle}>{message.body}</p>
+              </article>
+            ))
+          ) : (
+            <div style={emptyStateStyle}>
+              当前没有可见会话。请在左侧保留至少一条会话。
+            </div>
+          )}
+          {selectedConversation ? (
+            <div
+              ref={latestMessageAnchorRef}
+              data-testid="chat-thread-latest-anchor"
+              aria-hidden="true"
+              style={{ height: "1px", width: "100%" }}
+            />
+          ) : null}
+        </div>
+
+        <div style={composerStyle}>
+          <ShellComposer disabled={!selectedConversation} feedback={composerFeedback} onSend={onSend} />
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -1332,29 +1445,37 @@ function ArtifactWorkspacePanel() {
 
 function ShellViewport() {
   const [state, dispatch] = useReducer(shellReducer, undefined, createInitialShellState);
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
+  const [actionMenuConversationId, setActionMenuConversationId] = useState<string | null>(null);
 
   const selectConversation = (conversationId: string) => {
     dispatch({ type: "select", id: conversationId });
+    setActionMenuConversationId(null);
   };
 
   const togglePin = (conversationId: string) => {
     dispatch({ type: "togglePin", id: conversationId });
+    setActionMenuConversationId(null);
   };
 
   const renameConversation = (conversationId: string) => {
     dispatch({ type: "rename", id: conversationId });
+    setActionMenuConversationId(null);
   };
 
   const moveConversationToProject = (conversationId: string) => {
     dispatch({ type: "moveToProject", id: conversationId });
+    setActionMenuConversationId(null);
   };
 
   const archiveConversation = (conversationId: string) => {
     dispatch({ type: "archive", id: conversationId });
+    setActionMenuConversationId(null);
   };
 
   const deleteConversation = (conversationId: string) => {
     dispatch({ type: "delete", id: conversationId });
+    setActionMenuConversationId(null);
   };
 
   const search = () => {
@@ -1365,6 +1486,14 @@ function ShellViewport() {
     dispatch({ type: "openSettings" });
   };
 
+  const toggleWorkspace = () => {
+    setWorkspaceOpen((current) => !current);
+  };
+
+  const toggleConversationActionMenu = (conversationId: string) => {
+    setActionMenuConversationId((current) => (current === conversationId ? null : conversationId));
+  };
+
   const appendMockTurn = (userText: string) => {
     dispatch({ type: "appendMockTurn", userText });
   };
@@ -1372,8 +1501,17 @@ function ShellViewport() {
   const selectedConversation = findConversationById(state.conversations, state.selectedConversationId);
 
   return (
-    <main data-testid="chatbot-shell-root" data-desktop-density="compact" style={shellStyle}>
-      <div data-testid="chatbot-shell-grid" style={gridStyle}>
+    <main data-testid="chatbot-shell-root" data-desktop-density="compact" data-shell-ia="chat-first" style={shellStyle}>
+      <div
+        data-testid="chatbot-shell-grid"
+        data-workspace-open={workspaceOpen ? "true" : "false"}
+        style={{
+          ...gridStyle,
+          gridTemplateColumns: workspaceOpen
+            ? "minmax(0, 272px) minmax(0, 1fr) minmax(0, 296px)"
+            : "minmax(0, 272px) minmax(0, 1fr)",
+        }}
+      >
         <LeftWorkspacePanel
           conversations={state.conversations}
           onArchiveConversation={archiveConversation}
@@ -1386,14 +1524,18 @@ function ShellViewport() {
           onSelectConversation={selectConversation}
           onTogglePin={togglePin}
           selectedConversationId={state.selectedConversationId}
-          lastActionFeedback={state.lastActionFeedback}
+          actionMenuConversationId={actionMenuConversationId}
+          onToggleConversationActionMenu={toggleConversationActionMenu}
         />
         <ChatThreadPanel
+          actionFeedback={state.lastActionFeedback}
           composerFeedback={state.composerFeedback}
           onSend={appendMockTurn}
+          onToggleWorkspace={toggleWorkspace}
+          workspaceOpen={workspaceOpen}
           selectedConversation={selectedConversation}
         />
-        <ArtifactWorkspacePanel />
+        {workspaceOpen ? <ArtifactWorkspacePanel /> : null}
       </div>
     </main>
   );

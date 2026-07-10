@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { renderAssistantUiChatbotShellPreview } from "../preview/app.js";
@@ -35,7 +35,15 @@ describe("assistant-ui preview harness", () => {
       expect(screen.getByTestId("left-workspace")).toBeTruthy();
       expect(screen.getByTestId("chat-thread-shell")).toBeTruthy();
       expect(screen.getByTestId("composer-shell")).toBeTruthy();
+      expect(screen.getByTestId("chat-primary-stage")).toBeTruthy();
+      expect(screen.queryByTestId("artifact-workspace")).toBeNull();
+    });
+
+    fireEvent.click(screen.getByTestId("workspace-toggle"));
+
+    await waitFor(() => {
       expect(screen.getByTestId("artifact-workspace")).toBeTruthy();
+      expect(screen.getByTestId("chatbot-shell-grid").getAttribute("data-workspace-open")).toBe("true");
     });
 
     root.unmount();
