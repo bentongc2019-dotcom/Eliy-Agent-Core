@@ -1,5 +1,6 @@
+import { fileURLToPath } from "node:url";
+
 import { runRouterBasedLlmDogfoodInvocation } from "../runtime/provider/router-based-llm-dogfood-invocation.js";
-import type { LlmCapabilityAdapterInput } from "../runtime/capabilities/llm-capability-adapter-contract.js";
 
 export interface RouterBasedLlmDogfoodCliOptions {
   dogfood?: boolean;
@@ -9,9 +10,9 @@ export interface RouterBasedLlmDogfoodCliOptions {
   model?: string;
   endpoint?: string;
   capabilityId?: string;
-  capabilityName?: string;
-  capabilityVersion?: string;
-  capabilityKind?: string;
+  invocationId?: string;
+  createdAt?: string;
+  condition?: "baseline" | "candidate" | string;
   payload?: string;
 }
 
@@ -32,14 +33,16 @@ Required options:
   --model <model>
   --endpoint <url>
   --capability-id <id>
-  --capability-name <name>
-  --capability-version <version>
-  --capability-kind <kind>
+  --invocation-id <id>
+  --created-at <iso-time>
+  --condition <baseline|candidate>
   --payload <json>
 
 This command reads only the explicitly named API key environment variable.
 It does not use environment-file fallback or any model/provider fallback.
 `;
+
+const PROJECT_ROOT = fileURLToPath(new URL("../../", import.meta.url));
 
 function trimText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -96,18 +99,23 @@ export async function runRouterBasedLlmDogfoodCli(
     options.capabilityId,
     "Router-based LLM dogfood command requires --capability-id",
   );
-  const capabilityName = requireFlag(
-    options.capabilityName,
-    "Router-based LLM dogfood command requires --capability-name",
+  const invocationId = requireFlag(
+    options.invocationId,
+    "Router-based LLM dogfood command requires --invocation-id",
   );
-  const capabilityVersion = requireFlag(
-    options.capabilityVersion,
-    "Router-based LLM dogfood command requires --capability-version",
+  const createdAt = requireFlag(
+    options.createdAt,
+    "Router-based LLM dogfood command requires --created-at",
   );
-  const capabilityKind = requireFlag(
-    options.capabilityKind,
-    "Router-based LLM dogfood command requires --capability-kind",
-  ) as LlmCapabilityAdapterInput["capabilityKind"];
+  const condition = requireFlag(
+    options.condition,
+    "Router-based LLM dogfood command requires --condition baseline or candidate",
+  );
+  if (condition !== "baseline" && condition !== "candidate") {
+    throw new Error(
+      "Router-based LLM dogfood command requires --condition baseline or candidate",
+    );
+  }
   const payloadText = requireFlag(options.payload, "Router-based LLM dogfood command requires --payload");
   const payload = parsePayload(payloadText);
 
@@ -121,14 +129,15 @@ export async function runRouterBasedLlmDogfoodCli(
   const invoke = dependencies.invoke ?? runRouterBasedLlmDogfoodInvocation;
 
   return await invoke({
+    projectRoot: PROJECT_ROOT,
     providerId,
     model,
     endpoint,
     apiKey,
     capabilityId,
-    capabilityName,
-    capabilityVersion,
-    capabilityKind,
+    invocationId,
+    createdAt,
+    condition,
     payload,
   });
 }
@@ -173,16 +182,16 @@ async function main(): Promise<void> {
         options.capabilityId = next;
         index += 1;
         break;
-      case "--capability-name":
-        options.capabilityName = next;
+      case "--invocation-id":
+        options.invocationId = next;
         index += 1;
         break;
-      case "--capability-version":
-        options.capabilityVersion = next;
+      case "--created-at":
+        options.createdAt = next;
         index += 1;
         break;
-      case "--capability-kind":
-        options.capabilityKind = next;
+      case "--condition":
+        options.condition = next;
         index += 1;
         break;
       case "--payload":

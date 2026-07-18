@@ -46,7 +46,7 @@ describe("capability-execution-context-contract.ts", () => {
     expect(source).toContain("sourcePath");
     expect(source).toContain("summary");
     expect(source).toContain("fingerprint");
-    expect(source).toContain("injected");
+    expect(source).toContain("injectionRequested");
     expect(source).not.toContain("raw_text");
   });
 

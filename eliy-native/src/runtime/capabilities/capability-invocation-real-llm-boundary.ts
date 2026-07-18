@@ -1,3 +1,6 @@
+import { isDeepStrictEqual } from "node:util";
+
+import type { CapabilityExecutionContext } from "./capability-execution-context-contract";
 import {
   invokeMockCapability,
   type MockCapabilityInvocationPayload,
@@ -5,7 +8,9 @@ import {
 } from "./capability-invocation-mock-execution";
 import {
   createCapabilityInvocationTraceRecord,
+  createRealCapabilityInvocationTraceRecord,
   type CapabilityInvocationTraceRecord,
+  type RealCapabilityInvocationTraceRecord,
 } from "./capability-invocation-trace-record";
 import type {
   LlmCapabilityAdapter,
@@ -22,9 +27,12 @@ export interface CapabilityInvocationBoundaryInput {
   enableRealLlm?: boolean;
   llmAdapter?: LlmCapabilityAdapter;
   realLlmAdapter?: LlmCapabilityAdapter;
+  executionContext?: CapabilityExecutionContext;
 }
 
-export type RealLlmCapabilityInvocationResult = LlmCapabilityAdapterResult;
+export type RealLlmCapabilityInvocationResult = LlmCapabilityAdapterResult & {
+  traceRecord?: RealCapabilityInvocationTraceRecord;
+};
 export type RealLlmCapabilityInvocationAdapter = LlmCapabilityAdapter;
 
 export interface CapabilityInvocationBoundaryMockResult {
@@ -72,6 +80,72 @@ async function createRealBoundaryResult(
 
   if (typeof llmAdapter !== "function") {
     throw new Error("real mode requires a llmAdapter");
+  }
+
+  if (input.executionContext) {
+    const context = input.executionContext;
+
+    if (context.capability.id !== input.capabilityId) {
+      throw new Error("real executionContext capabilityId mismatch");
+    }
+    if (context.invocationMetadata.invocationId !== input.invocationId) {
+      throw new Error("real executionContext invocationId mismatch");
+    }
+    if (context.invocationMetadata.createdAt !== input.createdAt) {
+      throw new Error("real executionContext createdAt mismatch");
+    }
+    if (!isDeepStrictEqual(context.payload, input.payload)) {
+      throw new Error("real executionContext payload mismatch");
+    }
+    if (context.asset.capabilityId !== context.capability.id) {
+      throw new Error("real executionContext asset capabilityId mismatch");
+    }
+    if (context.asset.capabilityVersion !== context.capability.version) {
+      throw new Error("real executionContext asset capabilityVersion mismatch");
+    }
+    if (
+      context.outputBoundary.allowedOutputKinds.length !== 1 ||
+      context.outputBoundary.allowedOutputKinds[0] !== "candidate" ||
+      context.outputBoundary.requiresConfirmation !== true ||
+      context.outputBoundary.canonicalMutationAllowed !== false
+    ) {
+      throw new Error(
+        "real executionContext requires candidate-only output boundary",
+      );
+    }
+
+    const result = await llmAdapter({
+      capabilityId: context.capability.id,
+      capabilityName: context.capability.name,
+      capabilityVersion: context.capability.version,
+      capabilityKind: context.capability.kind,
+      payload: context.payload,
+      executionContext: context,
+    });
+    const evidence = result.invocationEvidence;
+
+    if (!evidence) {
+      throw new Error("real executionContext requires invocation evidence");
+    }
+    if (!evidence.assetInstructionsInjected) {
+      throw new Error("real executionContext asset injection not verified");
+    }
+    if (!evidence.outputBoundaryInjected) {
+      throw new Error("real executionContext output boundary injection not verified");
+    }
+    if (
+      evidence.hlamtInjectionVerified !== context.hlamt.injectionRequested
+    ) {
+      throw new Error(
+        "real executionContext HLAMT injection evidence mismatch",
+      );
+    }
+    const traceRecord = createRealCapabilityInvocationTraceRecord({
+      executionContext: context,
+      result,
+    });
+
+    return { ...result, traceRecord };
   }
 
   const mockResult = invokeMockCapability(input.capabilityId, input.payload);

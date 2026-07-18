@@ -1,3 +1,7 @@
+import { createHash } from "node:crypto";
+
+import type { CapabilityExecutionContext } from "./capability-execution-context-contract";
+import type { LlmCapabilityAdapterResult } from "./llm-capability-adapter-contract";
 import type { MockCapabilityInvocationResult } from "./capability-invocation-mock-execution";
 
 export interface CapabilityInvocationTraceRecordInput {
@@ -7,7 +11,7 @@ export interface CapabilityInvocationTraceRecordInput {
   createdAt: string;
 }
 
-export interface CapabilityInvocationTraceRecord {
+export interface MockCapabilityInvocationTraceRecord {
   invocationId: string;
   capabilityId: string;
   capabilityName: string;
@@ -19,6 +23,41 @@ export interface CapabilityInvocationTraceRecord {
   payloadSnapshot: MockCapabilityInvocationResult["payload"];
   createdAt: string;
 }
+
+export interface RealCapabilityInvocationTraceRecordInput {
+  executionContext: CapabilityExecutionContext;
+  result: LlmCapabilityAdapterResult & {
+    router?: { providerId: string; model: string };
+  };
+}
+
+export interface RealCapabilityInvocationTraceRecord {
+  invocationId: string;
+  capabilityId: string;
+  capabilityName: string;
+  capabilityVersion: string;
+  capabilityKind: CapabilityExecutionContext["capability"]["kind"];
+  mode: "real";
+  status: "real_completed";
+  handler: string;
+  providerId?: string;
+  model?: string;
+  assetFingerprint: string;
+  hlamtFingerprint: string;
+  hlamtInjectionRequested: boolean;
+  hlamtInjectionVerified: boolean;
+  assetInstructionsInjectionVerified: boolean;
+  outputBoundaryInjectionVerified: boolean;
+  outputBoundary: CapabilityExecutionContext["outputBoundary"];
+  requestFingerprint: string;
+  resultFingerprint: string;
+  resultLength: number;
+  createdAt: string;
+}
+
+export type CapabilityInvocationTraceRecord =
+  | MockCapabilityInvocationTraceRecord
+  | RealCapabilityInvocationTraceRecord;
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -50,7 +89,7 @@ function clonePayload(
 
 export function createCapabilityInvocationTraceRecord(
   input: CapabilityInvocationTraceRecordInput,
-): CapabilityInvocationTraceRecord {
+): MockCapabilityInvocationTraceRecord {
   if (!input || typeof input !== "object") {
     throw new Error("trace record input is required");
   }
@@ -90,5 +129,48 @@ export function createCapabilityInvocationTraceRecord(
     handler: result.handler,
     payloadSnapshot: clonePayload(result.payload),
     createdAt,
+  };
+}
+
+function fingerprint(text: string): string {
+  return `sha256:${createHash("sha256").update(text, "utf8").digest("hex")}`;
+}
+
+export function createRealCapabilityInvocationTraceRecord(
+  input: RealCapabilityInvocationTraceRecordInput,
+): RealCapabilityInvocationTraceRecord {
+  const { executionContext, result } = input;
+  const evidence = result.invocationEvidence;
+
+  if (!evidence) {
+    throw new Error("real trace requires invocation evidence");
+  }
+
+  if (result.capabilityId !== executionContext.capability.id) {
+    throw new Error("real trace capabilityId mismatch");
+  }
+
+  return {
+    invocationId: executionContext.invocationMetadata.invocationId,
+    capabilityId: executionContext.capability.id,
+    capabilityName: executionContext.capability.name,
+    capabilityVersion: executionContext.capability.version,
+    capabilityKind: executionContext.capability.kind,
+    mode: "real",
+    status: "real_completed",
+    handler: result.handler,
+    providerId: result.router?.providerId,
+    model: result.router?.model,
+    assetFingerprint: executionContext.asset.assetFingerprint,
+    hlamtFingerprint: executionContext.hlamt.fingerprint,
+    hlamtInjectionRequested: executionContext.hlamt.injectionRequested,
+    hlamtInjectionVerified: evidence.hlamtInjectionVerified,
+    assetInstructionsInjectionVerified: evidence.assetInstructionsInjected,
+    outputBoundaryInjectionVerified: evidence.outputBoundaryInjected,
+    outputBoundary: structuredClone(executionContext.outputBoundary),
+    requestFingerprint: evidence.requestFingerprint,
+    resultFingerprint: fingerprint(result.resultText),
+    resultLength: result.resultText.length,
+    createdAt: executionContext.invocationMetadata.createdAt,
   };
 }

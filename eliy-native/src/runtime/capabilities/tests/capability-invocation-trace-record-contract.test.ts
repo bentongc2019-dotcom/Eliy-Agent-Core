@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { invokeMockCapability, type MockCapabilityInvocationResult } from "../capability-invocation-mock-execution";
 import {
   createCapabilityInvocationTraceRecord,
-  type CapabilityInvocationTraceRecord,
+  type MockCapabilityInvocationTraceRecord,
   type CapabilityInvocationTraceRecordInput,
 } from "../capability-invocation-trace-record";
 
@@ -26,7 +26,7 @@ function createMockInvocationResult(
 }
 
 function expectTraceRecordShape(
-  record: CapabilityInvocationTraceRecord,
+  record: MockCapabilityInvocationTraceRecord,
   invocationId: string,
   result: MockCapabilityInvocationResult,
 ) {
