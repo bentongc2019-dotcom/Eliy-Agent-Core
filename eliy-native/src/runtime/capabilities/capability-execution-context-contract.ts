@@ -35,7 +35,7 @@ export interface HlamtInvocationSnapshot {
   sourcePath: string;
   summary: string;
   fingerprint: string;
-  injected: boolean;
+  injectionRequested: boolean;
 }
 
 export interface CapabilityExecutionOutputBoundary {

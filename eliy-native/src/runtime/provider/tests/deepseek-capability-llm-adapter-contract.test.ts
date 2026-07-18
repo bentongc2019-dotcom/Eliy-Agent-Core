@@ -5,6 +5,7 @@ import type {
   LlmCapabilityAdapterInput,
   LlmCapabilityAdapterResult,
 } from "../../capabilities/llm-capability-adapter-contract";
+import type { CapabilityExecutionContext } from "../../capabilities/capability-execution-context-contract";
 import type {
   DeepSeekCapabilityLlmAdapterConfig,
   DeepSeekCapabilityLlmTransport,
@@ -259,6 +260,58 @@ describe("deepseek-capability-llm-adapter.ts", () => {
         },
       } satisfies DeepSeekCapabilityLlmTransportRequest,
     ]);
+  });
+
+  it("does not infer HLAMT verification from a marker inside capability instructions", async () => {
+    const module = await import("../deepseek-capability-llm-adapter");
+    const transport: DeepSeekCapabilityLlmTransport = async () => ({
+      ok: true,
+      text: "fake deepseek result",
+    });
+    const executionContext: CapabilityExecutionContext = {
+      capability: {
+        id: "opdca",
+        name: "O'PDCA",
+        version: "1.0.0",
+        kind: "skill",
+      },
+      asset: {
+        capabilityId: "opdca",
+        capabilityVersion: "1.0.0",
+        assetPath: "skills/opdca/SKILL.md",
+        instructions: "[HLAMT CONTEXT] marker collision",
+        referenceSources: [],
+        assetFingerprint: "sha256:asset",
+      },
+      hlamt: {
+        sourcePath: "HLAMT.md",
+        summary: "actual HLAMT summary",
+        fingerprint: "sha256:hlamt",
+        injectionRequested: false,
+      },
+      payload,
+      outputBoundary: {
+        allowedOutputKinds: ["candidate"],
+        requiresConfirmation: true,
+        canonicalMutationAllowed: false,
+      },
+      invocationMetadata: {
+        invocationId: "marker-collision-001",
+        createdAt: "2026-07-18T00:00:00.000Z",
+        actor: "agent",
+        invocationMode: "runtime_invoked",
+      },
+    };
+    const adapter = module.createDeepSeekCapabilityLlmAdapter(
+      createDefaultInput({ transport }),
+    );
+
+    const result = await adapter({
+      ...createInput(),
+      executionContext,
+    });
+
+    expect(result.invocationEvidence?.hlamtInjectionVerified).toBe(false);
   });
 
   it("does not leak the apiKey in the result or thrown errors", async () => {

@@ -14,6 +14,13 @@ export interface LlmCapabilityAdapterInput
   executionContext?: CapabilityExecutionContext;
 }
 
+export interface LlmCapabilityInvocationEvidence {
+  assetInstructionsInjected: boolean;
+  hlamtInjectionVerified: boolean;
+  outputBoundaryInjected: boolean;
+  requestFingerprint: string;
+}
+
 export interface LlmCapabilityAdapterResult {
   ok: true;
   mode: "real";
@@ -21,6 +28,7 @@ export interface LlmCapabilityAdapterResult {
   handler: string;
   resultText: string;
   metadata?: LlmCapabilityMetadataForAdapter;
+  invocationEvidence?: LlmCapabilityInvocationEvidence;
 }
 
 export type LlmCapabilityAdapter = (

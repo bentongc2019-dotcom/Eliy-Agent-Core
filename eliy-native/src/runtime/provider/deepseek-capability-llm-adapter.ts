@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type {
   LlmCapabilityAdapter,
   LlmCapabilityAdapterInput,
@@ -50,6 +52,12 @@ export interface DeepSeekCapabilityLlmAdapterConfig {
 const HANDLER = "deepseek-capability-llm-adapter";
 const SYSTEM_MESSAGE = "DeepSeek capability adapter invocation.";
 
+function fingerprint(value: unknown): string {
+  return `sha256:${createHash("sha256")
+    .update(JSON.stringify(value), "utf8")
+    .digest("hex")}`;
+}
+
 function trimText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -77,6 +85,10 @@ function ensureEnabled(config: DeepSeekCapabilityLlmAdapterConfig): void {
 }
 
 function createUserMessage(input: Readonly<LlmCapabilityAdapterInput>): string {
+  if (input.executionContext) {
+    return JSON.stringify({ payload: input.payload }, null, 2);
+  }
+
   return JSON.stringify(
     {
       capability: {
@@ -92,11 +104,88 @@ function createUserMessage(input: Readonly<LlmCapabilityAdapterInput>): string {
   );
 }
 
+interface AssembledSystemMessage {
+  content: string;
+  assetInstructionsInjected: boolean;
+  hlamtInjectionVerified: boolean;
+  outputBoundaryInjected: boolean;
+}
+
+type SystemMessageSectionKind =
+  | "base"
+  | "asset_instructions"
+  | "hlamt_context"
+  | "output_boundary";
+
+interface SystemMessageSection {
+  kind: SystemMessageSectionKind;
+  content: string;
+}
+
+function createSystemMessage(
+  input: Readonly<LlmCapabilityAdapterInput>,
+): AssembledSystemMessage {
+  const context = input.executionContext;
+
+  if (!context) {
+    return {
+      content: SYSTEM_MESSAGE,
+      assetInstructionsInjected: false,
+      hlamtInjectionVerified: false,
+      outputBoundaryInjected: false,
+    };
+  }
+
+  const sections: SystemMessageSection[] = [
+    { kind: "base", content: SYSTEM_MESSAGE },
+    {
+      kind: "asset_instructions",
+      content: `[CAPABILITY INSTRUCTIONS]\n${context.asset.instructions}\n[/CAPABILITY INSTRUCTIONS]`,
+    },
+  ];
+
+  if (context.hlamt.injectionRequested) {
+    sections.push(
+      {
+        kind: "hlamt_context",
+        content: `[HLAMT CONTEXT]\n${context.hlamt.summary}\n[/HLAMT CONTEXT]`,
+      },
+    );
+  }
+
+  sections.push(
+    {
+      kind: "output_boundary",
+      content: `[OUTPUT BOUNDARY]\n${JSON.stringify(context.outputBoundary)}\n[/OUTPUT BOUNDARY]`,
+    },
+  );
+
+  return {
+    content: sections.map((section) => section.content).join("\n\n"),
+    assetInstructionsInjected: sections.some(
+      (section) => section.kind === "asset_instructions",
+    ),
+    hlamtInjectionVerified: sections.some(
+      (section) => section.kind === "hlamt_context",
+    ),
+    outputBoundaryInjected: sections.some(
+      (section) => section.kind === "output_boundary",
+    ),
+  };
+}
+
 function createTransportRequest(
   config: DeepSeekCapabilityLlmAdapterConfig,
   input: Readonly<LlmCapabilityAdapterInput>,
-): DeepSeekCapabilityLlmTransportRequest {
+): {
+  request: DeepSeekCapabilityLlmTransportRequest;
+  systemMessage: AssembledSystemMessage;
+} {
+  const systemMessage = createSystemMessage(input);
+
   return {
+    systemMessage,
+    request: {
     endpoint: config.endpoint,
     headers: {
       authorization: `Bearer ${config.apiKey}`,
@@ -107,7 +196,7 @@ function createTransportRequest(
       messages: [
         {
           role: "system",
-          content: SYSTEM_MESSAGE,
+          content: systemMessage.content,
         },
         {
           role: "user",
@@ -115,12 +204,15 @@ function createTransportRequest(
         },
       ],
     },
+    },
   };
 }
 
 function createAdapterResult(
   input: Readonly<LlmCapabilityAdapterInput>,
   resultText: string,
+  request: DeepSeekCapabilityLlmTransportRequest,
+  systemMessage: AssembledSystemMessage,
 ): LlmCapabilityAdapterResult {
   return {
     ok: true,
@@ -134,6 +226,16 @@ function createAdapterResult(
       capabilityVersion: input.capabilityVersion,
       capabilityKind: input.capabilityKind,
     },
+    ...(input.executionContext
+      ? {
+          invocationEvidence: {
+            assetInstructionsInjected: systemMessage.assetInstructionsInjected,
+            hlamtInjectionVerified: systemMessage.hlamtInjectionVerified,
+            outputBoundaryInjected: systemMessage.outputBoundaryInjected,
+            requestFingerprint: fingerprint(request.body),
+          },
+        }
+      : {}),
   };
 }
 
@@ -153,7 +255,8 @@ export function createDeepSeekCapabilityLlmAdapter(
   return async (input) => {
     ensureEnabled(config);
 
-    const response = await config.transport(createTransportRequest(config, input));
+    const { request, systemMessage } = createTransportRequest(config, input);
+    const response = await config.transport(request);
 
     if (!response || response.ok !== true) {
       throw new Error(
@@ -163,6 +266,6 @@ export function createDeepSeekCapabilityLlmAdapter(
       );
     }
 
-    return createAdapterResult(input, response.text);
+    return createAdapterResult(input, response.text, request, systemMessage);
   };
 }

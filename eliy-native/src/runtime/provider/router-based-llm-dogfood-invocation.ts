@@ -7,18 +7,25 @@ import type {
   DeepSeekCapabilityLlmTransportResponse,
 } from "./deepseek-capability-llm-adapter";
 import type { LlmCapabilityAdapterInput } from "../capabilities/llm-capability-adapter-contract";
+import type { CapabilityManifest } from "../capabilities/capability-contract";
+import { invokeCapabilityWithRealLlmBoundary } from "../capabilities/capability-invocation-real-llm-boundary";
+import { assembleCapabilityExecutionContext } from "../capabilities/capability-execution-context-implementation";
+import type { RealCapabilityInvocationTraceRecord } from "../capabilities/capability-invocation-trace-record";
+import { createMinimalCapabilityLoader } from "../capabilities/capability-loader-minimal-implementation";
+import { evidenceExtractCapabilityManifests } from "../../../skills/evidence-extract/evidence-extract-capability-manifest";
 import { createDeepSeekCapabilityLlmAdapter } from "./deepseek-capability-llm-adapter";
 import { createLlmProviderRouter } from "./llm-provider-router";
 
 export interface RouterBasedLlmDogfoodInvocationInput {
+  projectRoot: string;
   providerId: string;
   model: string;
   endpoint: string;
   apiKey: string;
   capabilityId: string;
-  capabilityName: string;
-  capabilityVersion: string;
-  capabilityKind: LlmCapabilityAdapterInput["capabilityKind"];
+  invocationId: string;
+  createdAt: string;
+  condition: "baseline" | "candidate";
   payload: Record<string, unknown>;
   transport?: DeepSeekCapabilityLlmTransport;
 }
@@ -31,14 +38,17 @@ export interface RouterBasedLlmDogfoodInvocationResult {
   model: string;
   status: "real_completed";
   trace_id: string;
+  condition: "baseline" | "candidate";
+  output: {
+    kind: "candidate";
+    text: string;
+    requiresConfirmation: true;
+    canonicalMutationAllowed: false;
+  };
+  traceRecord: RealCapabilityInvocationTraceRecord;
 }
 
-const SYSTEM_MESSAGE = "DeepSeek capability adapter invocation.";
 const COMMAND = "router-based-llm-dogfood" as const;
-
-function buildTraceId(input: RouterBasedLlmDogfoodInvocationInput): string {
-  return `${COMMAND}:${input.providerId}:${input.capabilityId}:${input.model}`;
-}
 
 function createJsonTransportResponse(text: string): DeepSeekCapabilityLlmTransportResponse {
   return {
@@ -134,6 +144,17 @@ function createDefaultTransport(): DeepSeekCapabilityLlmTransport {
 export async function runRouterBasedLlmDogfoodInvocation(
   input: Readonly<RouterBasedLlmDogfoodInvocationInput>,
 ): Promise<RouterBasedLlmDogfoodInvocationResult> {
+  const registry = createMinimalCapabilityLoader(
+    evidenceExtractCapabilityManifests,
+  ).loadRegistry();
+  let manifest: CapabilityManifest;
+
+  try {
+    manifest = registry.resolve(input.capabilityId);
+  } catch {
+    throw new Error(`Capability not available for dogfood: ${input.capabilityId}`);
+  }
+
   const transport = input.transport ?? createDefaultTransport();
   const deepseekAdapter = createDeepSeekCapabilityLlmAdapter({
     apiKey: input.apiKey,
@@ -148,15 +169,36 @@ export async function runRouterBasedLlmDogfoodInvocation(
     },
   });
 
-  await router({
+  const context = assembleCapabilityExecutionContext({
+    projectRoot: input.projectRoot,
+    manifest,
+    payload: input.payload,
+    invocationId: input.invocationId,
+    createdAt: input.createdAt,
+    actor: "agent",
+    hlamtInjectionRequested: input.condition === "candidate",
+  });
+  const routedAdapter = async (
+    adapterInput: Readonly<LlmCapabilityAdapterInput>,
+  ) => router({
     providerId: input.providerId,
     model: input.model,
-    capabilityId: input.capabilityId,
-    capabilityName: input.capabilityName,
-    capabilityVersion: input.capabilityVersion,
-    capabilityKind: input.capabilityKind,
-    payload: input.payload,
+    ...adapterInput,
   });
+  const boundaryResult = await invokeCapabilityWithRealLlmBoundary({
+    invocationId: input.invocationId,
+    capabilityId: input.capabilityId,
+    payload: input.payload,
+    createdAt: input.createdAt,
+    mode: "real",
+    enableRealLlm: true,
+    llmAdapter: routedAdapter,
+    executionContext: context,
+  });
+
+  if (boundaryResult.mode !== "real" || !boundaryResult.traceRecord) {
+    throw new Error("Router-based LLM dogfood requires a real invocation trace");
+  }
 
   return {
     ok: true,
@@ -165,8 +207,14 @@ export async function runRouterBasedLlmDogfoodInvocation(
     capability_id: input.capabilityId,
     model: input.model,
     status: "real_completed",
-    trace_id: buildTraceId(input),
+    trace_id: boundaryResult.traceRecord.invocationId,
+    condition: input.condition,
+    output: {
+      kind: "candidate",
+      text: boundaryResult.resultText,
+      requiresConfirmation: true,
+      canonicalMutationAllowed: false,
+    },
+    traceRecord: boundaryResult.traceRecord,
   };
 }
-
-export const ROUTER_BASED_LLM_DOGFOOD_SYSTEM_MESSAGE = SYSTEM_MESSAGE;

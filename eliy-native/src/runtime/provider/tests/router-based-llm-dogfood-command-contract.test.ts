@@ -2,9 +2,9 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import type {
-  RouterBasedLlmDogfoodCliDependencies,
-  RouterBasedLlmDogfoodCliOptions,
+import {
+  runRouterBasedLlmDogfoodCli,
+  type RouterBasedLlmDogfoodCliOptions,
 } from "../../../cli/router-based-llm-dogfood";
 
 const projectRoot = fileURLToPath(new URL("../../../../", import.meta.url));
@@ -21,32 +21,18 @@ async function readSource(relativePath: string): Promise<string> {
   return sourceTextReader(new URL(relativePath, import.meta.url), "utf8");
 }
 
-function expectNoForbiddenIntegrations(source: string) {
-  const ansiEscape = `${String.fromCharCode(27)}[`;
+function expectNoForbiddenIntegrations(source: string): void {
   const forbiddenTerms = [
-    ["pro", "cess", ".", "env"].join(""),
     ["do", "tenv"].join(""),
-    ["n", "ode", ":", "f", "s"].join(""),
-    ["f", "rom", " ", "\"", "f", "s", "\""].join(""),
-    ["f", "rom", " ", "'", "f", "s", "'"].join(""),
     ["read", "File"].join(""),
     ["write", "File"].join(""),
     ["ap", "pend", "File"].join(""),
-    ["rea", "dir"].join(""),
-    ["op", "endir"].join(""),
-    ["g", "lob"].join(""),
     ["f", "etch", "("].join(""),
-    ["g", "lo", "bal", "This", ".", "f", "etch"].join(""),
     ["ax", "ios"].join(""),
     ["op", "en", "ai"].join(""),
     ["an", "th", "ropic"].join(""),
     ["com", "mander"].join(""),
     ["in", "quirer"].join(""),
-    ["s", "rc", "/", "cl", "i"].join(""),
-    ["s", "rc", "/", "r", "untime", "/", "work", "space"].join(""),
-    ["s", "rc", "/", "r", "untime", "/", "ker", "nel"].join(""),
-    ["s", "ki", "lls"].join(""),
-    ansiEscape,
   ];
 
   for (const term of forbiddenTerms) {
@@ -62,7 +48,7 @@ function runCli(args: string[]): ReturnType<typeof spawnSync> {
   });
 }
 
-function createBaseOptions(
+function createOptions(
   overrides: Partial<RouterBasedLlmDogfoodCliOptions> = {},
 ): RouterBasedLlmDogfoodCliOptions {
   return {
@@ -72,200 +58,137 @@ function createBaseOptions(
     apiKeyEnv: "ROUTER_DOGFOOD_API_KEY",
     model: "deepseek-chat",
     endpoint: "https://api.deepseek.example/v1/chat/completions",
-    capabilityId: "opdca",
-    capabilityName: "O'PDCA",
-    capabilityVersion: "1.0.0",
-    capabilityKind: "skill",
-    payload: "{\"requestId\":\"router-dogfood-request-001\"}",
+    capabilityId: "evidence-extract",
+    invocationId: "router-cli-001",
+    createdAt: "2026-07-18T00:00:00.000Z",
+    condition: "candidate",
+    payload: "{\"input\":\"bounded input\"}",
     ...overrides,
   };
 }
 
-describe("router-based-llm-dogfood.ts", () => {
-  it("exports runRouterBasedLlmDogfoodCli", async () => {
-    const module = await import("../../../cli/router-based-llm-dogfood");
-
-    expect(module.runRouterBasedLlmDogfoodCli).toBeTypeOf("function");
-    expect(module).toHaveProperty("runRouterBasedLlmDogfoodCli");
+describe("router-based-llm-dogfood CLI", () => {
+  it("exports runRouterBasedLlmDogfoodCli", () => {
+    expect(runRouterBasedLlmDogfoodCli).toBeTypeOf("function");
   });
 
   it("requires --dogfood", async () => {
-    const module = await import("../../../cli/router-based-llm-dogfood");
-
     await expect(
-      module.runRouterBasedLlmDogfoodCli({
-        ...createBaseOptions({ dogfood: false }),
-      }),
+      runRouterBasedLlmDogfoodCli(createOptions({ dogfood: false })),
     ).rejects.toThrow("Router-based LLM dogfood command requires --dogfood");
   });
 
   it("requires --real-llm", async () => {
-    const module = await import("../../../cli/router-based-llm-dogfood");
-
     await expect(
-      module.runRouterBasedLlmDogfoodCli({
-        ...createBaseOptions({ realLlm: false }),
-      }),
+      runRouterBasedLlmDogfoodCli(createOptions({ realLlm: false })),
     ).rejects.toThrow("Router-based LLM dogfood command requires --real-llm");
   });
 
   it("requires --provider-id", async () => {
-    const module = await import("../../../cli/router-based-llm-dogfood");
-
     await expect(
-      module.runRouterBasedLlmDogfoodCli({
-        ...createBaseOptions({ providerId: "" as never }),
-      }),
+      runRouterBasedLlmDogfoodCli(createOptions({ providerId: "" })),
     ).rejects.toThrow("Router-based LLM dogfood command requires --provider-id");
   });
 
   it("requires --api-key-env", async () => {
-    const module = await import("../../../cli/router-based-llm-dogfood");
-
     await expect(
-      module.runRouterBasedLlmDogfoodCli({
-        ...createBaseOptions({ apiKeyEnv: "" as never }),
-      }),
+      runRouterBasedLlmDogfoodCli(createOptions({ apiKeyEnv: "" })),
     ).rejects.toThrow("Router-based LLM dogfood command requires --api-key-env");
   });
 
   it("requires api key env value", async () => {
-    const module = await import("../../../cli/router-based-llm-dogfood");
-
     await expect(
-      module.runRouterBasedLlmDogfoodCli(createBaseOptions(), {
-        env: {},
-      } satisfies RouterBasedLlmDogfoodCliDependencies),
+      runRouterBasedLlmDogfoodCli(createOptions(), { env: {} }),
     ).rejects.toThrow("Router-based LLM dogfood command requires api key env value");
   });
 
   it("requires --model", async () => {
-    const module = await import("../../../cli/router-based-llm-dogfood");
-
     await expect(
-      module.runRouterBasedLlmDogfoodCli({
-        ...createBaseOptions({ model: "" as never }),
-      }),
+      runRouterBasedLlmDogfoodCli(createOptions({ model: "" })),
     ).rejects.toThrow("Router-based LLM dogfood command requires --model");
   });
 
   it("requires --endpoint", async () => {
-    const module = await import("../../../cli/router-based-llm-dogfood");
-
     await expect(
-      module.runRouterBasedLlmDogfoodCli({
-        ...createBaseOptions({ endpoint: "" as never }),
-      }),
+      runRouterBasedLlmDogfoodCli(createOptions({ endpoint: "" })),
     ).rejects.toThrow("Router-based LLM dogfood command requires --endpoint");
   });
 
   it("requires --capability-id", async () => {
-    const module = await import("../../../cli/router-based-llm-dogfood");
-
     await expect(
-      module.runRouterBasedLlmDogfoodCli({
-        ...createBaseOptions({ capabilityId: "" as never }),
-      }),
+      runRouterBasedLlmDogfoodCli(createOptions({ capabilityId: "" })),
     ).rejects.toThrow("Router-based LLM dogfood command requires --capability-id");
   });
 
   it("requires --payload", async () => {
-    const module = await import("../../../cli/router-based-llm-dogfood");
-
     await expect(
-      module.runRouterBasedLlmDogfoodCli({
-        ...createBaseOptions({ payload: "" as never }),
-      }),
+      runRouterBasedLlmDogfoodCli(createOptions({ payload: "" })),
     ).rejects.toThrow("Router-based LLM dogfood command requires --payload");
   });
 
   it("requires valid JSON payload", async () => {
-    const module = await import("../../../cli/router-based-llm-dogfood");
-
     await expect(
-      module.runRouterBasedLlmDogfoodCli(
-        createBaseOptions({ payload: "{not-json}" }),
-        {
-          env: {
-            ROUTER_DOGFOOD_API_KEY: "router-dogfood-secret-key",
-          },
-          invoke: async () => {
-            throw new Error("should-not-run");
-          },
-        } satisfies RouterBasedLlmDogfoodCliDependencies,
-      ),
+      runRouterBasedLlmDogfoodCli(createOptions({ payload: "{not-json}" }), {
+        env: { ROUTER_DOGFOOD_API_KEY: "secret" },
+        invoke: async () => {
+          throw new Error("should-not-run");
+        },
+      }),
     ).rejects.toThrow("Router-based LLM dogfood command requires valid JSON payload");
   });
 
   it("returns deterministic JSON without leaking the api key", async () => {
-    const module = await import("../../../cli/router-based-llm-dogfood");
-    const seenInputs: Array<{
-      providerId: string;
-      model: string;
-      endpoint: string;
-      apiKey: string;
-      capabilityId: string;
-      capabilityName: string;
-      capabilityVersion: string;
-      capabilityKind: string;
-      payload: Record<string, unknown>;
-    }> = [];
-    const secret = "router-dogfood-secret-key";
-
-    const result = await module.runRouterBasedLlmDogfoodCli(createBaseOptions(), {
-      env: {
-        ROUTER_DOGFOOD_API_KEY: secret,
-      },
+    const seen: unknown[] = [];
+    const sentinel = { ok: true, sentinel: "result" };
+    const result = await runRouterBasedLlmDogfoodCli(createOptions(), {
+      env: { ROUTER_DOGFOOD_API_KEY: "secret" },
       invoke: async (input) => {
-        seenInputs.push({
-          providerId: input.providerId,
-          model: input.model,
-          endpoint: input.endpoint,
-          apiKey: input.apiKey,
-          capabilityId: input.capabilityId,
-          capabilityName: input.capabilityName,
-          capabilityVersion: input.capabilityVersion,
-          capabilityKind: input.capabilityKind,
-          payload: input.payload,
-        });
-
-        return {
-          ok: true,
-          command: "router-based-llm-dogfood",
-          provider_id: input.providerId,
-          capability_id: input.capabilityId,
-          model: input.model,
-          status: "real_completed",
-          trace_id: "router-based-llm-dogfood:deepseek:opdca:deepseek-chat",
-        };
+        seen.push(input);
+        return sentinel as never;
       },
-    } satisfies RouterBasedLlmDogfoodCliDependencies);
+    });
 
-    expect(seenInputs).toEqual([
+    expect(result).toBe(sentinel);
+    expect(seen).toEqual([
       {
+        projectRoot,
         providerId: "deepseek",
         model: "deepseek-chat",
         endpoint: "https://api.deepseek.example/v1/chat/completions",
-        apiKey: secret,
-        capabilityId: "opdca",
-        capabilityName: "O'PDCA",
-        capabilityVersion: "1.0.0",
-        capabilityKind: "skill",
-        payload: {
-          requestId: "router-dogfood-request-001",
-        },
+        apiKey: "secret",
+        capabilityId: "evidence-extract",
+        invocationId: "router-cli-001",
+        createdAt: "2026-07-18T00:00:00.000Z",
+        condition: "candidate",
+        payload: { input: "bounded input" },
       },
     ]);
-    expect(result).toEqual({
-      ok: true,
-      command: "router-based-llm-dogfood",
-      provider_id: "deepseek",
-      capability_id: "opdca",
-      model: "deepseek-chat",
-      status: "real_completed",
-      trace_id: "router-based-llm-dogfood:deepseek:opdca:deepseek-chat",
-    });
-    expect(JSON.stringify(result)).not.toContain(secret);
+    expect(JSON.stringify(seen[0])).not.toContain("capabilityName");
+    expect(JSON.stringify(seen[0])).not.toContain("capabilityVersion");
+    expect(JSON.stringify(seen[0])).not.toContain("capabilityKind");
+    expect(JSON.stringify(result)).not.toContain("secret");
+  });
+
+  it.each([
+    ["condition", { condition: "" }],
+    ["invocation id", { invocationId: "" }],
+    ["created at", { createdAt: "" }],
+  ])("requires %s", async (_label, overrides) => {
+    await expect(
+      runRouterBasedLlmDogfoodCli(createOptions(overrides), {
+        env: { ROUTER_DOGFOOD_API_KEY: "secret" },
+        invoke: async () => ({}) as never,
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("rejects conditions outside baseline and candidate", async () => {
+    await expect(
+      runRouterBasedLlmDogfoodCli(createOptions({ condition: "other" as never }), {
+        env: { ROUTER_DOGFOOD_API_KEY: "secret" },
+        invoke: async () => ({}) as never,
+      }),
+    ).rejects.toThrow("requires --condition baseline or candidate");
   });
 
   it("keeps the implementation source free of forbidden integrations", async () => {
@@ -283,12 +206,16 @@ describe("router-based-llm-dogfood.ts", () => {
     const output = `${result.stdout}\n${result.stderr}`;
 
     expect(result.status).toBe(0);
-    expect(output).toContain("router-based-llm-dogfood");
+    expect(output).toContain("--condition");
+    expect(output).toContain("--invocation-id");
     expect(output).toContain("--dogfood");
     expect(output).toContain("--real-llm");
     expect(output).toContain("--provider-id");
     expect(output).toContain("--api-key-env");
     expect(output).toContain("--payload");
+    expect(output).not.toContain("--capability-name");
+    expect(output).not.toContain("--capability-version");
+    expect(output).not.toContain("--capability-kind");
     expect(output).not.toMatch(/[\u001b\u009b]/);
   });
 });

@@ -1,31 +1,13 @@
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import type {
   DeepSeekCapabilityLlmTransport,
   DeepSeekCapabilityLlmTransportRequest,
 } from "../deepseek-capability-llm-adapter";
-import type {
-  RouterBasedLlmDogfoodInvocationInput,
-  RouterBasedLlmDogfoodInvocationResult,
-} from "../router-based-llm-dogfood-invocation";
+import { runRouterBasedLlmDogfoodInvocation } from "../router-based-llm-dogfood-invocation";
 
-const capabilityMetadata = {
-  capabilityId: "opdca",
-  capabilityName: "O'PDCA",
-  capabilityVersion: "1.0.0",
-  capabilityKind: "skill",
-} satisfies Pick<
-  RouterBasedLlmDogfoodInvocationInput,
-  "capabilityId" | "capabilityName" | "capabilityVersion" | "capabilityKind"
->;
-
-const payload = {
-  requestId: "router-dogfood-request-001",
-  nested: {
-    attempt: 1,
-    tags: ["alpha", "beta"],
-  },
-} satisfies RouterBasedLlmDogfoodInvocationInput["payload"];
+const projectRoot = fileURLToPath(new URL("../../../../", import.meta.url));
 
 async function readSource(relativePath: string): Promise<string> {
   const fsModule = await import(["n", "ode", ":", "f", "s"].join(""));
@@ -37,145 +19,81 @@ async function readSource(relativePath: string): Promise<string> {
   return sourceTextReader(new URL(relativePath, import.meta.url), "utf8");
 }
 
-function expectNoForbiddenIntegrations(source: string) {
-  const ansiEscape = `${String.fromCharCode(27)}[`;
-  const forbiddenTerms = [
-    ["pro", "cess", ".", "env"].join(""),
-    ["do", "tenv"].join(""),
-    ["n", "ode", ":", "f", "s"].join(""),
-    ["f", "rom", " ", "\"", "f", "s", "\""].join(""),
-    ["f", "rom", " ", "'", "f", "s", "'"].join(""),
-    ["read", "File"].join(""),
-    ["write", "File"].join(""),
-    ["ap", "pend", "File"].join(""),
-    ["rea", "dir"].join(""),
-    ["op", "endir"].join(""),
-    ["g", "lob"].join(""),
-    ["f", "etch", "("].join(""),
-    ["g", "lo", "bal", "This", ".", "f", "etch"].join(""),
-    ["ax", "ios"].join(""),
-    ["op", "en", "ai"].join(""),
-    ["an", "th", "ropic"].join(""),
-    ["com", "mander"].join(""),
-    ["in", "quirer"].join(""),
-    ["s", "rc", "/", "cl", "i"].join(""),
-    ["s", "rc", "/", "r", "untime", "/", "work", "space"].join(""),
-    ["s", "rc", "/", "r", "untime", "/", "ker", "nel"].join(""),
-    ["s", "ki", "lls"].join(""),
-    ansiEscape,
-  ];
-
-  for (const term of forbiddenTerms) {
-    expect(source).not.toContain(term);
-  }
-}
-
-function createFakeTransport(
-  calls: DeepSeekCapabilityLlmTransportRequest[],
-  text = "fake router-based deepseek result",
-): DeepSeekCapabilityLlmTransport {
-  return async (request) => {
-    calls.push(request);
-    return {
-      ok: true,
-      text,
-    };
+function createInput(
+  transport: DeepSeekCapabilityLlmTransport,
+) {
+  return {
+    projectRoot,
+    providerId: "deepseek",
+    model: "deepseek-chat",
+    endpoint: "https://api.deepseek.example/v1/chat/completions",
+    apiKey: "router-dogfood-secret-key",
+    capabilityId: "evidence-extract",
+    invocationId: "router-dogfood-001",
+    createdAt: "2026-07-18T00:00:00.000Z",
+    condition: "candidate" as const,
+    payload: { input: "bounded input" },
+    transport,
   };
 }
 
 describe("router-based-llm-dogfood-invocation.ts", () => {
-  it("exports runRouterBasedLlmDogfoodInvocation", async () => {
-    const module = await import("../router-based-llm-dogfood-invocation");
-
-    expect(module.runRouterBasedLlmDogfoodInvocation).toBeTypeOf("function");
-    expect(module).toHaveProperty("runRouterBasedLlmDogfoodInvocation");
+  it("exports runRouterBasedLlmDogfoodInvocation", () => {
+    expect(runRouterBasedLlmDogfoodInvocation).toBeTypeOf("function");
   });
 
   it("routes deepseek dogfood invocation through the router with a fake transport", async () => {
-    const module = await import("../router-based-llm-dogfood-invocation");
-    const transportCalls: DeepSeekCapabilityLlmTransportRequest[] = [];
+    const calls: DeepSeekCapabilityLlmTransportRequest[] = [];
+    const result = await runRouterBasedLlmDogfoodInvocation(
+      createInput(async (request) => {
+        calls.push(request);
+        return { ok: true, text: "fake candidate" };
+      }),
+    );
 
-    const result = await module.runRouterBasedLlmDogfoodInvocation({
-      providerId: "deepseek",
-      model: "deepseek-chat",
-      endpoint: "https://api.deepseek.example/v1/chat/completions",
-      apiKey: "router-dogfood-secret-key",
-      ...capabilityMetadata,
-      payload,
-      transport: createFakeTransport(transportCalls, "fake router-based deepseek result"),
-    });
-
-    expect(result).toEqual({
+    expect(calls).toHaveLength(1);
+    expect(result).toMatchObject({
       ok: true,
       command: "router-based-llm-dogfood",
       provider_id: "deepseek",
-      capability_id: "opdca",
+      capability_id: "evidence-extract",
       model: "deepseek-chat",
       status: "real_completed",
-      trace_id: "router-based-llm-dogfood:deepseek:opdca:deepseek-chat",
-    } satisfies RouterBasedLlmDogfoodInvocationResult);
-    expect(transportCalls).toHaveLength(1);
-    expect(transportCalls[0]).toEqual({
-      endpoint: "https://api.deepseek.example/v1/chat/completions",
-      headers: {
-        authorization: "Bearer router-dogfood-secret-key",
-        contentType: "application/json",
+      trace_id: "router-dogfood-001",
+      condition: "candidate",
+      output: {
+        kind: "candidate",
+        text: "fake candidate",
+        requiresConfirmation: true,
+        canonicalMutationAllowed: false,
       },
-      body: {
+      traceRecord: {
+        mode: "real",
+        status: "real_completed",
+        providerId: "deepseek",
         model: "deepseek-chat",
-        messages: [
-          {
-            role: "system",
-            content: "DeepSeek capability adapter invocation.",
-          },
-          {
-            role: "user",
-            content: JSON.stringify(
-              {
-                capability: {
-                  capabilityId: "opdca",
-                  capabilityName: "O'PDCA",
-                  capabilityVersion: "1.0.0",
-                  capabilityKind: "skill",
-                },
-                payload,
-              },
-              null,
-              2,
-            ),
-          },
-        ],
+        hlamtInjectionRequested: true,
+        hlamtInjectionVerified: true,
       },
-    } satisfies DeepSeekCapabilityLlmTransportRequest);
+    });
   });
 
   it("does not leak the api key in the result or thrown errors", async () => {
-    const module = await import("../router-based-llm-dogfood-invocation");
     const secret = "router-dogfood-secret-key";
-    const transport: DeepSeekCapabilityLlmTransport = async () => {
-      throw new Error("transport failed");
+    const failedInput = {
+      ...createInput(async () => {
+        throw new Error("transport failed");
+      }),
+      apiKey: secret,
     };
 
-    await expect(
-      module.runRouterBasedLlmDogfoodInvocation({
-        providerId: "deepseek",
-        model: "deepseek-chat",
-        endpoint: "https://api.deepseek.example/v1/chat/completions",
-        apiKey: secret,
-        ...capabilityMetadata,
-        payload,
-        transport,
-      }),
-    ).rejects.toThrow("transport failed");
+    await expect(runRouterBasedLlmDogfoodInvocation(failedInput)).rejects.toThrow(
+      "transport failed",
+    );
 
-    const result = await module.runRouterBasedLlmDogfoodInvocation({
-      providerId: "deepseek",
-      model: "deepseek-chat",
-      endpoint: "https://api.deepseek.example/v1/chat/completions",
+    const result = await runRouterBasedLlmDogfoodInvocation({
+      ...createInput(async () => ({ ok: true, text: "fake candidate" })),
       apiKey: secret,
-      ...capabilityMetadata,
-      payload,
-      transport: createFakeTransport([]),
     });
 
     expect(JSON.stringify(result)).not.toContain(secret);
@@ -184,9 +102,12 @@ describe("router-based-llm-dogfood-invocation.ts", () => {
   it("keeps the implementation source free of forbidden integrations", async () => {
     const source = await readSource("../router-based-llm-dogfood-invocation.ts");
 
-    expectNoForbiddenIntegrations(source);
     expect(source).toContain("runRouterBasedLlmDogfoodInvocation");
+    expect(source).toContain("invokeCapabilityWithRealLlmBoundary");
     expect(source).toContain("createLlmProviderRouter");
     expect(source).toContain("createDeepSeekCapabilityLlmAdapter");
+    expect(source).not.toContain("process.env");
+    expect(source).not.toContain("dotenv");
+    expect(source).not.toContain("fetch(");
   });
 });

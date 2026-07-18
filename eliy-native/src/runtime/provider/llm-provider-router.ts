@@ -99,6 +99,7 @@ export function createLlmProviderRouter(
       capabilityVersion: input.capabilityVersion,
       capabilityKind: input.capabilityKind,
       payload: input.payload,
+      executionContext: input.executionContext,
     });
 
     return createRouterResult(providerId, model, result);
