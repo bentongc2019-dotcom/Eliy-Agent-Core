@@ -29,10 +29,16 @@ function createAdapter(hlamtInjectionVerified: boolean): LlmCapabilityAdapter {
     handler: "fake-context-adapter",
     resultText: "fake result",
     invocationEvidence: {
+      stableContextInjected: true,
       assetInstructionsInjected: true,
       hlamtInjectionVerified,
       outputBoundaryInjected: true,
       requestFingerprint: `sha256:${"a".repeat(64)}`,
+      thinkingMode: "disabled",
+      finishReason: "stop",
+      contentPresent: true,
+      contentLength: 11,
+      reasoningContentPresent: false,
     },
   });
 }

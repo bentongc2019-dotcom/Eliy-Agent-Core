@@ -13,7 +13,10 @@ import { assembleCapabilityExecutionContext } from "../capabilities/capability-e
 import type { RealCapabilityInvocationTraceRecord } from "../capabilities/capability-invocation-trace-record";
 import { createMinimalCapabilityLoader } from "../capabilities/capability-loader-minimal-implementation";
 import { evidenceExtractCapabilityManifests } from "../../../skills/evidence-extract/evidence-extract-capability-manifest";
-import { createDeepSeekCapabilityLlmAdapter } from "./deepseek-capability-llm-adapter";
+import {
+  createDeepSeekCapabilityLlmAdapter,
+  parseDeepSeekCapabilityLlmTransportResponse,
+} from "./deepseek-capability-llm-adapter";
 import { createLlmProviderRouter } from "./llm-provider-router";
 
 export interface RouterBasedLlmDogfoodInvocationInput {
@@ -50,48 +53,6 @@ export interface RouterBasedLlmDogfoodInvocationResult {
 
 const COMMAND = "router-based-llm-dogfood" as const;
 
-function createJsonTransportResponse(text: string): DeepSeekCapabilityLlmTransportResponse {
-  return {
-    ok: true,
-    text,
-  };
-}
-
-function readResponseText(responseBody: string): string {
-  if (responseBody.trim() === "") {
-    throw new Error("Router-based LLM dogfood transport failed with empty response");
-  }
-
-  try {
-    const parsed = JSON.parse(responseBody) as {
-      choices?: Array<{
-        message?: {
-          content?: unknown;
-        };
-      }>;
-      output_text?: unknown;
-      text?: unknown;
-    };
-
-    const content = parsed.choices?.[0]?.message?.content;
-    if (typeof content === "string") {
-      return content;
-    }
-
-    if (typeof parsed.output_text === "string") {
-      return parsed.output_text;
-    }
-
-    if (typeof parsed.text === "string") {
-      return parsed.text;
-    }
-  } catch {
-    return responseBody;
-  }
-
-  return responseBody;
-}
-
 function createDefaultTransport(): DeepSeekCapabilityLlmTransport {
   return async (request: DeepSeekCapabilityLlmTransportRequest) => {
     const url = new URL(request.endpoint);
@@ -126,7 +87,7 @@ function createDefaultTransport(): DeepSeekCapabilityLlmTransport {
               return;
             }
 
-            resolve(createJsonTransportResponse(readResponseText(responseText)));
+            resolve(parseDeepSeekCapabilityLlmTransportResponse(responseText));
           });
         },
       );
@@ -162,6 +123,7 @@ export async function runRouterBasedLlmDogfoodInvocation(
     endpoint: input.endpoint,
     enableRealLlm: true,
     transport,
+    thinkingMode: "disabled",
   });
   const router = createLlmProviderRouter({
     adapterMap: {

@@ -9,6 +9,7 @@ import {
 } from "../capability-execution-context-implementation";
 import { loadHlamtContext } from "../../kernel/loaders/hlamt-loader";
 import { runDeterministicSkill } from "../../kernel/skills/index";
+import { loadHlamtRuntimeProjection } from "../../agent/hlamt-runtime-projection";
 
 const projectRoot = fileURLToPath(new URL("../../../../", import.meta.url));
 const payload = {
@@ -17,10 +18,12 @@ const payload = {
 };
 
 describe("HLAMT Skill Application execution context", () => {
-  it("preserves the existing root HLAMT summary and deterministic Skill prefix", () => {
+  it("keeps the compatibility Kernel summary aligned with the stable projection", () => {
     const hlamtContext = loadHlamtContext(projectRoot);
-    const expectedSummary =
-      "Runtime Asset hypothesis for human intelligence augmentation context. For L0 / L1: - load at runtime start - summarize into `hlamt_context_summary`";
+    const expectedSummary = loadHlamtRuntimeProjection(projectRoot).content.slice(
+      0,
+      280,
+    );
 
     expect(hlamtContext.hlamt_context_summary).toBe(expectedSummary);
     expect(

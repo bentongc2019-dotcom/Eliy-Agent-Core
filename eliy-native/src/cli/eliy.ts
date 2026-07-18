@@ -1,4 +1,5 @@
 import { Command } from "commander";
+import { randomUUID } from "node:crypto";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import type { OTUnit, OTUnitDraftPreview } from "../domain/index.js";
@@ -18,6 +19,10 @@ import {
   confirmProposedOTUnit
 } from "../domain/index.js";
 import { completeChat, readProviderState } from "../provider/openai-compatible.js";
+import {
+  runSingleTurnAgentInteraction,
+  type AgentModelTransport,
+} from "../runtime/agent/single-turn-agent-interaction.js";
 import { EliyNativeRuntime } from "../runtime/kernel/runtime.js";
 import type { RuntimeResult } from "../runtime/kernel/schemas/index.js";
 import {
@@ -57,13 +62,35 @@ async function runTerminalChatLoop(): Promise<void> {
       recordSessionTranscriptTurn(transcript, { role: "user", content: line });
       if (providerState.enabled) {
         try {
-          const providerResponse = await completeChat({
-            config: providerState.config,
-            userInput: line,
-            timeoutMs: providerState.config.timeoutMs
+          const modelTransport: AgentModelTransport = async (request) => ({
+            text: await completeChat({
+              config: providerState.config,
+              userInput: request.userMessage,
+              systemMessage: request.systemMessage,
+              timeoutMs: providerState.config.timeoutMs
+            })
           });
-          console.log(`assistant: ${providerResponse}`);
-          recordSessionTranscriptTurn(transcript, { role: "assistant", content: providerResponse });
+          const createdAt = new Date().toISOString();
+          const interaction = await runSingleTurnAgentInteraction({
+            projectRoot: process.cwd(),
+            providerId: "deepseek",
+            model: providerState.config.model,
+            endpoint: `${providerState.config.baseUrl.replace(/\/+$/, "")}/chat/completions`,
+            apiKey: providerState.config.apiKey,
+            userInput: line,
+            capabilityInvocationId: `capability-${randomUUID()}`,
+            createdAt,
+            modelTransport
+          });
+          console.log(`assistant: ${interaction.responseText}`);
+          console.log(`agent route: ${JSON.stringify(interaction.routeMetadata)}`);
+          if (interaction.executionTrace) {
+            console.log(`capability execution trace: ${JSON.stringify(interaction.executionTrace)}`);
+          }
+          recordSessionTranscriptTurn(transcript, {
+            role: "assistant",
+            content: interaction.responseText
+          });
         } catch (error) {
           const message = error instanceof Error ? error.message : "Provider request failed with redacted details.";
           console.log(`assistant: provider call failed (${message})`);

@@ -19,6 +19,8 @@ function createTransport(
     return {
       ok: true,
       text: "deterministic fake candidate",
+      finishReason: "stop",
+      reasoningContentPresent: false,
     };
   };
 }

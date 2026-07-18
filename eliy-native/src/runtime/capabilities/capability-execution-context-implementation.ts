@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve, relative } from "node:path";
 
 import type { CapabilityManifest } from "./capability-contract";
+import { loadHlamtRuntimeProjection } from "../agent/hlamt-runtime-projection";
 import type {
   CapabilityExecutionActor,
   CapabilityExecutionContext,
@@ -80,6 +81,7 @@ export function assembleCapabilityExecutionContext(
   input: AssembleCapabilityExecutionContextInput,
 ): CapabilityExecutionContext {
   const asset = resolveCapabilityAsset(input);
+  const stableContext = loadHlamtRuntimeProjection(input.projectRoot);
   const hlamtPath = resolveProjectFile(
     input.projectRoot,
     HLAMT_SKILL_APPLICATION_EXPERIMENT_ASSET_PATH,
@@ -93,6 +95,7 @@ export function assembleCapabilityExecutionContext(
       version: input.manifest.version,
       kind: input.manifest.kind,
     },
+    stableContext,
     asset,
     hlamt: {
       sourcePath: HLAMT_SKILL_APPLICATION_EXPERIMENT_ASSET_PATH,

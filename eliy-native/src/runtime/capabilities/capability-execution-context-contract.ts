@@ -2,6 +2,7 @@ import type {
   CapabilityInvocationMode,
   CapabilityKind,
 } from "./capability-contract";
+import type { HlamtRuntimeProjection } from "../agent/hlamt-runtime-projection";
 
 export type CapabilityExecutionOutputKind =
   | "candidate"
@@ -53,6 +54,7 @@ export interface CapabilityExecutionInvocationMetadata {
 
 export interface CapabilityExecutionContext {
   capability: CapabilityExecutionMetadata;
+  stableContext: HlamtRuntimeProjection;
   asset: ResolvedCapabilityAsset;
   hlamt: HlamtInvocationSnapshot;
   payload: Record<string, unknown>;
