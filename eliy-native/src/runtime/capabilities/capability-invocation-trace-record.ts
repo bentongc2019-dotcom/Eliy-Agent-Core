@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
 
 import type { CapabilityExecutionContext } from "./capability-execution-context-contract";
-import type { LlmCapabilityAdapterResult } from "./llm-capability-adapter-contract";
+import type {
+  LlmCapabilityAdapterResult,
+  LlmCapabilityInvocationEvidence,
+} from "./llm-capability-adapter-contract";
 import type { MockCapabilityInvocationResult } from "./capability-invocation-mock-execution";
 
 export interface CapabilityInvocationTraceRecordInput {
@@ -42,6 +45,9 @@ export interface RealCapabilityInvocationTraceRecord {
   handler: string;
   providerId?: string;
   model?: string;
+  stableContextVersion: string;
+  stableContextFingerprint: string;
+  stableContextInjectionVerified: boolean;
   assetFingerprint: string;
   hlamtFingerprint: string;
   hlamtInjectionRequested: boolean;
@@ -50,6 +56,19 @@ export interface RealCapabilityInvocationTraceRecord {
   outputBoundaryInjectionVerified: boolean;
   outputBoundary: CapabilityExecutionContext["outputBoundary"];
   requestFingerprint: string;
+  thinkingMode: "disabled" | "provider_default";
+  finishReason: LlmCapabilityInvocationEvidence["finishReason"];
+  contentPresent: boolean;
+  contentLength: number;
+  reasoningContentPresent: boolean;
+  reasoningContentLength?: number;
+  providerUsage?: {
+    prompt?: number;
+    completion?: number;
+    total?: number;
+    promptCacheHit?: number;
+    promptCacheMiss?: number;
+  };
   resultFingerprint: string;
   resultLength: number;
   createdAt: string;
@@ -161,6 +180,9 @@ export function createRealCapabilityInvocationTraceRecord(
     handler: result.handler,
     providerId: result.router?.providerId,
     model: result.router?.model,
+    stableContextVersion: executionContext.stableContext.version,
+    stableContextFingerprint: executionContext.stableContext.fingerprint,
+    stableContextInjectionVerified: evidence.stableContextInjected,
     assetFingerprint: executionContext.asset.assetFingerprint,
     hlamtFingerprint: executionContext.hlamt.fingerprint,
     hlamtInjectionRequested: executionContext.hlamt.injectionRequested,
@@ -169,6 +191,25 @@ export function createRealCapabilityInvocationTraceRecord(
     outputBoundaryInjectionVerified: evidence.outputBoundaryInjected,
     outputBoundary: structuredClone(executionContext.outputBoundary),
     requestFingerprint: evidence.requestFingerprint,
+    thinkingMode: evidence.thinkingMode,
+    finishReason: evidence.finishReason,
+    contentPresent: evidence.contentPresent,
+    contentLength: evidence.contentLength,
+    reasoningContentPresent: evidence.reasoningContentPresent,
+    ...(evidence.reasoningContentLength === undefined
+      ? {}
+      : { reasoningContentLength: evidence.reasoningContentLength }),
+    ...(evidence.providerUsage === undefined
+      ? {}
+      : {
+          providerUsage: {
+            prompt: evidence.providerUsage.promptTokens,
+            completion: evidence.providerUsage.completionTokens,
+            total: evidence.providerUsage.totalTokens,
+            promptCacheHit: evidence.providerUsage.promptCacheHitTokens,
+            promptCacheMiss: evidence.providerUsage.promptCacheMissTokens,
+          },
+        }),
     resultFingerprint: fingerprint(result.resultText),
     resultLength: result.resultText.length,
     createdAt: executionContext.invocationMetadata.createdAt,

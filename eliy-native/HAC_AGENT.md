@@ -1,13 +1,7 @@
-# HAC-Agent Governance
+# HAC-Agent Compatibility Artifact
 
-Minimum governance rules:
+Deprecated as a product Agent rule source.
 
-```yaml
-hac_agent:
-  require_confirmation_for_writes: true
-  require_evidence_for_review: true
-  preserve_user_agency: true
-  explain_judgment_basis: true
-  audit_critical_transitions: true
-  prevent_unconfirmed_memory_write: true
-```
+The L0/L1 Kernel still loads this file through `loadHacAgentGovernance()` and exposes its raw text for compatibility. That loader currently returns legacy governance flags from code rather than parsing this document, so the file cannot yet be removed safely.
+
+New Eliy main Agent prompt assembly reads only the bounded projection in `HLAMT.md`. Hard confirmation, permission, state-transition, and canonical-mutation rules remain Runtime responsibilities.

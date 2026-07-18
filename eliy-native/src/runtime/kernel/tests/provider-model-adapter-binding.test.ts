@@ -9,7 +9,6 @@ import {
   parseProviderTimeoutMs,
   readProviderState
 } from "../../../provider/openai-compatible.js";
-import { ELIY_RUNTIME_SYSTEM_MESSAGE } from "../../../provider/identity-boundary.js";
 
 const projectRoot = resolve(__dirname, "../../../..");
 const cliPath = join(projectRoot, "src/cli/eliy.ts");
@@ -256,14 +255,17 @@ describe("Provider / model adapter binding", () => {
     expectNoSecretLikeText(combinedOutput);
   });
 
-  it("calls an OpenAI-compatible local provider and prints its response when config is complete", async () => {
+  it("returns an ordinary response from one main Agent provider call", async () => {
     const provider = await startMockProvider((_request, response) => {
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify({
         choices: [
           {
             message: {
-              content: "mock provider reply"
+              content: JSON.stringify({
+                kind: "ordinary_response",
+                content: "mock provider reply"
+              })
             }
           }
         ]
@@ -282,26 +284,85 @@ describe("Provider / model adapter binding", () => {
     expect(provider.requests[0].method).toBe("POST");
     expect(provider.requests[0].url).toBe("/chat/completions");
     expect(provider.requests[0].headers.authorization).toBe("Bearer dummy-provider-key");
-    expect(provider.requests[0].body).toEqual({
-      model: "test-model",
-      messages: [
-        {
-          role: "system",
-          content: ELIY_RUNTIME_SYSTEM_MESSAGE
-        },
-        {
-          role: "user",
-          content: "hello"
-        }
-      ]
-    });
-    expect(ELIY_RUNTIME_SYSTEM_MESSAGE).toMatch(/Eliy/);
-    expect(ELIY_RUNTIME_SYSTEM_MESSAGE).toMatch(/Human-Agency-Centered/);
-    expect(ELIY_RUNTIME_SYSTEM_MESSAGE).toMatch(/terminal chat only/);
-    expect(ELIY_RUNTIME_SYSTEM_MESSAGE).toMatch(/Session memory, persistence, and domain object runtime are not enabled/);
+    const requestBodies = provider.requests.map((request) =>
+      JSON.stringify(request.body),
+    );
+    expect(requestBodies[0]).toContain("[ELIY STABLE CONTEXT version=1.0.0]");
+    expect(requestBodies[0]).toContain("Human Intelligence Augmentation");
+    expect(requestBodies[0]).toContain("[AGENT TURN RESULT CONTRACT]");
+    expect(requestBodies[0]).toContain("[AVAILABLE SKILLS INDEX]");
+    expect(requestBodies[0]).not.toContain("[CAPABILITY INSTRUCTIONS]");
+    expect(requestBodies[0]).toContain("hello");
     expect(result.stdout).toMatch(/assistant: mock provider reply/i);
+    expect(result.stdout).toMatch(/agent route:.*"kind":"ordinary_response"/i);
+    expect(result.stdout).not.toMatch(/interaction receipt:/i);
     expect(result.stdout).toMatch(/chat loop exited/i);
     expect(result.stdout).not.toMatch(/Eliy session transcript debug summary/i);
+    expectNoSecretLikeText(combinedOutput);
+  });
+
+  it("dispatches a main Agent capability call through the formal evidence-extract chain", async () => {
+    let responseCount = 0;
+    const provider = await startMockProvider((_request, response) => {
+      responseCount += 1;
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({
+        choices: [
+          {
+            finish_reason: "stop",
+            message: {
+              content: responseCount === 1
+                ? JSON.stringify({
+                    kind: "capability_call",
+                    capabilityId: "evidence-extract",
+                    input: "report and inference are mixed"
+                  })
+                : "bounded evidence candidate",
+              reasoning_content: null
+            }
+          }
+        ],
+        usage: {
+          prompt_tokens: 25,
+          completion_tokens: 10,
+          total_tokens: 35
+        }
+      }));
+    });
+
+    const result = await runCli(
+      ["chat"],
+      "report and inference are mixed\n/exit\n",
+      {
+        ELIY_PROVIDER_BASE_URL: provider.baseUrl,
+        ELIY_PROVIDER_API_KEY: "dummy-provider-key",
+        ELIY_PROVIDER_MODEL: "test-model"
+      }
+    );
+    const combinedOutput = `${result.stdout}\n${result.stderr}`;
+
+    expect(result.status).toBe(0);
+    expect(provider.requests).toHaveLength(2);
+    const decisionRequest = JSON.stringify(provider.requests[0].body);
+    const capabilityRequest = JSON.stringify(provider.requests[1].body);
+    expect(decisionRequest).toContain("[AGENT TURN RESULT CONTRACT]");
+    expect(decisionRequest).toContain("[AVAILABLE SKILLS INDEX]");
+    expect(capabilityRequest).toContain("[ELIY STABLE CONTEXT version=1.0.0]");
+    expect(capabilityRequest).toContain("[CAPABILITY INSTRUCTIONS]");
+    expect(capabilityRequest).toContain("[OUTPUT BOUNDARY]");
+    expect(capabilityRequest).not.toContain("[HLAMT CONTEXT]");
+    expect(provider.requests[0].body).not.toHaveProperty("thinking");
+    expect(provider.requests[1].body).toMatchObject({
+      thinking: { type: "disabled" }
+    });
+    expect(result.stdout).toContain("assistant: bounded evidence candidate");
+    expect(result.stdout).toMatch(/agent route:.*"kind":"capability_call"/);
+    expect(result.stdout).toMatch(/agent route:.*"routeSchemaVerified":true/);
+    expect(result.stdout).toMatch(/capability execution trace:.*"stableContextInjectionVerified":true/);
+    expect(result.stdout).toMatch(/capability execution trace:.*"canonicalMutationAllowed":false/);
+    expect(result.stdout).toMatch(/capability execution trace:.*"thinkingMode":"disabled"/);
+    expect(result.stdout).toMatch(/capability execution trace:.*"finishReason":"stop"/);
+    expect(result.stdout).not.toMatch(/interaction receipt:/);
     expectNoSecretLikeText(combinedOutput);
   });
 
@@ -314,7 +375,10 @@ describe("Provider / model adapter binding", () => {
         choices: [
           {
             message: {
-              content: "mock provider reply"
+              content: JSON.stringify({
+                kind: "ordinary_response",
+                content: "mock provider reply"
+              })
             }
           }
         ]
@@ -440,6 +504,7 @@ describe("Provider / model adapter binding", () => {
           timeoutMs: DEFAULT_PROVIDER_TIMEOUT_MS
         },
         userInput: "hello",
+        systemMessage: "bounded test system message",
         timeoutMs: 50
       });
       throw new Error("Expected provider request to time out");

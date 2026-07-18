@@ -81,7 +81,12 @@ function createDefaultInput(
     model: "deepseek-chat",
     endpoint: "https://api.deepseek.example/v1/chat/completions",
     enableRealLlm: true,
-    transport: async () => ({ ok: true, text: "unused" }),
+    transport: async () => ({
+      ok: true,
+      text: "unused",
+      finishReason: "stop",
+      reasoningContentPresent: false,
+    }),
     ...overrides,
   };
 }
@@ -115,7 +120,12 @@ describe("deepseek-capability-llm-adapter.ts", () => {
     const transportCalls: DeepSeekCapabilityLlmTransportRequest[] = [];
     const transport: DeepSeekCapabilityLlmTransport = async (request) => {
       transportCalls.push(request);
-      return { ok: true, text: "should-not-run" };
+      return {
+        ok: true,
+        text: "should-not-run",
+        finishReason: "stop",
+        reasoningContentPresent: false,
+      };
     };
     const adapter = module.createDeepSeekCapabilityLlmAdapter({
       ...createDefaultInput({ enableRealLlm: false, transport }),
@@ -184,6 +194,8 @@ describe("deepseek-capability-llm-adapter.ts", () => {
       return {
         ok: true,
         text: "fake deepseek result",
+        finishReason: "stop",
+        reasoningContentPresent: false,
       } satisfies DeepSeekCapabilityLlmTransportResponse;
     };
     const adapter = module.createDeepSeekCapabilityLlmAdapter({
@@ -217,6 +229,8 @@ describe("deepseek-capability-llm-adapter.ts", () => {
       return {
         ok: true,
         text: "fake deepseek result",
+        finishReason: "stop",
+        reasoningContentPresent: false,
       };
     };
     const adapter = module.createDeepSeekCapabilityLlmAdapter({
@@ -267,6 +281,8 @@ describe("deepseek-capability-llm-adapter.ts", () => {
     const transport: DeepSeekCapabilityLlmTransport = async () => ({
       ok: true,
       text: "fake deepseek result",
+      finishReason: "stop",
+      reasoningContentPresent: false,
     });
     const executionContext: CapabilityExecutionContext = {
       capability: {
@@ -274,6 +290,12 @@ describe("deepseek-capability-llm-adapter.ts", () => {
         name: "O'PDCA",
         version: "1.0.0",
         kind: "skill",
+      },
+      stableContext: {
+        sourcePath: "HLAMT.md",
+        version: "1.0.0",
+        content: "bounded stable context",
+        fingerprint: "sha256:stable-context",
       },
       asset: {
         capabilityId: "opdca",

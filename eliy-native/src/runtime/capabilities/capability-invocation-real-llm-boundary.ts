@@ -130,6 +130,9 @@ async function createRealBoundaryResult(
     if (!evidence.assetInstructionsInjected) {
       throw new Error("real executionContext asset injection not verified");
     }
+    if (!evidence.stableContextInjected) {
+      throw new Error("real executionContext stable context injection not verified");
+    }
     if (!evidence.outputBoundaryInjected) {
       throw new Error("real executionContext output boundary injection not verified");
     }

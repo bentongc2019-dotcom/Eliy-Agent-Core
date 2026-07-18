@@ -21,3 +21,12 @@ export const evidenceExtractCapabilityManifest: CapabilityManifest = {
 export const evidenceExtractCapabilityManifests: readonly CapabilityManifest[] = [
   evidenceExtractCapabilityManifest,
 ];
+
+export const evidenceExtractSkillIndexEntry = {
+  id: evidenceExtractCapabilityManifest.id,
+  description: evidenceExtractCapabilityManifest.description,
+  when_to_use:
+    "When input mixes reports, interpretations, conclusions, or proposed action and requires evidence separation.",
+  output_kind: "candidate",
+  confirmation_requirement: "required",
+} as const;

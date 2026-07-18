@@ -1,5 +1,3 @@
-import { ELIY_RUNTIME_SYSTEM_MESSAGE } from "./identity-boundary.js";
-
 export type ProviderConfig = {
   baseUrl: string;
   apiKey: string;
@@ -62,6 +60,7 @@ export function readProviderState(env: NodeJS.ProcessEnv = process.env): Provide
 export async function completeChat(input: {
   config: ProviderConfig;
   userInput: string;
+  systemMessage: string;
   timeoutMs?: number;
 }): Promise<string> {
   const endpoint = `${input.config.baseUrl.replace(/\/+$/, "")}/chat/completions`;
@@ -86,7 +85,7 @@ export async function completeChat(input: {
         messages: [
           {
             role: "system",
-            content: ELIY_RUNTIME_SYSTEM_MESSAGE
+            content: input.systemMessage
           },
           {
             role: "user",

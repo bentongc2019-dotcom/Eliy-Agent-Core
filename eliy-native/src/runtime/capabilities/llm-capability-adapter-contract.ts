@@ -15,10 +15,29 @@ export interface LlmCapabilityAdapterInput
 }
 
 export interface LlmCapabilityInvocationEvidence {
+  stableContextInjected: boolean;
   assetInstructionsInjected: boolean;
   hlamtInjectionVerified: boolean;
   outputBoundaryInjected: boolean;
   requestFingerprint: string;
+  thinkingMode: "disabled" | "provider_default";
+  finishReason:
+    | "stop"
+    | "length"
+    | "content_filter"
+    | "tool_calls"
+    | "insufficient_system_resource";
+  contentPresent: boolean;
+  contentLength: number;
+  reasoningContentPresent: boolean;
+  reasoningContentLength?: number;
+  providerUsage?: {
+    promptTokens?: number;
+    completionTokens?: number;
+    totalTokens?: number;
+    promptCacheHitTokens?: number;
+    promptCacheMissTokens?: number;
+  };
 }
 
 export interface LlmCapabilityAdapterResult {

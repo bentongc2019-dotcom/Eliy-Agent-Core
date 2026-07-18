@@ -47,7 +47,12 @@ describe("router-based-llm-dogfood-invocation.ts", () => {
     const result = await runRouterBasedLlmDogfoodInvocation(
       createInput(async (request) => {
         calls.push(request);
-        return { ok: true, text: "fake candidate" };
+        return {
+          ok: true,
+          text: "fake candidate",
+          finishReason: "stop",
+          reasoningContentPresent: false,
+        };
       }),
     );
 
@@ -92,7 +97,12 @@ describe("router-based-llm-dogfood-invocation.ts", () => {
     );
 
     const result = await runRouterBasedLlmDogfoodInvocation({
-      ...createInput(async () => ({ ok: true, text: "fake candidate" })),
+      ...createInput(async () => ({
+        ok: true,
+        text: "fake candidate",
+        finishReason: "stop",
+        reasoningContentPresent: false,
+      })),
       apiKey: secret,
     });
 
