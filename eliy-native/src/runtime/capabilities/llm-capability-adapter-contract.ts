@@ -1,4 +1,5 @@
 import type { CapabilityManifest } from "./capability-contract";
+import type { CapabilityExecutionContext } from "./capability-execution-context-contract";
 
 export interface LlmCapabilityMetadataForAdapter {
   capabilityId: string;
@@ -10,6 +11,7 @@ export interface LlmCapabilityMetadataForAdapter {
 export interface LlmCapabilityAdapterInput
   extends LlmCapabilityMetadataForAdapter {
   payload: Record<string, unknown>;
+  executionContext?: CapabilityExecutionContext;
 }
 
 export interface LlmCapabilityAdapterResult {
